@@ -893,16 +893,18 @@ function App() {
       </>
       )}
 
-      {/* Editor button */}
-      <button
-        className="editor-toggle-btn"
-        onClick={() => setShowEditor(true)}
-      >
-        Level Editor
-      </button>
+      {/* Editor button - dev only */}
+      {import.meta.env.DEV && (
+        <button
+          className="editor-toggle-btn"
+          onClick={() => setShowEditor(true)}
+        >
+          Level Editor
+        </button>
+      )}
 
-      {/* Level Editor */}
-      {showEditor && (
+      {/* Level Editor - dev only */}
+      {import.meta.env.DEV && showEditor && (
         <LevelEditor
           onClose={() => setShowEditor(false)}
           existingLevel={currentLevel}

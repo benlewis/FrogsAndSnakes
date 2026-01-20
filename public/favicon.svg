@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="body" cx="40%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#bef264"/>
+      <stop offset="100%" stop-color="#65a30d"/>
+    </radialGradient>
+  </defs>
+  <!-- Body -->
+  <ellipse cx="16" cy="18" rx="11" ry="10" fill="url(#body)"/>
+  <!-- Left eye bulge -->
+  <circle cx="11" cy="10" r="5" fill="url(#body)"/>
+  <!-- Right eye bulge -->
+  <circle cx="21" cy="10" r="5" fill="url(#body)"/>
+  <!-- Left eye white -->
+  <circle cx="11" cy="10" r="3" fill="white"/>
+  <!-- Right eye white -->
+  <circle cx="21" cy="10" r="3" fill="white"/>
+  <!-- Left pupil -->
+  <circle cx="11" cy="9.5" r="1.5" fill="#1a1a1a"/>
+  <!-- Right pupil -->
+  <circle cx="21" cy="9.5" r="1.5" fill="#1a1a1a"/>
+  <!-- Smile -->
+  <path d="M12 22 Q16 25 20 22" stroke="#4d7c0f" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+</svg>
