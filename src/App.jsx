@@ -507,6 +507,58 @@ function App() {
     )
   }
 
+  // Check if a cell is blocked for snake movement (excludes the moving snake)
+  const isCellBlockedForSnake = (col, row, excludeSnakeIndex) => {
+    // Check frogs
+    if (frogs.some(f => f.position[0] === col && f.position[1] === row)) return true
+    // Check other snakes
+    if (snakes.some((snake, idx) =>
+      idx !== excludeSnakeIndex && snake.positions.some(pos => pos[0] === col && pos[1] === row)
+    )) return true
+    // Check logs
+    if (logs.some(log => log.positions.some(pos => pos[0] === col && pos[1] === row))) return true
+    return false
+  }
+
+  // Calculate the maximum delta a snake can move without hitting obstacles
+  const getMaxSnakeDelta = (snakeIndex, direction) => {
+    const snake = snakes[snakeIndex]
+    const isVertical = snake.orientation === 'vertical'
+    const positions = snake.positions
+
+    let maxDelta = 0
+    const step = direction > 0 ? 1 : -1
+
+    // Get the leading edge positions based on direction
+    const leadingEdge = direction > 0
+      ? (isVertical
+          ? Math.max(...positions.map(p => p[1]))  // bottom for moving down
+          : Math.max(...positions.map(p => p[0]))) // right for moving right
+      : (isVertical
+          ? Math.min(...positions.map(p => p[1]))  // top for moving up
+          : Math.min(...positions.map(p => p[0]))) // left for moving left
+
+    // Check each cell in the direction of movement
+    for (let delta = step; Math.abs(delta) <= gridSize; delta += step) {
+      const checkPos = leadingEdge + delta
+
+      // Check grid bounds
+      if (checkPos < 0 || checkPos >= gridSize) break
+
+      // Check all cells at this position for collisions
+      const blocked = positions.some(([col, row]) => {
+        const newCol = isVertical ? col : col + delta
+        const newRow = isVertical ? row + delta : row
+        return isCellBlockedForSnake(newCol, newRow, snakeIndex)
+      })
+
+      if (blocked) break
+      maxDelta = delta
+    }
+
+    return maxDelta
+  }
+
   // Get cell content
   const getCellContent = (col, row) => {
     const frogAtCell = frogs.findIndex(f => f.position[0] === col && f.position[1] === row)
@@ -654,12 +706,25 @@ function App() {
       : e.clientX - snakeDragStartRef.current.x
 
     const snakeLength = snake.positions.length
+    const currentPos = snakeDragStartRef.current.startPos
+
+    // Grid bounds constraints
     const minPos = 0
     const maxPos = gridSize - snakeLength
+    const minBoundOffset = (minPos - currentPos) * cellSize
+    const maxBoundOffset = (maxPos - currentPos) * cellSize
 
-    const currentPos = snakeDragStartRef.current.startPos
-    const minOffset = (minPos - currentPos) * cellSize
-    const maxOffset = (maxPos - currentPos) * cellSize
+    // Collision constraints - calculate max movement in each direction
+    const maxDeltaPositive = getMaxSnakeDelta(draggingSnakeIndex, 1)
+    const maxDeltaNegative = getMaxSnakeDelta(draggingSnakeIndex, -1)
+
+    // Convert cell deltas to pixel offsets
+    const minCollisionOffset = maxDeltaNegative * cellSize
+    const maxCollisionOffset = maxDeltaPositive * cellSize
+
+    // Apply both bounds and collision constraints
+    const minOffset = Math.max(minBoundOffset, minCollisionOffset)
+    const maxOffset = Math.min(maxBoundOffset, maxCollisionOffset)
 
     const constrainedOffset = Math.max(minOffset, Math.min(maxOffset, delta))
     setSnakeDragOffset(constrainedOffset)
@@ -773,9 +838,18 @@ function App() {
     )
   }
 
+  // Format today's date for display
+  const formattedDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+
   return (
     <div className="app">
       <h1 className="title">Frogs And Snakes</h1>
+      <div className="date-display">{formattedDate}</div>
 
       {/* Difficulty selector with help button */}
       <div className="difficulty-row">
