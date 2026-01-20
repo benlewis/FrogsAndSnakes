@@ -1,0 +1,534 @@
+.level-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.level-editor {
+  background: #1a1a2e;
+  border-radius: 16px;
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.level-editor.wide {
+  max-width: 1200px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.editor-header h2 {
+  margin: 0;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.8);
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(239, 68, 68, 1);
+  transform: scale(1.05);
+}
+
+.editor-layout {
+  display: flex;
+  gap: 0;
+}
+
+.editor-main {
+  flex: 1;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.editor-content {
+  display: flex;
+  gap: 24px;
+  padding: 24px;
+}
+
+.editor-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.current-editing {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.current-editing strong {
+  color: #4ade80;
+}
+
+.difficulty-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.difficulty-tag.easy {
+  background: rgba(74, 222, 128, 0.3);
+  color: #4ade80;
+}
+
+.difficulty-tag.medium {
+  background: rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+}
+
+.difficulty-tag.hard {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-section label {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.editor-section input,
+.editor-section select {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1rem;
+}
+
+.editor-section input:focus,
+.editor-section select:focus {
+  outline: none;
+  border-color: #4ade80;
+}
+
+.tool-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tool-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.tool-btn.active {
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+.tool-btn.eraser {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.tool-btn.eraser.active {
+  background: rgba(239, 68, 68, 1);
+  color: white;
+}
+
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.option-row span {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  min-width: 80px;
+}
+
+.option-row select,
+.option-row input {
+  flex: 1;
+  padding: 6px 10px;
+}
+
+.action-btn {
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.action-btn.clear {
+  background: rgba(239, 68, 68, 0.8);
+  color: white;
+}
+
+.action-btn.clear:hover {
+  background: rgba(239, 68, 68, 1);
+}
+
+.action-btn.check {
+  background: rgba(139, 92, 246, 0.8);
+  color: white;
+}
+
+.action-btn.check:hover {
+  background: rgba(139, 92, 246, 1);
+}
+
+.check-result {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.check-result.solvable {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.4);
+}
+
+.check-result.solvable strong {
+  font-size: 1.1rem;
+}
+
+.check-result.unsolvable {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.action-btn.export {
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+  color: #1a1a2e;
+}
+
+.action-btn.export:hover {
+  transform: scale(1.02);
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-error {
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 4px;
+}
+
+.editor-grid-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editor-grid {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  max-width: 350px;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+  border-radius: 12px;
+  position: relative;
+}
+
+/* Snake overlays - continuous pieces spanning multiple cells */
+.editor-snake-overlay {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  z-index: 10;
+  cursor: pointer;
+}
+
+.editor-snake-svg-vertical {
+  width: 70%;
+  height: 85%;
+  pointer-events: none;
+}
+
+.editor-snake-svg-horizontal {
+  width: 85%;
+  height: 70%;
+  pointer-events: none;
+}
+
+.editor-cell {
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.editor-cell:hover {
+  background: rgba(255, 255, 255, 0.5);
+  transform: scale(1.02);
+}
+
+.editor-cell.cell-frog {
+  background: rgba(190, 242, 100, 0.7);
+}
+
+.editor-cell.cell-frog-green {
+  background: rgba(74, 222, 128, 0.8);
+}
+
+.editor-cell.cell-frog-brown {
+  background: rgba(180, 130, 80, 0.8);
+}
+
+.editor-cell.cell-frog-blue {
+  background: rgba(96, 165, 250, 0.8);
+}
+
+.editor-cell.cell-snake {
+  background: #3d5a47;
+}
+
+.editor-cell.cell-log {
+  background: #5c4033;
+}
+
+.editor-cell.cell-lilypad {
+  background: rgba(94, 234, 212, 0.6);
+}
+
+.cell-coords {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
+  position: absolute;
+  top: 2px;
+  left: 4px;
+}
+
+.cell-piece {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80%;
+  height: 80%;
+}
+
+.editor-piece-svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Level Schedule */
+.level-schedule {
+  width: 280px;
+  padding: 16px;
+  overflow-y: auto;
+  max-height: calc(90vh - 70px);
+}
+
+.level-schedule h3 {
+  margin: 0 0 16px 0;
+  color: white;
+  font-size: 1rem;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.schedule-loading {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  padding: 20px;
+}
+
+.schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.schedule-day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.schedule-date {
+  width: 100px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+}
+
+.schedule-slots {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.schedule-slot {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.schedule-slot:hover {
+  transform: scale(1.1);
+}
+
+.schedule-slot.selected {
+  box-shadow: 0 0 0 2px white;
+}
+
+.schedule-slot.easy {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.schedule-slot.easy.filled {
+  background: rgba(74, 222, 128, 0.6);
+  color: white;
+}
+
+.schedule-slot.medium {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+.schedule-slot.medium.filled {
+  background: rgba(251, 191, 36, 0.6);
+  color: white;
+}
+
+.schedule-slot.hard {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.schedule-slot.hard.filled {
+  background: rgba(239, 68, 68, 0.6);
+  color: white;
+}
+
+.schedule-slot.empty {
+  border: 2px dashed currentColor;
+  opacity: 0.6;
+}
+
+.schedule-slot.empty:hover {
+  opacity: 1;
+}
+
+.slot-difficulty {
+  font-size: 0.9rem;
+}
+
+.slot-needed {
+  position: absolute;
+  font-size: 1.2rem;
+  opacity: 0.5;
+}
+
+/* Mobile responsive */
+@media (max-width: 900px) {
+  .editor-layout {
+    flex-direction: column;
+  }
+
+  .editor-main {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .level-schedule {
+    width: 100%;
+    max-height: 300px;
+  }
+
+  .editor-content {
+    flex-direction: column;
+  }
+
+  .editor-sidebar {
+    width: 100%;
+  }
+
+  .tool-buttons {
+    justify-content: center;
+  }
+}
