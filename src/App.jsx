@@ -454,6 +454,7 @@ function App() {
 
   // Level editor state
   const [showEditor, setShowEditor] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
 
   // Game stats
   const [moves, setMoves] = useState(0)
@@ -776,29 +777,32 @@ function App() {
     <div className="app">
       <h1 className="title">Frogs And Snakes</h1>
 
-      {/* Difficulty selector */}
-      <div className="difficulty-selector">
-        <button
-          className={`difficulty-btn ${difficulty === 'easy' ? 'active' : ''} ${!levels.easy ? 'disabled' : ''}`}
-          onClick={() => levels.easy && setDifficulty('easy')}
-          disabled={!levels.easy}
-        >
-          Easy
-        </button>
-        <button
-          className={`difficulty-btn ${difficulty === 'medium' ? 'active' : ''} ${!levels.medium ? 'disabled' : ''}`}
-          onClick={() => levels.medium && setDifficulty('medium')}
-          disabled={!levels.medium}
-        >
-          Medium
-        </button>
-        <button
-          className={`difficulty-btn ${difficulty === 'hard' ? 'active' : ''} ${!levels.hard ? 'disabled' : ''}`}
-          onClick={() => levels.hard && setDifficulty('hard')}
-          disabled={!levels.hard}
-        >
-          Hard
-        </button>
+      {/* Difficulty selector with help button */}
+      <div className="difficulty-row">
+        <div className="difficulty-selector">
+          <button
+            className={`difficulty-btn ${difficulty === 'easy' ? 'active' : ''} ${!levels.easy ? 'disabled' : ''}`}
+            onClick={() => levels.easy && setDifficulty('easy')}
+            disabled={!levels.easy}
+          >
+            Easy
+          </button>
+          <button
+            className={`difficulty-btn ${difficulty === 'medium' ? 'active' : ''} ${!levels.medium ? 'disabled' : ''}`}
+            onClick={() => levels.medium && setDifficulty('medium')}
+            disabled={!levels.medium}
+          >
+            Medium
+          </button>
+          <button
+            className={`difficulty-btn ${difficulty === 'hard' ? 'active' : ''} ${!levels.hard ? 'disabled' : ''}`}
+            onClick={() => levels.hard && setDifficulty('hard')}
+            disabled={!levels.hard}
+          >
+            Hard
+          </button>
+        </div>
+        <button className="help-btn" onClick={() => setShowHelp(true)}>?</button>
       </div>
 
       {!currentLevel ? (
@@ -909,6 +913,66 @@ function App() {
           onClose={() => setShowEditor(false)}
           existingLevel={currentLevel}
         />
+      )}
+
+      {/* Help Modal */}
+      {showHelp && (
+        <div className="help-overlay" onClick={() => setShowHelp(false)}>
+          <div className="help-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="help-close-btn" onClick={() => setShowHelp(false)}>×</button>
+            <h2>How to Play</h2>
+
+            <div className="help-goal">
+              <p>Get all frogs onto lily pads!</p>
+            </div>
+
+            <div className="help-section">
+              <div className="help-item">
+                <div className="help-icon">
+                  <FrogSVG color="green" />
+                </div>
+                <div className="help-text">
+                  <strong>Frogs</strong>
+                  <p>Drag to jump over obstacles. Frogs can only jump over something - they can't move to empty spaces.</p>
+                </div>
+              </div>
+
+              <div className="help-item">
+                <div className="help-icon help-icon-wide">
+                  <HorizontalSnakeSVG />
+                </div>
+                <div className="help-text">
+                  <strong>Snakes</strong>
+                  <p>Drag to slide back and forth. Use them to create jumping paths for frogs.</p>
+                </div>
+              </div>
+
+              <div className="help-item">
+                <div className="help-icon">
+                  <StumpSVG />
+                </div>
+                <div className="help-text">
+                  <strong>Stumps</strong>
+                  <p>Fixed obstacles. Frogs can jump over them but can't land on them.</p>
+                </div>
+              </div>
+
+              <div className="help-item">
+                <div className="help-icon">
+                  <LilyPadSVG />
+                </div>
+                <div className="help-text">
+                  <strong>Lily Pads</strong>
+                  <p>The goal! Get each frog to land on a lily pad to win.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="help-tip">
+              <strong>Tip:</strong> Frogs jump in a straight line and land on the first empty space after an obstacle.
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
