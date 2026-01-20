@@ -621,6 +621,11 @@ function App() {
       col += dc
       row += dr
       while (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
+        // Lily pads force a landing if no frog is on them
+        if (isLilyPad(col, row) && !isFrogAt(col, row, frogIndex)) {
+          validMoves.push([col, row])
+          break
+        }
         if (canLandOn(col, row, frogIndex)) {
           validMoves.push([col, row])
           break

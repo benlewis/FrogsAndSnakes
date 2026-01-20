@@ -317,13 +317,20 @@ const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
       col += dc
       row += dr
       while (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
+        // Lily pads force a landing if no other frog is on them
+        const onLilyPad = isLilyPad(col, row)
+        const frogOnCell = frogPositions.some((f, idx) => idx !== frogIdx && f[0] === col && f[1] === row)
+        if (onLilyPad && !frogOnCell) {
+          moves.push({ frogIdx, newPos: [col, row] })
+          break
+        }
         if (canLandOn(col, row, snakePositions, frogPositions, frogIdx)) {
           moves.push({ frogIdx, newPos: [col, row] })
           break
         }
         // If there's another obstacle, keep going
         if (!hasObstacle(col, row, snakePositions, frogPositions, frogIdx)) {
-          // Empty cell but can't land (shouldn't happen given canLandOn logic)
+          // Empty cell but can't land
           break
         }
         col += dc
@@ -536,6 +543,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   }
 
   const [currentTool, setCurrentTool] = useState('frog')
+  const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
   const [snakeOrientation, setSnakeOrientation] = useState('vertical')
   const [snakeLength, setSnakeLength] = useState(2)
   const [logLength, setLogLength] = useState(1)
@@ -566,6 +574,29 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   const handleCellClick = (col, row) => {
     setCheckResult(null) // Reset check when level changes
+
+    // Handle frog selection and movement (works with any tool)
+    const clickedFrogIndex = frogs.findIndex(f => f.position[0] === col && f.position[1] === row)
+
+    if (clickedFrogIndex !== -1) {
+      // Clicked on a frog - select it (or deselect if already selected)
+      if (selectedFrogIndex === clickedFrogIndex) {
+        setSelectedFrogIndex(null)
+      } else {
+        setSelectedFrogIndex(clickedFrogIndex)
+      }
+      return
+    }
+
+    // If a frog is selected, move it to the clicked cell
+    if (selectedFrogIndex !== null) {
+      setFrogs(frogs.map((f, i) =>
+        i === selectedFrogIndex ? { ...f, position: [col, row] } : f
+      ))
+      setSelectedFrogIndex(null)
+      return
+    }
+
     if (currentTool === 'frog') {
       // Add a new frog if not already at this position and under max limit
       if (!isFrogCell(col, row) && frogs.length < 3) {
@@ -613,7 +644,11 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const getCellClass = (col, row) => {
     const classes = ['editor-cell']
     const frog = getFrogAt(col, row)
-    if (frog) classes.push('cell-frog', `cell-frog-${frog.color}`)
+    if (frog) {
+      classes.push('cell-frog', `cell-frog-${frog.color}`)
+      const frogIndex = frogs.findIndex(f => f.position[0] === col && f.position[1] === row)
+      if (frogIndex === selectedFrogIndex) classes.push('cell-frog-selected')
+    }
     if (isSnakeCell(col, row)) classes.push('cell-snake')
     if (isLogCell(col, row)) classes.push('cell-log')
     if (isLilyPadCell(col, row)) classes.push('cell-lilypad')
@@ -666,6 +701,43 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setLogs([])
     setLilyPads([])
     setCheckResult(null)
+  }
+
+  const copyLevel = async () => {
+    const levelData = {
+      gridSize,
+      frogs: frogs.map(f => ({ position: f.position, color: f.color })),
+      snakes: snakes.map(s => ({
+        positions: s.positions,
+        orientation: s.orientation
+      })),
+      logs: logs.map(l => ({ positions: l.positions })),
+      lilyPads: lilyPads.map(lp => ({ position: lp.position })),
+      par
+    }
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(levelData))
+      alert('Level copied to clipboard!')
+    } catch (err) {
+      alert('Failed to copy: ' + err.message)
+    }
+  }
+
+  const pasteLevel = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      const levelData = JSON.parse(text)
+
+      if (levelData.gridSize) setGridSize(levelData.gridSize)
+      if (levelData.frogs) setFrogs(levelData.frogs.map(f => ({ position: f.position, color: f.color || 'green' })))
+      if (levelData.snakes) setSnakes(levelData.snakes.map(s => ({ positions: s.positions, orientation: s.orientation })))
+      if (levelData.logs) setLogs(levelData.logs.map(l => ({ positions: l.positions })))
+      if (levelData.lilyPads) setLilyPads(levelData.lilyPads.map(lp => ({ position: lp.position })))
+      if (levelData.par) setPar(levelData.par)
+      setCheckResult(null)
+    } catch (err) {
+      alert('Failed to paste: Invalid level data')
+    }
   }
 
   // Reset check result when level changes
@@ -889,9 +961,17 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                 )}
 
                 <div className="editor-section">
-                  <button className="action-btn clear" onClick={clearAll}>
-                    Clear All
-                  </button>
+                  <div className="action-row">
+                    <button className="action-btn clear" onClick={clearAll}>
+                      Clear
+                    </button>
+                    <button className="action-btn copy" onClick={copyLevel}>
+                      Copy
+                    </button>
+                    <button className="action-btn paste" onClick={pasteLevel}>
+                      Paste
+                    </button>
+                  </div>
                   <button
                     className="action-btn check"
                     onClick={checkLevel}
@@ -951,8 +1031,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       onClick={(e) => {
                         e.stopPropagation()
                         // Click on snake to delete it when eraser is active
-                        if (selectedTool === 'eraser') {
+                        if (currentTool === 'eraser') {
                           setSnakes(prev => prev.filter((_, i) => i !== index))
+                          setCheckResult(null)
                         }
                       }}
                     >

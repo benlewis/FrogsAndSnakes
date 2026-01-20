@@ -220,6 +220,35 @@
   background: rgba(239, 68, 68, 1);
 }
 
+.action-row {
+  display: flex;
+  gap: 8px;
+}
+
+.action-row .action-btn {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+}
+
+.action-btn.copy {
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.action-btn.copy:hover {
+  background: rgba(59, 130, 246, 1);
+}
+
+.action-btn.paste {
+  background: rgba(34, 197, 94, 0.8);
+  color: white;
+}
+
+.action-btn.paste:hover {
+  background: rgba(34, 197, 94, 1);
+}
+
 .action-btn.check {
   background: rgba(139, 92, 246, 0.8);
   color: white;
@@ -349,6 +378,12 @@
 
 .editor-cell.cell-frog-blue {
   background: rgba(96, 165, 250, 0.8);
+}
+
+.editor-cell.cell-frog-selected {
+  box-shadow: 0 0 0 3px #fbbf24, 0 0 12px rgba(251, 191, 36, 0.6);
+  transform: scale(1.05);
+  z-index: 5;
 }
 
 .editor-cell.cell-snake {
