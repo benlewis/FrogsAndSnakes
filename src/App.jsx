@@ -849,9 +849,8 @@ function App() {
   return (
     <div className="app">
       <h1 className="title">Frogs And Snakes</h1>
-      <div className="date-display">{formattedDate}</div>
 
-      {/* Difficulty selector with help button */}
+      {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">
         <div className="difficulty-selector">
           <button
@@ -878,6 +877,7 @@ function App() {
         </div>
         <button className="help-btn" onClick={() => setShowHelp(true)}>?</button>
       </div>
+      <div className="date-display">{formattedDate}</div>
 
       {!currentLevel ? (
         <div className="no-level-message">
