@@ -28,6 +28,44 @@
   padding-left: 12px;
 }
 
+.date-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 6px;
+}
+
+.date-picker {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 0.85rem;
+}
+
+.date-picker::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
+.date-nav-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.date-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
 .difficulty-row {
   display: flex;
   align-items: center;

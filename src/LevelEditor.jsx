@@ -312,29 +312,39 @@ const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
 
       // Must have an adjacent obstacle to jump over
       if (!hasObstacle(col, row, snakePositions, frogPositions, frogIdx)) continue
+      // Can't jump over a lily pad (unless another frog is on it)
+      if (isLilyPad(col, row) && !frogPositions.some((f, idx) => idx !== frogIdx && f[0] === col && f[1] === row)) continue
 
       // Found an obstacle, look for landing spot (skip over consecutive obstacles)
       col += dc
       row += dr
       while (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
-        // Lily pads force a landing if no other frog is on them
         const onLilyPad = isLilyPad(col, row)
-        const frogOnCell = frogPositions.some((f, idx) => idx !== frogIdx && f[0] === col && f[1] === row)
-        if (onLilyPad && !frogOnCell) {
+        const hasFrog = frogPositions.some((f, idx) => idx !== frogIdx && f[0] === col && f[1] === row)
+        const hasSnake = snakePositions.some(s => s.positions.some(p => p[0] === col && p[1] === row))
+        const hasLog = logs.some(l => l.positions.some(p => p[0] === col && p[1] === row))
+
+        // If there's a lily pad here with no other frog, must land here
+        if (onLilyPad && !hasFrog) {
           moves.push({ frogIdx, newPos: [col, row] })
           break
         }
-        if (canLandOn(col, row, snakePositions, frogPositions, frogIdx)) {
+
+        // Can land on empty cells (no snake, log, or frog)
+        if (!hasSnake && !hasLog && !hasFrog) {
           moves.push({ frogIdx, newPos: [col, row] })
           break
         }
-        // If there's another obstacle, keep going
-        if (!hasObstacle(col, row, snakePositions, frogPositions, frogIdx)) {
-          // Empty cell but can't land
-          break
+
+        // Can only continue jumping over snakes, logs, or frogs
+        if (hasSnake || hasLog || hasFrog) {
+          col += dc
+          row += dr
+          continue
         }
-        col += dc
-        row += dr
+
+        // Shouldn't reach here, but break just in case
+        break
       }
     }
 
@@ -639,8 +649,20 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         if (newCol >= gridSize) return
         positions.push([newCol, row])
       }
+      // Remove any lily pads at the log positions
+      const newLilyPads = lilyPads.filter(lp =>
+        !positions.some(pos => pos[0] === lp.position[0] && pos[1] === lp.position[1])
+      )
+      setLilyPads(newLilyPads)
       setLogs([...logs, { positions }])
     } else if (currentTool === 'lilypad') {
+      // Remove any logs at this position
+      const newLogs = logs.filter(log =>
+        !log.positions.some(pos => pos[0] === col && pos[1] === row)
+      )
+      if (newLogs.length !== logs.length) {
+        setLogs(newLogs)
+      }
       if (!isLilyPadCell(col, row)) {
         setLilyPads([...lilyPads, { position: [col, row] }])
       }
@@ -656,8 +678,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       if (frogIndex === selectedFrogIndex) classes.push('cell-frog-selected')
     }
     if (isSnakeCell(col, row)) classes.push('cell-snake')
-    if (isLogCell(col, row)) classes.push('cell-log')
-    if (isLilyPadCell(col, row)) classes.push('cell-lilypad')
+    const hasLog = isLogCell(col, row)
+    if (hasLog) classes.push('cell-log')
+    // Only show lily pad background if there's no log (logs take priority)
+    if (isLilyPadCell(col, row) && !hasLog) classes.push('cell-lilypad')
     return classes.join(' ')
   }
 

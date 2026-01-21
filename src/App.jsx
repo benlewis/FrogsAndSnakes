@@ -568,12 +568,13 @@ function App() {
       return { type: 'frog', frogIndex: frogAtCell, frog: frogs[frogAtCell], hasLilyPad }
     }
 
-    if (hasLilyPad) {
-      return { type: 'lilypad' }
-    }
-
+    // Logs take priority over lily pads
     if (isLogCell(col, row)) {
       return { type: 'log' }
+    }
+
+    if (hasLilyPad) {
+      return { type: 'lilypad' }
     }
 
     return null
@@ -617,25 +618,38 @@ function App() {
 
       if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) continue
       if (!isObstacle(col, row, frogIndex)) continue
+      // Can't jump over a lily pad (unless another frog is on it)
+      if (isLilyPad(col, row) && !isFrogAt(col, row, frogIndex)) continue
 
       col += dc
       row += dr
       while (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
-        // Lily pads force a landing if no frog is on them
-        if (isLilyPad(col, row) && !isFrogAt(col, row, frogIndex)) {
+        const hasLilyPad = isLilyPad(col, row)
+        const hasFrog = isFrogAt(col, row, frogIndex)
+        const hasSnake = isSnakeCell(col, row)
+        const hasLog = isLogCell(col, row)
+
+        // If there's a lily pad here with no other frog, must land here
+        if (hasLilyPad && !hasFrog) {
           validMoves.push([col, row])
           break
         }
-        if (canLandOn(col, row, frogIndex)) {
+
+        // Can land on empty cells (no snake, log, or frog)
+        if (!hasSnake && !hasLog && !hasFrog) {
           validMoves.push([col, row])
           break
         }
-        if (!isObstacle(col, row, frogIndex)) {
-          // Empty cell without jumping over anything - not valid
-          break
+
+        // Can only continue jumping over snakes, logs, or frogs
+        if (hasSnake || hasLog || hasFrog) {
+          col += dc
+          row += dr
+          continue
         }
-        col += dc
-        row += dr
+
+        // Shouldn't reach here, but break just in case
+        break
       }
     }
 
@@ -843,8 +857,8 @@ function App() {
     )
   }
 
-  // Format today's date for display
-  const formattedDate = new Date().toLocaleDateString('en-US', {
+  // Format current date for display
+  const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -882,7 +896,38 @@ function App() {
         </div>
         <button className="help-btn" onClick={() => setShowHelp(true)}>?</button>
       </div>
-      <div className="date-display">{formattedDate}</div>
+      {import.meta.env.DEV ? (
+        <div className="date-picker-row">
+          <button
+            className="date-nav-btn"
+            onClick={() => {
+              const d = new Date(currentDate)
+              d.setDate(d.getDate() - 1)
+              setCurrentDate(d.toISOString().split('T')[0])
+            }}
+          >
+            &lt;
+          </button>
+          <input
+            type="date"
+            className="date-picker"
+            value={currentDate}
+            onChange={(e) => setCurrentDate(e.target.value)}
+          />
+          <button
+            className="date-nav-btn"
+            onClick={() => {
+              const d = new Date(currentDate)
+              d.setDate(d.getDate() + 1)
+              setCurrentDate(d.toISOString().split('T')[0])
+            }}
+          >
+            &gt;
+          </button>
+        </div>
+      ) : (
+        <div className="date-display">{formattedDate}</div>
+      )}
 
       {!currentLevel ? (
         <div className="no-level-message">
