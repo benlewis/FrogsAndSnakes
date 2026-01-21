@@ -198,111 +198,141 @@ const LogSVG = () => (
   </svg>
 )
 
-const VerticalSnakeSVG = () => (
-  <svg viewBox="0 0 40 100" className="editor-snake-svg-vertical">
-    <defs>
-      <linearGradient id="editorSnakeBodyV" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#7c3aed" />
-        <stop offset="30%" stopColor="#a855f7" />
-        <stop offset="50%" stopColor="#c084fc" />
-        <stop offset="70%" stopColor="#a855f7" />
-        <stop offset="100%" stopColor="#7c3aed" />
-      </linearGradient>
-      <radialGradient id="editorSnakeEyeV" cx="40%" cy="35%" r="60%">
-        <stop offset="0%" stopColor="#ffffff" />
-        <stop offset="100%" stopColor="#d0d0d0" />
-      </radialGradient>
-    </defs>
-    {/* Shadow */}
-    <ellipse cx="22" cy="96" rx="16" ry="4" fill="rgba(0,0,0,0.2)" />
-    {/* Tail */}
-    <path d="M14 90 Q20 98 26 90" fill="#5b21b6" />
-    <path d="M15 89 Q20 95 25 89" fill="#7c3aed" />
-    {/* Body outline */}
-    <rect x="6" y="22" width="28" height="70" rx="14" fill="#5b21b6" />
-    {/* Body */}
-    <rect x="8" y="24" width="24" height="66" rx="12" fill="url(#editorSnakeBodyV)" />
-    {/* Body pattern */}
-    <ellipse cx="20" cy="40" rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
-    <ellipse cx="20" cy="58" rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
-    <ellipse cx="20" cy="76" rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
-    {/* Belly stripe */}
-    <rect x="16" y="30" width="8" height="55" rx="4" fill="#e9d5ff" opacity="0.4" />
-    {/* Head outline */}
-    <ellipse cx="20" cy="18" rx="16" ry="14" fill="#5b21b6" />
-    {/* Head */}
-    <ellipse cx="20" cy="16" rx="14" ry="12" fill="url(#editorSnakeBodyV)" />
-    {/* Eyes */}
-    <ellipse cx="13" cy="14" rx="5" ry="6" fill="#5b21b6" />
-    <ellipse cx="13" cy="13" rx="4" ry="5" fill="url(#editorSnakeEyeV)" />
-    <ellipse cx="14" cy="14" rx="2" ry="3" fill="#1a1a1a" />
-    <circle cx="12" cy="11" r="1.5" fill="white" />
-    <ellipse cx="27" cy="14" rx="5" ry="6" fill="#5b21b6" />
-    <ellipse cx="27" cy="13" rx="4" ry="5" fill="url(#editorSnakeEyeV)" />
-    <ellipse cx="28" cy="14" rx="2" ry="3" fill="#1a1a1a" />
-    <circle cx="26" cy="11" r="1.5" fill="white" />
-    {/* Nostrils */}
-    <circle cx="16" cy="22" r="1.5" fill="#5b21b6" />
-    <circle cx="24" cy="22" r="1.5" fill="#5b21b6" />
-    {/* Tongue */}
-    <path d="M20 26 L20 32 M18 34 L20 32 L22 34" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
-    {/* Shine */}
-    <ellipse cx="14" cy="12" rx="4" ry="3" fill="white" opacity="0.3" />
-  </svg>
-)
+const VerticalSnakeSVG = ({ length = 2 }) => {
+  const cellHeight = 50
+  const viewHeight = length * cellHeight
+  const bodyHeight = viewHeight - 32
+  const tailY = viewHeight - 10
 
-const HorizontalSnakeSVG = () => (
-  <svg viewBox="0 0 100 40" className="editor-snake-svg-horizontal">
-    <defs>
-      <linearGradient id="editorSnakeBodyH" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#7c3aed" />
-        <stop offset="30%" stopColor="#a855f7" />
-        <stop offset="50%" stopColor="#c084fc" />
-        <stop offset="70%" stopColor="#a855f7" />
-        <stop offset="100%" stopColor="#7c3aed" />
-      </linearGradient>
-      <radialGradient id="editorSnakeEyeH" cx="40%" cy="35%" r="60%">
-        <stop offset="0%" stopColor="#ffffff" />
-        <stop offset="100%" stopColor="#d0d0d0" />
-      </radialGradient>
-    </defs>
-    {/* Shadow */}
-    <ellipse cx="50" cy="38" rx="45" ry="4" fill="rgba(0,0,0,0.2)" />
-    {/* Tail */}
-    <path d="M10 14 Q2 20 10 26" fill="#5b21b6" />
-    <path d="M11 15 Q5 20 11 25" fill="#7c3aed" />
-    {/* Body outline */}
-    <rect x="8" y="6" width="70" height="28" rx="14" fill="#5b21b6" />
-    {/* Body */}
-    <rect x="10" y="8" width="66" height="24" rx="12" fill="url(#editorSnakeBodyH)" />
-    {/* Body pattern */}
-    <ellipse cx="24" cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
-    <ellipse cx="42" cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
-    <ellipse cx="60" cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
-    {/* Belly stripe */}
-    <rect x="15" y="16" width="55" height="8" rx="4" fill="#e9d5ff" opacity="0.4" />
-    {/* Head outline */}
-    <ellipse cx="82" cy="20" rx="14" ry="16" fill="#5b21b6" />
-    {/* Head */}
-    <ellipse cx="84" cy="20" rx="12" ry="14" fill="url(#editorSnakeBodyH)" />
-    {/* Eyes */}
-    <ellipse cx="86" cy="13" rx="6" ry="5" fill="#5b21b6" />
-    <ellipse cx="87" cy="13" rx="5" ry="4" fill="url(#editorSnakeEyeH)" />
-    <ellipse cx="88" cy="14" rx="3" ry="2" fill="#1a1a1a" />
-    <circle cx="86" cy="12" r="1.5" fill="white" />
-    <ellipse cx="86" cy="27" rx="6" ry="5" fill="#5b21b6" />
-    <ellipse cx="87" cy="27" rx="5" ry="4" fill="url(#editorSnakeEyeH)" />
-    <ellipse cx="88" cy="28" rx="3" ry="2" fill="#1a1a1a" />
-    <circle cx="86" cy="26" r="1.5" fill="white" />
-    {/* Nostrils */}
-    <circle cx="94" cy="17" r="1.5" fill="#5b21b6" />
-    <circle cx="94" cy="23" r="1.5" fill="#5b21b6" />
-    {/* Tongue */}
-    <path d="M96 20 L102 20 M104 18 L102 20 L104 22" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
-    {/* Shine */}
-    <ellipse cx="84" cy="14" rx="3" ry="4" fill="white" opacity="0.3" />
-  </svg>
-)
+  // Generate body pattern based on length
+  const patterns = []
+  const patternSpacing = bodyHeight / (length + 0.5)
+  for (let i = 0; i < length; i++) {
+    const y = 28 + patternSpacing * (i + 0.5)
+    patterns.push(y)
+  }
+
+  return (
+    <svg viewBox={`0 0 40 ${viewHeight}`} className="editor-snake-svg-vertical">
+      <defs>
+        <linearGradient id="editorSnakeBodyV" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#7c3aed" />
+          <stop offset="30%" stopColor="#a855f7" />
+          <stop offset="50%" stopColor="#c084fc" />
+          <stop offset="70%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+        <radialGradient id="editorSnakeEyeV" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#d0d0d0" />
+        </radialGradient>
+      </defs>
+      {/* Shadow */}
+      <ellipse cx="22" cy={tailY + 6} rx="16" ry="4" fill="rgba(0,0,0,0.2)" />
+      {/* Tail */}
+      <path d={`M14 ${tailY} Q20 ${tailY + 8} 26 ${tailY}`} fill="#5b21b6" />
+      <path d={`M15 ${tailY - 1} Q20 ${tailY + 5} 25 ${tailY - 1}`} fill="#7c3aed" />
+      {/* Body outline */}
+      <rect x="6" y="22" width="28" height={bodyHeight} rx="14" fill="#5b21b6" />
+      {/* Body */}
+      <rect x="8" y="24" width="24" height={bodyHeight - 4} rx="12" fill="url(#editorSnakeBodyV)" />
+      {/* Body pattern */}
+      {patterns.map((y, i) => (
+        <ellipse key={i} cx="20" cy={y} rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
+      ))}
+      {/* Belly stripe */}
+      <rect x="16" y="30" width="8" height={bodyHeight - 15} rx="4" fill="#e9d5ff" opacity="0.4" />
+      {/* Head outline */}
+      <ellipse cx="20" cy="18" rx="16" ry="14" fill="#5b21b6" />
+      {/* Head */}
+      <ellipse cx="20" cy="16" rx="14" ry="12" fill="url(#editorSnakeBodyV)" />
+      {/* Eyes */}
+      <ellipse cx="13" cy="14" rx="5" ry="6" fill="#5b21b6" />
+      <ellipse cx="13" cy="13" rx="4" ry="5" fill="url(#editorSnakeEyeV)" />
+      <ellipse cx="14" cy="14" rx="2" ry="3" fill="#1a1a1a" />
+      <circle cx="12" cy="11" r="1.5" fill="white" />
+      <ellipse cx="27" cy="14" rx="5" ry="6" fill="#5b21b6" />
+      <ellipse cx="27" cy="13" rx="4" ry="5" fill="url(#editorSnakeEyeV)" />
+      <ellipse cx="28" cy="14" rx="2" ry="3" fill="#1a1a1a" />
+      <circle cx="26" cy="11" r="1.5" fill="white" />
+      {/* Nostrils */}
+      <circle cx="16" cy="22" r="1.5" fill="#5b21b6" />
+      <circle cx="24" cy="22" r="1.5" fill="#5b21b6" />
+      {/* Tongue */}
+      <path d="M20 26 L20 32 M18 34 L20 32 L22 34" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
+      {/* Shine */}
+      <ellipse cx="14" cy="12" rx="4" ry="3" fill="white" opacity="0.3" />
+    </svg>
+  )
+}
+
+const HorizontalSnakeSVG = ({ length = 2 }) => {
+  const cellWidth = 50
+  const viewWidth = length * cellWidth
+  const bodyWidth = viewWidth - 22
+  const headX = viewWidth - 18
+
+  // Generate body pattern based on length
+  const patterns = []
+  const patternSpacing = bodyWidth / (length + 0.5)
+  for (let i = 0; i < length; i++) {
+    const x = 15 + patternSpacing * (i + 0.5)
+    patterns.push(x)
+  }
+
+  return (
+    <svg viewBox={`0 0 ${viewWidth} 40`} className="editor-snake-svg-horizontal">
+      <defs>
+        <linearGradient id="editorSnakeBodyH" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#7c3aed" />
+          <stop offset="30%" stopColor="#a855f7" />
+          <stop offset="50%" stopColor="#c084fc" />
+          <stop offset="70%" stopColor="#a855f7" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+        <radialGradient id="editorSnakeEyeH" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#d0d0d0" />
+        </radialGradient>
+      </defs>
+      {/* Shadow */}
+      <ellipse cx={viewWidth / 2} cy="38" rx={viewWidth / 2 - 5} ry="4" fill="rgba(0,0,0,0.2)" />
+      {/* Tail */}
+      <path d="M10 14 Q2 20 10 26" fill="#5b21b6" />
+      <path d="M11 15 Q5 20 11 25" fill="#7c3aed" />
+      {/* Body outline */}
+      <rect x="8" y="6" width={bodyWidth} height="28" rx="14" fill="#5b21b6" />
+      {/* Body */}
+      <rect x="10" y="8" width={bodyWidth - 4} height="24" rx="12" fill="url(#editorSnakeBodyH)" />
+      {/* Body pattern */}
+      {patterns.map((x, i) => (
+        <ellipse key={i} cx={x} cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
+      ))}
+      {/* Belly stripe */}
+      <rect x="15" y="16" width={bodyWidth - 20} height="8" rx="4" fill="#e9d5ff" opacity="0.4" />
+      {/* Head outline */}
+      <ellipse cx={headX} cy="20" rx="14" ry="16" fill="#5b21b6" />
+      {/* Head */}
+      <ellipse cx={headX + 2} cy="20" rx="12" ry="14" fill="url(#editorSnakeBodyH)" />
+      {/* Eyes */}
+      <ellipse cx={headX + 4} cy="13" rx="6" ry="5" fill="#5b21b6" />
+      <ellipse cx={headX + 5} cy="13" rx="5" ry="4" fill="url(#editorSnakeEyeH)" />
+      <ellipse cx={headX + 6} cy="14" rx="3" ry="2" fill="#1a1a1a" />
+      <circle cx={headX + 4} cy="12" r="1.5" fill="white" />
+      <ellipse cx={headX + 4} cy="27" rx="6" ry="5" fill="#5b21b6" />
+      <ellipse cx={headX + 5} cy="27" rx="5" ry="4" fill="url(#editorSnakeEyeH)" />
+      <ellipse cx={headX + 6} cy="28" rx="3" ry="2" fill="#1a1a1a" />
+      <circle cx={headX + 4} cy="26" r="1.5" fill="white" />
+      {/* Nostrils */}
+      <circle cx={headX + 12} cy="17" r="1.5" fill="#5b21b6" />
+      <circle cx={headX + 12} cy="23" r="1.5" fill="#5b21b6" />
+      {/* Tongue */}
+      <path d={`M${headX + 14} 20 L${headX + 20} 20 M${headX + 22} 18 L${headX + 20} 20 L${headX + 22} 22`} stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
+      {/* Shine */}
+      <ellipse cx={headX + 2} cy="14" rx="3" ry="4" fill="white" opacity="0.3" />
+    </svg>
+  )
+}
 
 // Solver using BFS to find minimum moves (supports multiple frogs)
 const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
@@ -548,6 +578,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [saveError, setSaveError] = useState(null)
   const [checkResult, setCheckResult] = useState(null)
   const [checking, setChecking] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   // Support both old single-frog format and new multi-frog format
   const [frogs, setFrogs] = useState(() => {
@@ -870,6 +901,155 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     }, 10)
   }
 
+  // Generate a random level that's solvable in the target move range
+  const generateRandomLevel = () => {
+    // Move ranges by difficulty
+    const moveRanges = {
+      easy: { min: 4, max: 7 },
+      medium: { min: 8, max: 13 },
+      hard: { min: 14, max: 20 }
+    }
+    const range = moveRanges[difficulty] || moveRanges.easy
+
+    setGenerating(true)
+    setCheckResult(null)
+
+    // Run in setTimeout to allow UI to update
+    setTimeout(() => {
+      const maxAttempts = 1000
+      let attempts = 0
+      let found = false
+
+      while (!found && attempts < maxAttempts) {
+        attempts++
+
+        // Random configuration based on difficulty
+        const numFrogs = difficulty === 'easy' ? 1 : (Math.random() < 0.6 ? 1 : 2)
+        const numSnakes = difficulty === 'easy' ? Math.floor(Math.random() * 2) + 1 : Math.floor(Math.random() * 3) + 1
+        const numLogs = Math.floor(Math.random() * 3)
+        const numLilyPads = numFrogs
+
+        // Track occupied cells
+        const occupied = new Set()
+
+        const isOccupied = (col, row) => occupied.has(`${col},${row}`)
+        const markOccupied = (col, row) => occupied.add(`${col},${row}`)
+
+        // Generate frogs
+        const newFrogs = []
+        for (let i = 0; i < numFrogs; i++) {
+          let placed = false
+          for (let tries = 0; tries < 50 && !placed; tries++) {
+            const col = Math.floor(Math.random() * gridSize)
+            const row = Math.floor(Math.random() * gridSize)
+            if (!isOccupied(col, row)) {
+              newFrogs.push({ position: [col, row], color: FROG_COLORS[i] })
+              markOccupied(col, row)
+              placed = true
+            }
+          }
+        }
+        if (newFrogs.length !== numFrogs) continue
+
+        // Generate snakes
+        const newSnakes = []
+        for (let i = 0; i < numSnakes; i++) {
+          const orientation = Math.random() < 0.5 ? 'vertical' : 'horizontal'
+          const length = Math.floor(Math.random() * 2) + 2 // 2-3 length
+
+          let placed = false
+          for (let tries = 0; tries < 50 && !placed; tries++) {
+            const col = Math.floor(Math.random() * (orientation === 'horizontal' ? gridSize - length + 1 : gridSize))
+            const row = Math.floor(Math.random() * (orientation === 'vertical' ? gridSize - length + 1 : gridSize))
+
+            const positions = []
+            let valid = true
+            for (let j = 0; j < length && valid; j++) {
+              const c = orientation === 'horizontal' ? col + j : col
+              const r = orientation === 'vertical' ? row + j : row
+              if (isOccupied(c, r)) valid = false
+              else positions.push([c, r])
+            }
+
+            if (valid && positions.length === length) {
+              newSnakes.push({ positions, orientation })
+              positions.forEach(([c, r]) => markOccupied(c, r))
+              placed = true
+            }
+          }
+        }
+
+        // Generate logs
+        const newLogs = []
+        for (let i = 0; i < numLogs; i++) {
+          const length = Math.floor(Math.random() * 2) + 1 // 1-2 length
+
+          let placed = false
+          for (let tries = 0; tries < 50 && !placed; tries++) {
+            const col = Math.floor(Math.random() * (gridSize - length + 1))
+            const row = Math.floor(Math.random() * gridSize)
+
+            const positions = []
+            let valid = true
+            for (let j = 0; j < length && valid; j++) {
+              if (isOccupied(col + j, row)) valid = false
+              else positions.push([col + j, row])
+            }
+
+            if (valid && positions.length === length) {
+              newLogs.push({ positions })
+              positions.forEach(([c, r]) => markOccupied(c, r))
+              placed = true
+            }
+          }
+        }
+
+        // Generate lily pads (not on frogs, but can check if solution works)
+        const newLilyPads = []
+        for (let i = 0; i < numLilyPads; i++) {
+          let placed = false
+          for (let tries = 0; tries < 50 && !placed; tries++) {
+            const col = Math.floor(Math.random() * gridSize)
+            const row = Math.floor(Math.random() * gridSize)
+            // Lily pads can't be on snakes, logs, or other lily pads
+            // But they CAN be where a frog currently is (trivial start)
+            // We want them NOT on frogs for a real puzzle
+            const onFrog = newFrogs.some(f => f.position[0] === col && f.position[1] === row)
+            const onSnake = newSnakes.some(s => s.positions.some(p => p[0] === col && p[1] === row))
+            const onLog = newLogs.some(l => l.positions.some(p => p[0] === col && p[1] === row))
+            const onLilyPad = newLilyPads.some(lp => lp.position[0] === col && lp.position[1] === row)
+
+            if (!onFrog && !onSnake && !onLog && !onLilyPad) {
+              newLilyPads.push({ position: [col, row] })
+              placed = true
+            }
+          }
+        }
+        if (newLilyPads.length !== numLilyPads) continue
+
+        // Test the level
+        const result = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads)
+
+        if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+          // Found a valid level!
+          setFrogs(newFrogs)
+          setSnakes(newSnakes)
+          setLogs(newLogs)
+          setLilyPads(newLilyPads)
+          setPar(result.moves)
+          setCheckResult(result)
+          found = true
+        }
+      }
+
+      if (!found) {
+        alert(`Could not generate a valid ${difficulty} level after ${maxAttempts} attempts. Try again or adjust grid size.`)
+      }
+
+      setGenerating(false)
+    }, 10)
+  }
+
   const saveLevel = async () => {
     if (frogs.length === 0) {
       alert('Please place at least one frog!')
@@ -1076,6 +1256,13 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     </button>
                   </div>
                   <button
+                    className="action-btn generate"
+                    onClick={generateRandomLevel}
+                    disabled={generating}
+                  >
+                    {generating ? 'Generating...' : 'Generate Random'}
+                  </button>
+                  <button
                     className="action-btn check"
                     onClick={checkLevel}
                     disabled={checking}
@@ -1141,9 +1328,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       }}
                     >
                       {snake.orientation === 'vertical' ? (
-                        <VerticalSnakeSVG />
+                        <VerticalSnakeSVG length={snake.positions.length} />
                       ) : (
-                        <HorizontalSnakeSVG />
+                        <HorizontalSnakeSVG length={snake.positions.length} />
                       )}
                     </div>
                   ))}

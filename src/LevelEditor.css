@@ -258,6 +258,15 @@
   background: rgba(139, 92, 246, 1);
 }
 
+.action-btn.generate {
+  background: rgba(251, 146, 60, 0.8);
+  color: white;
+}
+
+.action-btn.generate:hover {
+  background: rgba(251, 146, 60, 1);
+}
+
 .check-result {
   padding: 10px;
   border-radius: 6px;
@@ -336,14 +345,14 @@
 }
 
 .editor-snake-svg-vertical {
-  width: 70%;
-  height: 85%;
+  width: 68%;
+  height: 86%;
   pointer-events: none;
 }
 
 .editor-snake-svg-horizontal {
-  width: 85%;
-  height: 70%;
+  width: 86%;
+  height: 68%;
   pointer-events: none;
 }
 
@@ -386,9 +395,7 @@
   z-index: 5;
 }
 
-.editor-cell.cell-snake {
-  background: #3d5a47;
-}
+/* Snake cells don't need special background - snake overlay covers them */
 
 .editor-cell.cell-log {
   background: #5c4033;

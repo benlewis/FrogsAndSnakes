@@ -362,168 +362,195 @@ const LogSVG = () => (
 )
 
 // Cartoony glossy Vertical Snake SVG component
-const VerticalSnakeSVG = () => (
-  <svg viewBox="0 0 40 100" className="snake-svg">
-    <defs>
-      <linearGradient id="snakeBodyV" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#166534" />
-        <stop offset="25%" stopColor="#22c55e" />
-        <stop offset="50%" stopColor="#4ade80" />
-        <stop offset="75%" stopColor="#22c55e" />
-        <stop offset="100%" stopColor="#166534" />
-      </linearGradient>
-      <linearGradient id="snakeBellyV" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#a16207" />
-        <stop offset="50%" stopColor="#fde047" />
-        <stop offset="100%" stopColor="#a16207" />
-      </linearGradient>
-      <radialGradient id="snakeHeadV" cx="40%" cy="30%" r="60%">
-        <stop offset="0%" stopColor="#4ade80" />
-        <stop offset="60%" stopColor="#22c55e" />
-        <stop offset="100%" stopColor="#166534" />
-      </radialGradient>
-      <radialGradient id="snakeEyeV" cx="40%" cy="35%" r="60%">
-        <stop offset="0%" stopColor="#ffffff" />
-        <stop offset="100%" stopColor="#e0e0e0" />
-      </radialGradient>
-    </defs>
+const VerticalSnakeSVG = ({ length = 2 }) => {
+  // Scale viewBox height based on length (50 per cell)
+  const cellHeight = 50
+  const viewHeight = length * cellHeight
+  const bodyEnd = viewHeight - 5
+  const tailY = viewHeight - 6
 
-    {/* Body shadow */}
-    <path d="M22 95 L22 18" stroke="rgba(0,0,0,0.3)" strokeWidth="14" strokeLinecap="round" />
+  // Generate scale pattern based on length
+  const scales = []
+  const scaleSpacing = (viewHeight - 30) / (length + 1)
+  for (let i = 1; i <= length; i++) {
+    const y = 20 + i * scaleSpacing
+    scales.push(`M14 ${y} Q20 ${y - 4} 26 ${y}`)
+  }
 
-    {/* Body outline */}
-    <path d="M20 95 L20 18" stroke="#14532d" strokeWidth="16" strokeLinecap="round" />
+  return (
+    <svg viewBox={`0 0 40 ${viewHeight}`} className="snake-svg">
+      <defs>
+        <linearGradient id="snakeBodyV" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#166534" />
+          <stop offset="25%" stopColor="#22c55e" />
+          <stop offset="50%" stopColor="#4ade80" />
+          <stop offset="75%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#166534" />
+        </linearGradient>
+        <linearGradient id="snakeBellyV" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#a16207" />
+          <stop offset="50%" stopColor="#fde047" />
+          <stop offset="100%" stopColor="#a16207" />
+        </linearGradient>
+        <radialGradient id="snakeHeadV" cx="40%" cy="30%" r="60%">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="60%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#166534" />
+        </radialGradient>
+        <radialGradient id="snakeEyeV" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#e0e0e0" />
+        </radialGradient>
+      </defs>
 
-    {/* Body main */}
-    <path d="M20 94 L20 19" stroke="url(#snakeBodyV)" strokeWidth="13" strokeLinecap="round" />
+      {/* Body shadow */}
+      <path d={`M22 ${bodyEnd} L22 18`} stroke="rgba(0,0,0,0.3)" strokeWidth="14" strokeLinecap="round" />
 
-    {/* Belly stripe */}
-    <path d="M20 92 L20 22" stroke="url(#snakeBellyV)" strokeWidth="5" strokeLinecap="round" opacity="0.7" />
+      {/* Body outline */}
+      <path d={`M20 ${bodyEnd} L20 18`} stroke="#14532d" strokeWidth="16" strokeLinecap="round" />
 
-    {/* Body shine */}
-    <path d="M15 90 L15 25" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+      {/* Body main */}
+      <path d={`M20 ${bodyEnd - 1} L20 19`} stroke="url(#snakeBodyV)" strokeWidth="13" strokeLinecap="round" />
 
-    {/* Scale pattern */}
-    <path d="M14 85 Q20 81 26 85" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
-    <path d="M14 70 Q20 66 26 70" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
-    <path d="M14 55 Q20 51 26 55" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
-    <path d="M14 40 Q20 36 26 40" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
+      {/* Belly stripe */}
+      <path d={`M20 ${bodyEnd - 3} L20 22`} stroke="url(#snakeBellyV)" strokeWidth="5" strokeLinecap="round" opacity="0.7" />
 
-    {/* Head outline */}
-    <ellipse cx="20" cy="10" rx="15" ry="12" fill="#14532d" />
-    {/* Head */}
-    <ellipse cx="20" cy="9" rx="13" ry="10" fill="url(#snakeHeadV)" />
+      {/* Body shine */}
+      <path d={`M15 ${bodyEnd - 5} L15 25`} stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
 
-    {/* Head shine */}
-    <ellipse cx="16" cy="5" rx="5" ry="3" fill="white" opacity="0.5" />
+      {/* Scale pattern */}
+      {scales.map((d, i) => (
+        <path key={i} d={d} stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
+      ))}
 
-    {/* Eyes */}
-    <ellipse cx="13" cy="8" rx="5" ry="6" fill="#14532d" />
-    <ellipse cx="13" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
-    <ellipse cx="14" cy="9" rx="2" ry="3" fill="#1a1a1a" />
-    <circle cx="12" cy="7" r="1.5" fill="white" />
+      {/* Head outline */}
+      <ellipse cx="20" cy="10" rx="15" ry="12" fill="#14532d" />
+      {/* Head */}
+      <ellipse cx="20" cy="9" rx="13" ry="10" fill="url(#snakeHeadV)" />
 
-    <ellipse cx="27" cy="8" rx="5" ry="6" fill="#14532d" />
-    <ellipse cx="27" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
-    <ellipse cx="28" cy="9" rx="2" ry="3" fill="#1a1a1a" />
-    <circle cx="26" cy="7" r="1.5" fill="white" />
+      {/* Head shine */}
+      <ellipse cx="16" cy="5" rx="5" ry="3" fill="white" opacity="0.5" />
 
-    {/* Nostrils */}
-    <circle cx="16" cy="14" r="1.5" fill="#14532d" />
-    <circle cx="24" cy="14" r="1.5" fill="#14532d" />
+      {/* Eyes */}
+      <ellipse cx="13" cy="8" rx="5" ry="6" fill="#14532d" />
+      <ellipse cx="13" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
+      <ellipse cx="14" cy="9" rx="2" ry="3" fill="#1a1a1a" />
+      <circle cx="12" cy="7" r="1.5" fill="white" />
 
-    {/* Tongue */}
-    <path d="M20 -2 L20 -6 L17 -10 M20 -6 L23 -10" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <ellipse cx="27" cy="8" rx="5" ry="6" fill="#14532d" />
+      <ellipse cx="27" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
+      <ellipse cx="28" cy="9" rx="2" ry="3" fill="#1a1a1a" />
+      <circle cx="26" cy="7" r="1.5" fill="white" />
 
-    {/* Smile */}
-    <path d="M15 16 Q20 19 25 16" stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      {/* Nostrils */}
+      <circle cx="16" cy="14" r="1.5" fill="#14532d" />
+      <circle cx="24" cy="14" r="1.5" fill="#14532d" />
 
-    {/* Tail */}
-    <path d="M20 94 Q23 97 21 99 Q19 100 18 98" stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />
-  </svg>
-)
+      {/* Tongue */}
+      <path d="M20 -2 L20 -6 L17 -10 M20 -6 L23 -10" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
+
+      {/* Smile */}
+      <path d="M15 16 Q20 19 25 16" stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+
+      {/* Tail */}
+      <path d={`M20 ${tailY} Q23 ${tailY + 3} 21 ${tailY + 5} Q19 ${tailY + 6} 18 ${tailY + 4}`} stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 // Cartoony glossy Horizontal Snake SVG component
-const HorizontalSnakeSVG = () => (
-  <svg viewBox="0 0 100 40" className="snake-svg-horizontal">
-    <defs>
-      <linearGradient id="snakeBodyH" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#166534" />
-        <stop offset="25%" stopColor="#22c55e" />
-        <stop offset="50%" stopColor="#4ade80" />
-        <stop offset="75%" stopColor="#22c55e" />
-        <stop offset="100%" stopColor="#166534" />
-      </linearGradient>
-      <linearGradient id="snakeBellyH" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#a16207" />
-        <stop offset="50%" stopColor="#fde047" />
-        <stop offset="100%" stopColor="#a16207" />
-      </linearGradient>
-      <radialGradient id="snakeHeadH" cx="30%" cy="40%" r="60%">
-        <stop offset="0%" stopColor="#4ade80" />
-        <stop offset="60%" stopColor="#22c55e" />
-        <stop offset="100%" stopColor="#166534" />
-      </radialGradient>
-      <radialGradient id="snakeEyeH" cx="40%" cy="35%" r="60%">
-        <stop offset="0%" stopColor="#ffffff" />
-        <stop offset="100%" stopColor="#e0e0e0" />
-      </radialGradient>
-    </defs>
+const HorizontalSnakeSVG = ({ length = 2 }) => {
+  // Scale viewBox width based on length (50 per cell)
+  const cellWidth = 50
+  const viewWidth = length * cellWidth
+  const bodyEnd = viewWidth - 18
+  const headX = viewWidth - 10
 
-    {/* Body shadow */}
-    <path d="M5 22 L82 22" stroke="rgba(0,0,0,0.3)" strokeWidth="14" strokeLinecap="round" />
+  // Generate scale pattern based on length
+  const scales = []
+  const scaleSpacing = (viewWidth - 30) / (length + 1)
+  for (let i = 1; i <= length; i++) {
+    const x = 10 + i * scaleSpacing
+    scales.push(`M${x} 14 Q${x + 4} 20 ${x} 26`)
+  }
 
-    {/* Body outline */}
-    <path d="M5 20 L82 20" stroke="#14532d" strokeWidth="16" strokeLinecap="round" />
+  return (
+    <svg viewBox={`0 0 ${viewWidth} 40`} className="snake-svg-horizontal">
+      <defs>
+        <linearGradient id="snakeBodyH" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#166534" />
+          <stop offset="25%" stopColor="#22c55e" />
+          <stop offset="50%" stopColor="#4ade80" />
+          <stop offset="75%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#166534" />
+        </linearGradient>
+        <linearGradient id="snakeBellyH" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#a16207" />
+          <stop offset="50%" stopColor="#fde047" />
+          <stop offset="100%" stopColor="#a16207" />
+        </linearGradient>
+        <radialGradient id="snakeHeadH" cx="30%" cy="40%" r="60%">
+          <stop offset="0%" stopColor="#4ade80" />
+          <stop offset="60%" stopColor="#22c55e" />
+          <stop offset="100%" stopColor="#166534" />
+        </radialGradient>
+        <radialGradient id="snakeEyeH" cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#e0e0e0" />
+        </radialGradient>
+      </defs>
 
-    {/* Body main */}
-    <path d="M6 20 L81 20" stroke="url(#snakeBodyH)" strokeWidth="13" strokeLinecap="round" />
+      {/* Body shadow */}
+      <path d={`M5 22 L${bodyEnd} 22`} stroke="rgba(0,0,0,0.3)" strokeWidth="14" strokeLinecap="round" />
 
-    {/* Belly stripe */}
-    <path d="M8 20 L78 20" stroke="url(#snakeBellyH)" strokeWidth="5" strokeLinecap="round" opacity="0.7" />
+      {/* Body outline */}
+      <path d={`M5 20 L${bodyEnd} 20`} stroke="#14532d" strokeWidth="16" strokeLinecap="round" />
 
-    {/* Body shine */}
-    <path d="M10 15 L75 15" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+      {/* Body main */}
+      <path d={`M6 20 L${bodyEnd - 1} 20`} stroke="url(#snakeBodyH)" strokeWidth="13" strokeLinecap="round" />
 
-    {/* Scale pattern */}
-    <path d="M15 14 Q19 20 15 26" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
-    <path d="M30 14 Q34 20 30 26" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
-    <path d="M45 14 Q49 20 45 26" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
-    <path d="M60 14 Q64 20 60 26" stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
+      {/* Belly stripe */}
+      <path d={`M8 20 L${bodyEnd - 4} 20`} stroke="url(#snakeBellyH)" strokeWidth="5" strokeLinecap="round" opacity="0.7" />
 
-    {/* Head outline */}
-    <ellipse cx="90" cy="20" rx="12" ry="15" fill="#14532d" />
-    {/* Head */}
-    <ellipse cx="91" cy="20" rx="10" ry="13" fill="url(#snakeHeadH)" />
+      {/* Body shine */}
+      <path d={`M10 15 L${bodyEnd - 7} 15`} stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
 
-    {/* Head shine */}
-    <ellipse cx="95" cy="15" rx="3" ry="5" fill="white" opacity="0.5" />
+      {/* Scale pattern */}
+      {scales.map((d, i) => (
+        <path key={i} d={d} stroke="#166534" strokeWidth="1.5" fill="none" opacity="0.5" />
+      ))}
 
-    {/* Eyes */}
-    <ellipse cx="92" cy="13" rx="6" ry="5" fill="#14532d" />
-    <ellipse cx="92" cy="13" rx="5" ry="4" fill="url(#snakeEyeH)" />
-    <ellipse cx="93" cy="14" rx="3" ry="2" fill="#1a1a1a" />
-    <circle cx="91" cy="12" r="1.5" fill="white" />
+      {/* Head outline */}
+      <ellipse cx={headX} cy="20" rx="12" ry="15" fill="#14532d" />
+      {/* Head */}
+      <ellipse cx={headX + 1} cy="20" rx="10" ry="13" fill="url(#snakeHeadH)" />
 
-    <ellipse cx="92" cy="27" rx="6" ry="5" fill="#14532d" />
-    <ellipse cx="92" cy="27" rx="5" ry="4" fill="url(#snakeEyeH)" />
-    <ellipse cx="93" cy="28" rx="3" ry="2" fill="#1a1a1a" />
-    <circle cx="91" cy="26" r="1.5" fill="white" />
+      {/* Head shine */}
+      <ellipse cx={headX + 5} cy="15" rx="3" ry="5" fill="white" opacity="0.5" />
 
-    {/* Nostrils */}
-    <circle cx="98" cy="17" r="1.5" fill="#14532d" />
-    <circle cx="98" cy="23" r="1.5" fill="#14532d" />
+      {/* Eyes */}
+      <ellipse cx={headX + 2} cy="13" rx="6" ry="5" fill="#14532d" />
+      <ellipse cx={headX + 2} cy="13" rx="5" ry="4" fill="url(#snakeEyeH)" />
+      <ellipse cx={headX + 3} cy="14" rx="3" ry="2" fill="#1a1a1a" />
+      <circle cx={headX + 1} cy="12" r="1.5" fill="white" />
 
-    {/* Tongue */}
-    <path d="M102 20 L106 20 L110 17 M106 20 L110 23" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <ellipse cx={headX + 2} cy="27" rx="6" ry="5" fill="#14532d" />
+      <ellipse cx={headX + 2} cy="27" rx="5" ry="4" fill="url(#snakeEyeH)" />
+      <ellipse cx={headX + 3} cy="28" rx="3" ry="2" fill="#1a1a1a" />
+      <circle cx={headX + 1} cy="26" r="1.5" fill="white" />
 
-    {/* Smile */}
-    <path d="M96 20 Q99 20 96 20" stroke="#14532d" strokeWidth="1" fill="none" />
+      {/* Nostrils */}
+      <circle cx={headX + 8} cy="17" r="1.5" fill="#14532d" />
+      <circle cx={headX + 8} cy="23" r="1.5" fill="#14532d" />
 
-    {/* Tail */}
-    <path d="M6 20 Q3 22 1 21 Q-1 20 1 19 Q3 18 6 20" stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />
-  </svg>
-)
+      {/* Tongue */}
+      <path d={`M${headX + 12} 20 L${headX + 16} 20 L${headX + 20} 17 M${headX + 16} 20 L${headX + 20} 23`} stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
+
+      {/* Tail */}
+      <path d="M6 20 Q3 22 1 21 Q-1 20 1 19 Q3 18 6 20" stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 // Helper to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -1198,7 +1225,7 @@ function App() {
               style={getSnakeStyle(snake, index)}
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
             >
-              {snake.orientation === 'vertical' ? <VerticalSnakeSVG /> : <HorizontalSnakeSVG />}
+              {snake.orientation === 'vertical' ? <VerticalSnakeSVG length={snake.positions.length} /> : <HorizontalSnakeSVG length={snake.positions.length} />}
             </div>
           ))}
         </div>
@@ -1215,7 +1242,6 @@ function App() {
           </span>
           <span className="stat">
             <span className="stat-label">Moves:</span> {moves}
-            {currentLevel.par && <span className="par"> (Par: {currentLevel.par})</span>}
           </span>
         </div>
       </div>
