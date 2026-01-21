@@ -561,14 +561,23 @@
     margin-bottom: 16px;
   }
 
+  .difficulty-row {
+    margin-bottom: 12px;
+  }
+
   .difficulty-selector {
     gap: 4px;
     padding: 4px;
-    margin-bottom: 20px;
   }
 
   .difficulty-btn {
     padding: 8px 14px;
+    font-size: 0.9rem;
+  }
+
+  .help-btn {
+    width: 28px;
+    height: 28px;
     font-size: 0.9rem;
   }
 
