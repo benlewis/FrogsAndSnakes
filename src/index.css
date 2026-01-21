@@ -15,6 +15,7 @@ body {
     linear-gradient(145deg, #141e30 0%, #1a2744 30%, #152238 70%, #0f1724 100%);
   min-height: 100vh;
   color: #ffffff;
+  overscroll-behavior: none;
 }
 
 #root {
