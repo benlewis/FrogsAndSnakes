@@ -575,9 +575,29 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const handleCellClick = (col, row) => {
     setCheckResult(null) // Reset check when level changes
 
-    // Handle frog selection and movement (works with any tool)
     const clickedFrogIndex = frogs.findIndex(f => f.position[0] === col && f.position[1] === row)
 
+    // Eraser tool takes priority
+    if (currentTool === 'eraser') {
+      // Erase frog at this position
+      if (clickedFrogIndex !== -1) {
+        const newFrogs = frogs.filter((_, i) => i !== clickedFrogIndex)
+          .map((f, idx) => ({ ...f, color: FROG_COLORS[idx] }))
+        setFrogs(newFrogs)
+        setSelectedFrogIndex(null)
+        return
+      }
+      // Erase other items (logs, lily pads) - snakes handled by overlay click
+      setLogs(logs.filter(log =>
+        !log.positions.some(pos => pos[0] === col && pos[1] === row)
+      ))
+      setLilyPads(lilyPads.filter(lp =>
+        lp.position[0] !== col || lp.position[1] !== row
+      ))
+      return
+    }
+
+    // Handle frog selection and movement (works with non-eraser tools)
     if (clickedFrogIndex !== -1) {
       // Clicked on a frog - select it (or deselect if already selected)
       if (selectedFrogIndex === clickedFrogIndex) {
@@ -624,20 +644,6 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       if (!isLilyPadCell(col, row)) {
         setLilyPads([...lilyPads, { position: [col, row] }])
       }
-    } else if (currentTool === 'eraser') {
-      // Remove frog at this position and reassign colors
-      const newFrogs = frogs.filter(f => f.position[0] !== col || f.position[1] !== row)
-        .map((f, idx) => ({ ...f, color: FROG_COLORS[idx] }))
-      setFrogs(newFrogs)
-      setSnakes(snakes.filter(snake =>
-        !snake.positions.some(pos => pos[0] === col && pos[1] === row)
-      ))
-      setLogs(logs.filter(log =>
-        !log.positions.some(pos => pos[0] === col && pos[1] === row)
-      ))
-      setLilyPads(lilyPads.filter(lp =>
-        lp.position[0] !== col || lp.position[1] !== row
-      ))
     }
   }
 
