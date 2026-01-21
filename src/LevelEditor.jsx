@@ -19,32 +19,38 @@ const generateDateRange = () => {
 // Frog colors for display
 const FROG_COLORS = ['green', 'brown', 'blue']
 
-// Frog color schemes for SVG
+// Frog color schemes for SVG - cartoony glossy style
 const FROG_COLOR_SCHEMES = {
   green: {
-    bodyLight: '#bef264',
-    bodyDark: '#65a30d',
-    legLight: '#a3e635',
-    legDark: '#4d7c0f',
-    spots: '#84cc16',
+    body: '#22c55e',
+    bodyLight: '#4ade80',
+    bodyDark: '#166534',
+    belly: '#fde047',
+    bellyDark: '#ca8a04',
+    outline: '#14532d',
+    toes: '#f97316',
   },
   brown: {
+    body: '#a16207',
     bodyLight: '#d4a574',
-    bodyDark: '#8b5a2b',
-    legLight: '#c4956a',
-    legDark: '#6b4423',
-    spots: '#a0784a',
+    bodyDark: '#713f12',
+    belly: '#fef3c7',
+    bellyDark: '#d97706',
+    outline: '#451a03',
+    toes: '#ea580c',
   },
   blue: {
+    body: '#3b82f6',
     bodyLight: '#93c5fd',
-    bodyDark: '#3b82f6',
-    legLight: '#60a5fa',
-    legDark: '#2563eb',
-    spots: '#60a5fa',
+    bodyDark: '#1e40af',
+    belly: '#bfdbfe',
+    bellyDark: '#2563eb',
+    outline: '#1e3a8a',
+    toes: '#f97316',
   },
 }
 
-// Full SVG Components - same as game
+// Cartoony glossy Frog SVG component for editor
 const FrogSVG = ({ color = 'green' }) => {
   const colors = FROG_COLOR_SCHEMES[color] || FROG_COLOR_SCHEMES.green
   const id = `editor-frog-${color}`
@@ -52,43 +58,52 @@ const FrogSVG = ({ color = 'green' }) => {
   return (
     <svg viewBox="0 0 100 100" className="editor-piece-svg">
       <defs>
-        <radialGradient id={`${id}-body`} cx="40%" cy="30%" r="60%">
+        <radialGradient id={`${id}-body`} cx="40%" cy="30%" r="70%">
           <stop offset="0%" stopColor={colors.bodyLight} />
+          <stop offset="60%" stopColor={colors.body} />
           <stop offset="100%" stopColor={colors.bodyDark} />
         </radialGradient>
-        <radialGradient id={`${id}-leg`} cx="40%" cy="30%" r="70%">
-          <stop offset="0%" stopColor={colors.legLight} />
-          <stop offset="100%" stopColor={colors.legDark} />
+        <radialGradient id={`${id}-belly`} cx="50%" cy="30%" r="70%">
+          <stop offset="0%" stopColor={colors.belly} />
+          <stop offset="100%" stopColor={colors.bellyDark} />
         </radialGradient>
-        <filter id={`${id}-shadow`} x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="2" dy="3" stdDeviation="2" floodOpacity="0.3"/>
-        </filter>
+        <radialGradient id={`${id}-eye`} cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#d0d0d0" />
+        </radialGradient>
       </defs>
-
-      <ellipse cx="52" cy="58" rx="32" ry="36" fill="rgba(0,0,0,0.2)" />
-      <ellipse cx="15" cy="75" rx="18" ry="10" fill={`url(#${id}-leg)`} transform="rotate(-30 15 75)" />
-      <ellipse cx="85" cy="75" rx="18" ry="10" fill={`url(#${id}-leg)`} transform="rotate(30 85 75)" />
-      <ellipse cx="5" cy="85" rx="10" ry="6" fill={colors.legDark} transform="rotate(-20 5 85)" />
-      <ellipse cx="95" cy="85" rx="10" ry="6" fill={colors.legDark} transform="rotate(20 95 85)" />
-      <ellipse cx="20" cy="30" rx="15" ry="8" fill={`url(#${id}-leg)`} transform="rotate(-45 20 30)" />
-      <ellipse cx="80" cy="30" rx="15" ry="8" fill={`url(#${id}-leg)`} transform="rotate(45 80 30)" />
-      <ellipse cx="8" cy="20" rx="8" ry="5" fill={colors.legDark} transform="rotate(-30 8 20)" />
-      <ellipse cx="92" cy="20" rx="8" ry="5" fill={colors.legDark} transform="rotate(30 92 20)" />
-      <ellipse cx="50" cy="55" rx="30" ry="35" fill={`url(#${id}-body)`} filter={`url(#${id}-shadow)`} />
-      <ellipse cx="40" cy="50" rx="6" ry="8" fill={colors.spots} opacity="0.6" />
-      <ellipse cx="60" cy="55" rx="5" ry="7" fill={colors.spots} opacity="0.6" />
-      <ellipse cx="50" cy="70" rx="7" ry="5" fill={colors.spots} opacity="0.6" />
-      <ellipse cx="50" cy="25" rx="22" ry="18" fill={`url(#${id}-body)`} />
-      <circle cx="38" cy="18" r="11" fill={`url(#${id}-body)`} />
-      <circle cx="62" cy="18" r="11" fill={`url(#${id}-body)`} />
-      <circle cx="38" cy="18" r="7" fill="white" />
-      <circle cx="62" cy="18" r="7" fill="white" />
-      <circle cx="38" cy="17" r="4" fill="#1a1a1a" />
-      <circle cx="62" cy="17" r="4" fill="#1a1a1a" />
-      <circle cx="36" cy="15" r="2" fill="white" opacity="0.8" />
-      <circle cx="60" cy="15" r="2" fill="white" opacity="0.8" />
-      <circle cx="45" cy="28" r="2" fill={colors.legDark} />
-      <circle cx="55" cy="28" r="2" fill={colors.legDark} />
+      {/* Body outline */}
+      <ellipse cx="50" cy="60" rx="28" ry="24" fill={colors.outline} />
+      <ellipse cx="50" cy="58" rx="26" ry="22" fill={`url(#${id}-body)`} />
+      {/* Belly */}
+      <ellipse cx="50" cy="64" rx="14" ry="10" fill={colors.outline} />
+      <ellipse cx="50" cy="63" rx="12" ry="8" fill={`url(#${id}-belly)`} />
+      {/* Front feet */}
+      <ellipse cx="28" cy="72" rx="6" ry="4" fill={colors.outline} />
+      <ellipse cx="28" cy="71" rx="4" ry="3" fill={colors.toes} />
+      <ellipse cx="72" cy="72" rx="6" ry="4" fill={colors.outline} />
+      <ellipse cx="72" cy="71" rx="4" ry="3" fill={colors.toes} />
+      {/* Head outline */}
+      <ellipse cx="50" cy="35" rx="24" ry="20" fill={colors.outline} />
+      <ellipse cx="50" cy="34" rx="22" ry="18" fill={`url(#${id}-body)`} />
+      {/* Eye bumps */}
+      <circle cx="38" cy="22" r="12" fill={colors.outline} />
+      <circle cx="38" cy="21" r="10" fill={`url(#${id}-body)`} />
+      <circle cx="62" cy="22" r="12" fill={colors.outline} />
+      <circle cx="62" cy="21" r="10" fill={`url(#${id}-body)`} />
+      {/* Eyes */}
+      <ellipse cx="38" cy="24" rx="6" ry="7" fill={colors.outline} />
+      <ellipse cx="38" cy="24" rx="5" ry="6" fill={`url(#${id}-eye)`} />
+      <ellipse cx="39" cy="25" rx="2.5" ry="3.5" fill="#1a1a1a" />
+      <circle cx="37" cy="22" r="2" fill="white" />
+      <ellipse cx="62" cy="24" rx="6" ry="7" fill={colors.outline} />
+      <ellipse cx="62" cy="24" rx="5" ry="6" fill={`url(#${id}-eye)`} />
+      <ellipse cx="63" cy="25" rx="2.5" ry="3.5" fill="#1a1a1a" />
+      <circle cx="61" cy="22" r="2" fill="white" />
+      {/* Smile */}
+      <path d="M42 42 Q50 48 58 42" stroke={colors.outline} strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* Shine */}
+      <ellipse cx="42" cy="50" rx="8" ry="5" fill="white" opacity="0.3" />
     </svg>
   )
 }
@@ -96,101 +111,143 @@ const FrogSVG = ({ color = 'green' }) => {
 const LilyPadSVG = () => (
   <svg viewBox="0 0 100 100" className="editor-piece-svg">
     <defs>
-      <radialGradient id="editorLilypadGrad" cx="30%" cy="30%" r="70%">
-        <stop offset="0%" stopColor="#5eead4" />
-        <stop offset="100%" stopColor="#0f766e" />
+      <radialGradient id="editorLilypadMain" cx="40%" cy="35%" r="65%">
+        <stop offset="0%" stopColor="#4ade80" />
+        <stop offset="50%" stopColor="#22c55e" />
+        <stop offset="100%" stopColor="#166534" />
       </radialGradient>
-      <filter id="editorLilypadShadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="1" dy="2" stdDeviation="2" floodOpacity="0.25"/>
-      </filter>
+      <radialGradient id="editorLilypadCenter" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#fde047" />
+        <stop offset="100%" stopColor="#ca8a04" />
+      </radialGradient>
     </defs>
-    <ellipse cx="52" cy="53" rx="44" ry="39" fill="rgba(0,0,0,0.15)" />
-    <ellipse cx="50" cy="50" rx="45" ry="40" fill="url(#editorLilypadGrad)" filter="url(#editorLilypadShadow)" />
-    <path d="M50 50 L50 10 L30 25 Z" fill="#1a1a2e" />
-    <ellipse cx="50" cy="50" rx="43" ry="38" fill="none" stroke="#99f6e4" strokeWidth="2" opacity="0.5" />
-    <path d="M50 50 L20 30" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 L80 30" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 L15 50" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 L85 50" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 L25 70" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 L75 70" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 L50 85" stroke="#134e4a" strokeWidth="2" fill="none" opacity="0.6" />
-    <circle cx="50" cy="50" r="6" fill="#0d9488" />
-    <circle cx="50" cy="50" r="3" fill="#14b8a6" />
-    <ellipse cx="35" cy="40" rx="15" ry="10" fill="#99f6e4" opacity="0.3" />
+    {/* Shadow */}
+    <ellipse cx="52" cy="55" rx="44" ry="38" fill="rgba(0,0,0,0.2)" />
+    {/* Main pad outline */}
+    <ellipse cx="50" cy="52" rx="44" ry="38" fill="#14532d" />
+    {/* Main pad */}
+    <ellipse cx="50" cy="50" rx="42" ry="36" fill="url(#editorLilypadMain)" />
+    {/* Notch */}
+    <path d="M50 50 L50 12 L30 28 Z" fill="#1e3a5f" />
+    {/* Veins */}
+    <path d="M50 50 L20 30" stroke="#166534" strokeWidth="2.5" fill="none" opacity="0.5" />
+    <path d="M50 50 L80 30" stroke="#166534" strokeWidth="2.5" fill="none" opacity="0.5" />
+    <path d="M50 50 L10 50" stroke="#166534" strokeWidth="2.5" fill="none" opacity="0.5" />
+    <path d="M50 50 L90 50" stroke="#166534" strokeWidth="2.5" fill="none" opacity="0.5" />
+    <path d="M50 50 L50 88" stroke="#166534" strokeWidth="2.5" fill="none" opacity="0.5" />
+    {/* Center */}
+    <circle cx="50" cy="50" r="7" fill="#14532d" />
+    <circle cx="50" cy="49" r="5" fill="url(#editorLilypadCenter)" />
+    {/* Highlights */}
+    <ellipse cx="35" cy="38" rx="14" ry="9" fill="white" opacity="0.35" />
+    <ellipse cx="32" cy="35" rx="7" ry="4" fill="white" opacity="0.5" />
   </svg>
 )
 
-const StumpSVG = () => (
+const LogSVG = () => (
   <svg viewBox="0 0 100 100" className="editor-piece-svg">
     <defs>
-      <linearGradient id="editorBarkGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#57301a" />
-        <stop offset="50%" stopColor="#78350f" />
-        <stop offset="100%" stopColor="#57301a" />
-      </linearGradient>
-      <radialGradient id="editorStumpTop" cx="40%" cy="40%" r="60%">
-        <stop offset="0%" stopColor="#d97706" />
-        <stop offset="100%" stopColor="#92400e" />
+      <radialGradient id="editorLogTop" cx="35%" cy="35%" r="65%">
+        <stop offset="0%" stopColor="#fcd34d" />
+        <stop offset="40%" stopColor="#f59e0b" />
+        <stop offset="100%" stopColor="#b45309" />
       </radialGradient>
-      <filter id="editorStumpShadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="2" dy="3" stdDeviation="2" floodOpacity="0.3"/>
-      </filter>
+      <linearGradient id="editorLogBark" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#78350f" />
+        <stop offset="20%" stopColor="#92400e" />
+        <stop offset="50%" stopColor="#a16207" />
+        <stop offset="80%" stopColor="#92400e" />
+        <stop offset="100%" stopColor="#78350f" />
+      </linearGradient>
+      <radialGradient id="editorLogCenter" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#92400e" />
+        <stop offset="100%" stopColor="#451a03" />
+      </radialGradient>
     </defs>
-    <ellipse cx="52" cy="75" rx="40" ry="18" fill="rgba(0,0,0,0.2)" />
-    <ellipse cx="50" cy="70" rx="38" ry="20" fill="#57301a" />
-    <rect x="12" y="50" width="76" height="20" fill="url(#editorBarkGrad)" />
-    <path d="M15 55 L15 68" stroke="#92400e" strokeWidth="4" />
-    <path d="M25 52 L25 70" stroke="#6b3a1a" strokeWidth="3" />
-    <path d="M35 50 L35 70" stroke="#92400e" strokeWidth="4" />
-    <path d="M50 50 L50 70" stroke="#6b3a1a" strokeWidth="3" />
-    <path d="M65 50 L65 70" stroke="#92400e" strokeWidth="4" />
-    <path d="M75 52 L75 70" stroke="#6b3a1a" strokeWidth="3" />
-    <path d="M85 55 L85 68" stroke="#92400e" strokeWidth="4" />
-    <ellipse cx="50" cy="50" rx="38" ry="20" fill="url(#editorStumpTop)" filter="url(#editorStumpShadow)" />
-    <ellipse cx="50" cy="50" rx="32" ry="16" fill="none" stroke="#78350f" strokeWidth="2" />
-    <ellipse cx="50" cy="50" rx="25" ry="12" fill="none" stroke="#b45309" strokeWidth="1.5" />
-    <ellipse cx="50" cy="50" rx="18" ry="9" fill="none" stroke="#78350f" strokeWidth="2" />
-    <ellipse cx="50" cy="50" rx="11" ry="5" fill="none" stroke="#b45309" strokeWidth="1.5" />
-    <ellipse cx="50" cy="50" rx="5" ry="2.5" fill="#78350f" />
-    <ellipse cx="40" cy="45" rx="12" ry="6" fill="#fbbf24" opacity="0.2" />
+    {/* Shadow */}
+    <ellipse cx="52" cy="94" rx="42" ry="8" fill="rgba(0,0,0,0.25)" />
+    {/* Bark base/bottom */}
+    <ellipse cx="50" cy="90" rx="44" ry="10" fill="#451a03" />
+    {/* Bark body */}
+    <path d="M6 28 L6 88 Q50 98 94 88 L94 28 Q50 38 6 28" fill="url(#editorLogBark)" />
+    {/* Bark outline */}
+    <path d="M6 28 L6 88" stroke="#451a03" strokeWidth="3" />
+    <path d="M94 28 L94 88" stroke="#451a03" strokeWidth="3" />
+    {/* Bark texture lines */}
+    <path d="M18 32 L18 86" stroke="#78350f" strokeWidth="4" opacity="0.6" />
+    <path d="M34 34 L34 90" stroke="#451a03" strokeWidth="3" opacity="0.5" />
+    <path d="M50 36 L50 92" stroke="#78350f" strokeWidth="4" opacity="0.6" />
+    <path d="M66 34 L66 90" stroke="#451a03" strokeWidth="3" opacity="0.5" />
+    <path d="M82 32 L82 86" stroke="#78350f" strokeWidth="4" opacity="0.6" />
+    {/* Top face outline */}
+    <ellipse cx="50" cy="28" rx="46" ry="18" fill="#78350f" />
+    {/* Top face */}
+    <ellipse cx="50" cy="26" rx="44" ry="16" fill="url(#editorLogTop)" />
+    {/* Tree rings */}
+    <ellipse cx="50" cy="26" rx="36" ry="12" fill="none" stroke="#b45309" strokeWidth="2" opacity="0.6" />
+    <ellipse cx="50" cy="26" rx="26" ry="8" fill="none" stroke="#92400e" strokeWidth="2" opacity="0.7" />
+    <ellipse cx="50" cy="26" rx="16" ry="5" fill="none" stroke="#b45309" strokeWidth="2" opacity="0.6" />
+    <ellipse cx="50" cy="26" rx="8" ry="2.5" fill="none" stroke="#92400e" strokeWidth="2" opacity="0.7" />
+    {/* Center */}
+    <ellipse cx="50" cy="26" rx="4" ry="1.5" fill="url(#editorLogCenter)" />
+    {/* Top glossy highlights */}
+    <ellipse cx="35" cy="20" rx="14" ry="6" fill="white" opacity="0.3" />
+    <ellipse cx="32" cy="18" rx="7" ry="3" fill="white" opacity="0.5" />
+    {/* Bark highlight */}
+    <path d="M14 38 Q18 55 14 75" stroke="#d97706" strokeWidth="3" fill="none" opacity="0.4" />
   </svg>
 )
 
 const VerticalSnakeSVG = () => (
   <svg viewBox="0 0 40 100" className="editor-snake-svg-vertical">
     <defs>
-      <linearGradient id="editorSnakeBody" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#14532d" />
-        <stop offset="50%" stopColor="#166534" />
-        <stop offset="100%" stopColor="#14532d" />
+      <linearGradient id="editorSnakeBodyV" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#7c3aed" />
+        <stop offset="30%" stopColor="#a855f7" />
+        <stop offset="50%" stopColor="#c084fc" />
+        <stop offset="70%" stopColor="#a855f7" />
+        <stop offset="100%" stopColor="#7c3aed" />
       </linearGradient>
-      <linearGradient id="editorSnakeHead" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#22543d" />
-        <stop offset="100%" stopColor="#14532d" />
-      </linearGradient>
-      <filter id="editorSnakeShadow" x="-50%" y="-10%" width="200%" height="120%">
-        <feDropShadow dx="2" dy="2" stdDeviation="1.5" floodOpacity="0.3"/>
-      </filter>
+      <radialGradient id="editorSnakeEyeV" cx="40%" cy="35%" r="60%">
+        <stop offset="0%" stopColor="#ffffff" />
+        <stop offset="100%" stopColor="#d0d0d0" />
+      </radialGradient>
     </defs>
     {/* Shadow */}
-    <path d="M22 95 Q22 50 22 12" stroke="rgba(0,0,0,0.2)" strokeWidth="14" strokeLinecap="round" fill="none" />
+    <ellipse cx="22" cy="96" rx="16" ry="4" fill="rgba(0,0,0,0.2)" />
+    {/* Tail */}
+    <path d="M14 90 Q20 98 26 90" fill="#5b21b6" />
+    <path d="M15 89 Q20 95 25 89" fill="#7c3aed" />
+    {/* Body outline */}
+    <rect x="6" y="22" width="28" height="70" rx="14" fill="#5b21b6" />
     {/* Body */}
-    <path d="M20 95 Q20 50 20 12" stroke="url(#editorSnakeBody)" strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#editorSnakeShadow)" />
-    {/* Scales */}
-    <path d="M20 85 L24 80 L20 75 L16 80 Z" fill="#15803d" opacity="0.7" />
-    <path d="M20 70 L24 65 L20 60 L16 65 Z" fill="#15803d" opacity="0.7" />
-    <path d="M20 55 L24 50 L20 45 L16 50 Z" fill="#15803d" opacity="0.7" />
-    <path d="M20 40 L24 35 L20 30 L16 35 Z" fill="#15803d" opacity="0.7" />
+    <rect x="8" y="24" width="24" height="66" rx="12" fill="url(#editorSnakeBodyV)" />
+    {/* Body pattern */}
+    <ellipse cx="20" cy="40" rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
+    <ellipse cx="20" cy="58" rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
+    <ellipse cx="20" cy="76" rx="10" ry="6" fill="#7c3aed" opacity="0.5" />
+    {/* Belly stripe */}
+    <rect x="16" y="30" width="8" height="55" rx="4" fill="#e9d5ff" opacity="0.4" />
+    {/* Head outline */}
+    <ellipse cx="20" cy="18" rx="16" ry="14" fill="#5b21b6" />
     {/* Head */}
-    <ellipse cx="20" cy="8" rx="13" ry="9" fill="url(#editorSnakeHead)" filter="url(#editorSnakeShadow)" />
+    <ellipse cx="20" cy="16" rx="14" ry="12" fill="url(#editorSnakeBodyV)" />
     {/* Eyes */}
-    <circle cx="14" cy="6" r="3.5" fill="#fef08a" />
-    <circle cx="26" cy="6" r="3.5" fill="#fef08a" />
-    <ellipse cx="14" cy="6" rx="1.5" ry="2.5" fill="#1a1a1a" />
-    <ellipse cx="26" cy="6" rx="1.5" ry="2.5" fill="#1a1a1a" />
+    <ellipse cx="13" cy="14" rx="5" ry="6" fill="#5b21b6" />
+    <ellipse cx="13" cy="13" rx="4" ry="5" fill="url(#editorSnakeEyeV)" />
+    <ellipse cx="14" cy="14" rx="2" ry="3" fill="#1a1a1a" />
+    <circle cx="12" cy="11" r="1.5" fill="white" />
+    <ellipse cx="27" cy="14" rx="5" ry="6" fill="#5b21b6" />
+    <ellipse cx="27" cy="13" rx="4" ry="5" fill="url(#editorSnakeEyeV)" />
+    <ellipse cx="28" cy="14" rx="2" ry="3" fill="#1a1a1a" />
+    <circle cx="26" cy="11" r="1.5" fill="white" />
+    {/* Nostrils */}
+    <circle cx="16" cy="22" r="1.5" fill="#5b21b6" />
+    <circle cx="24" cy="22" r="1.5" fill="#5b21b6" />
     {/* Tongue */}
-    <path d="M20 0 L18 -6 M20 0 L22 -6" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M20 26 L20 32 M18 34 L20 32 L22 34" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
+    {/* Shine */}
+    <ellipse cx="14" cy="12" rx="4" ry="3" fill="white" opacity="0.3" />
   </svg>
 )
 
@@ -198,36 +255,52 @@ const HorizontalSnakeSVG = () => (
   <svg viewBox="0 0 100 40" className="editor-snake-svg-horizontal">
     <defs>
       <linearGradient id="editorSnakeBodyH" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#14532d" />
-        <stop offset="50%" stopColor="#166534" />
-        <stop offset="100%" stopColor="#14532d" />
+        <stop offset="0%" stopColor="#7c3aed" />
+        <stop offset="30%" stopColor="#a855f7" />
+        <stop offset="50%" stopColor="#c084fc" />
+        <stop offset="70%" stopColor="#a855f7" />
+        <stop offset="100%" stopColor="#7c3aed" />
       </linearGradient>
-      <linearGradient id="editorSnakeHeadH" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#22543d" />
-        <stop offset="100%" stopColor="#14532d" />
-      </linearGradient>
-      <filter id="editorSnakeShadowH" x="-10%" y="-50%" width="120%" height="200%">
-        <feDropShadow dx="2" dy="2" stdDeviation="1.5" floodOpacity="0.3"/>
-      </filter>
+      <radialGradient id="editorSnakeEyeH" cx="40%" cy="35%" r="60%">
+        <stop offset="0%" stopColor="#ffffff" />
+        <stop offset="100%" stopColor="#d0d0d0" />
+      </radialGradient>
     </defs>
     {/* Shadow */}
-    <path d="M5 22 Q50 22 88 22" stroke="rgba(0,0,0,0.2)" strokeWidth="14" strokeLinecap="round" fill="none" />
+    <ellipse cx="50" cy="38" rx="45" ry="4" fill="rgba(0,0,0,0.2)" />
+    {/* Tail */}
+    <path d="M10 14 Q2 20 10 26" fill="#5b21b6" />
+    <path d="M11 15 Q5 20 11 25" fill="#7c3aed" />
+    {/* Body outline */}
+    <rect x="8" y="6" width="70" height="28" rx="14" fill="#5b21b6" />
     {/* Body */}
-    <path d="M5 20 Q50 20 88 20" stroke="url(#editorSnakeBodyH)" strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#editorSnakeShadowH)" />
-    {/* Scales */}
-    <path d="M15 20 L20 24 L25 20 L20 16 Z" fill="#15803d" opacity="0.7" />
-    <path d="M35 20 L40 24 L45 20 L40 16 Z" fill="#15803d" opacity="0.7" />
-    <path d="M55 20 L60 24 L65 20 L60 16 Z" fill="#15803d" opacity="0.7" />
-    <path d="M75 20 L80 24 L85 20 L80 16 Z" fill="#15803d" opacity="0.7" />
+    <rect x="10" y="8" width="66" height="24" rx="12" fill="url(#editorSnakeBodyH)" />
+    {/* Body pattern */}
+    <ellipse cx="24" cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
+    <ellipse cx="42" cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
+    <ellipse cx="60" cy="20" rx="6" ry="10" fill="#7c3aed" opacity="0.5" />
+    {/* Belly stripe */}
+    <rect x="15" y="16" width="55" height="8" rx="4" fill="#e9d5ff" opacity="0.4" />
+    {/* Head outline */}
+    <ellipse cx="82" cy="20" rx="14" ry="16" fill="#5b21b6" />
     {/* Head */}
-    <ellipse cx="92" cy="20" rx="9" ry="13" fill="url(#editorSnakeHeadH)" filter="url(#editorSnakeShadowH)" />
+    <ellipse cx="84" cy="20" rx="12" ry="14" fill="url(#editorSnakeBodyH)" />
     {/* Eyes */}
-    <circle cx="94" cy="14" r="3.5" fill="#fef08a" />
-    <circle cx="94" cy="26" r="3.5" fill="#fef08a" />
-    <ellipse cx="94" cy="14" rx="2.5" ry="1.5" fill="#1a1a1a" />
-    <ellipse cx="94" cy="26" rx="2.5" ry="1.5" fill="#1a1a1a" />
+    <ellipse cx="86" cy="13" rx="6" ry="5" fill="#5b21b6" />
+    <ellipse cx="87" cy="13" rx="5" ry="4" fill="url(#editorSnakeEyeH)" />
+    <ellipse cx="88" cy="14" rx="3" ry="2" fill="#1a1a1a" />
+    <circle cx="86" cy="12" r="1.5" fill="white" />
+    <ellipse cx="86" cy="27" rx="6" ry="5" fill="#5b21b6" />
+    <ellipse cx="87" cy="27" rx="5" ry="4" fill="url(#editorSnakeEyeH)" />
+    <ellipse cx="88" cy="28" rx="3" ry="2" fill="#1a1a1a" />
+    <circle cx="86" cy="26" r="1.5" fill="white" />
+    {/* Nostrils */}
+    <circle cx="94" cy="17" r="1.5" fill="#5b21b6" />
+    <circle cx="94" cy="23" r="1.5" fill="#5b21b6" />
     {/* Tongue */}
-    <path d="M100 20 L106 18 M100 20 L106 22" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M96 20 L102 20 M104 18 L102 20 L104 22" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
+    {/* Shine */}
+    <ellipse cx="84" cy="14" rx="3" ry="4" fill="white" opacity="0.3" />
   </svg>
 )
 
@@ -698,7 +771,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     }
     // Snakes are rendered as overlays, not per-cell
     if (isLogCell(col, row)) {
-      return <StumpSVG />
+      return <LogSVG />
     }
     if (isLilyPadCell(col, row)) {
       return <LilyPadSVG />

@@ -250,39 +250,101 @@
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  gap: 4px;
+  gap: 5px;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 8px;
-  border-radius: 12px;
+  background: linear-gradient(145deg, #2a3f5f 0%, #1e2d47 50%, #162236 100%);
+  padding: 10px;
+  border-radius: 14px;
   position: relative;
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.08),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Vignette overlay */
+.grid::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 14px;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 100;
 }
 
 .cell {
-  background: rgba(255, 255, 255, 0.35);
-  border-radius: 6px;
+  background: linear-gradient(145deg,
+    rgba(120, 160, 200, 0.28) 0%,
+    rgba(100, 140, 180, 0.22) 50%,
+    rgba(80, 120, 160, 0.18) 100%);
+  border-radius: 8px;
   aspect-ratio: 1;
-  transition: all 0.2s ease;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Subtle tile variation using nth-child */
+.cell:nth-child(odd) {
+  background: linear-gradient(145deg,
+    rgba(110, 150, 190, 0.26) 0%,
+    rgba(90, 130, 170, 0.20) 50%,
+    rgba(70, 110, 150, 0.16) 100%);
+}
+
+.cell:nth-child(3n) {
+  background: linear-gradient(145deg,
+    rgba(125, 165, 205, 0.30) 0%,
+    rgba(105, 145, 185, 0.24) 50%,
+    rgba(85, 125, 165, 0.20) 100%);
 }
 
 .cell:hover {
-  background: rgba(255, 255, 255, 0.45);
-  transform: scale(1.02);
+  background: linear-gradient(145deg,
+    rgba(140, 180, 220, 0.38) 0%,
+    rgba(120, 160, 200, 0.32) 50%,
+    rgba(100, 140, 180, 0.28) 100%);
+  box-shadow:
+    inset 0 1px 3px rgba(255, 255, 255, 0.2),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.15),
+    0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* Game piece cells */
 .cell-frog {
-  background: rgba(190, 242, 100, 0.5);
+  background: linear-gradient(145deg,
+    rgba(74, 222, 128, 0.4) 0%,
+    rgba(34, 197, 94, 0.35) 50%,
+    rgba(22, 163, 74, 0.3) 100%);
+  box-shadow:
+    inset 0 1px 3px rgba(134, 239, 172, 0.3),
+    inset 0 -2px 3px rgba(22, 101, 52, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .cell-snake {
-  background: #3d5a47;
+  background: linear-gradient(145deg,
+    rgba(34, 197, 94, 0.5) 0%,
+    rgba(22, 163, 74, 0.45) 50%,
+    rgba(22, 101, 52, 0.4) 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(74, 222, 128, 0.3),
+    inset 0 -2px 3px rgba(20, 83, 45, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .snake-overlay {
@@ -291,14 +353,16 @@
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  z-index: 10;
+  z-index: 15;
   cursor: grab;
   touch-action: none;
   user-select: none;
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.4));
 }
 
 .snake-overlay.dragging {
   cursor: grabbing;
+  filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, 0.5));
 }
 
 .snake-svg {
@@ -314,39 +378,66 @@
 }
 
 .cell-log {
-  background: #5c4033;
+  background: linear-gradient(145deg,
+    rgba(180, 83, 9, 0.5) 0%,
+    rgba(146, 64, 14, 0.45) 50%,
+    rgba(120, 53, 15, 0.4) 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(251, 191, 36, 0.25),
+    inset 0 -2px 4px rgba(69, 26, 3, 0.3),
+    0 3px 6px rgba(0, 0, 0, 0.35);
 }
 
 .cell-lilypad {
-  background: rgba(94, 234, 212, 0.4);
+  background: linear-gradient(145deg,
+    rgba(74, 222, 128, 0.45) 0%,
+    rgba(34, 197, 94, 0.38) 50%,
+    rgba(22, 163, 74, 0.32) 100%);
+  box-shadow:
+    inset 0 1px 3px rgba(134, 239, 172, 0.35),
+    inset 0 -2px 3px rgba(22, 101, 52, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
-.lilypad-under {
-  position: absolute;
-  width: 90%;
-  height: 90%;
-  z-index: 5;
+/* Cup piece styling */
+.cell-lilypad .piece-icon {
+  width: 95%;
+  height: 95%;
 }
 
 /* Frog drag highlighting */
 .cell-frog-active {
-  background: rgba(74, 222, 128, 0.5);
-  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.8) inset;
+  background: linear-gradient(145deg,
+    rgba(100, 230, 150, 0.55) 0%,
+    rgba(74, 200, 128, 0.48) 50%,
+    rgba(50, 170, 100, 0.42) 100%);
+  box-shadow:
+    0 0 0 3px rgba(74, 222, 128, 0.85) inset,
+    0 0 12px rgba(74, 222, 128, 0.4);
   z-index: 50;
 }
 
 .cell-valid-dest {
-  background: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8) inset;
+  background: linear-gradient(145deg,
+    rgba(80, 150, 255, 0.45) 0%,
+    rgba(59, 130, 246, 0.38) 50%,
+    rgba(40, 100, 220, 0.32) 100%);
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.85) inset,
+    0 0 12px rgba(59, 130, 246, 0.35);
   animation: pulse 1s ease-in-out infinite;
 }
 
 @keyframes pulse {
   0%, 100% {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.8) inset;
+    box-shadow:
+      0 0 0 3px rgba(59, 130, 246, 0.85) inset,
+      0 0 12px rgba(59, 130, 246, 0.35);
   }
   50% {
-    box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.6) inset;
+    box-shadow:
+      0 0 0 4px rgba(59, 130, 246, 0.7) inset,
+      0 0 16px rgba(59, 130, 246, 0.45);
   }
 }
 
@@ -355,22 +446,52 @@
   touch-action: none;
   user-select: none;
   position: relative;
-  z-index: 20;
+  z-index: 25;
+  filter: drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.4));
+  width: 95%;
+  height: 95%;
 }
 
 .frog-piece.dragging {
   cursor: grabbing;
   position: relative;
+  filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, 0.5));
+}
+
+/* Lily pad stays in place when frog is on it */
+.lilypad-under-frog {
+  position: absolute;
+  top: 2.5%;
+  left: 2.5%;
+  width: 95%;
+  height: 95%;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Frog positioned on top of lily pad - stays in flex flow for centering */
+.frog-on-pad {
+  z-index: 26;
 }
 
 .piece-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 90%;
-  height: 90%;
+  width: 92%;
+  height: 92%;
   font-size: min(10vw, 4rem);
 }
+
+/* Block piece styling - fills most of the cell */
+.cell-log .piece-icon {
+  filter: drop-shadow(2px 4px 5px rgba(0, 0, 0, 0.5));
+  z-index: 10;
+  width: 95%;
+  height: 95%;
+}
+
+/* Cup piece styling - already defined above */
 
 .piece-svg {
   width: 100%;
@@ -467,16 +588,30 @@
   }
 
   .grid {
-    gap: 3px;
-    padding: 6px;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 12px;
+  }
+
+  .grid::before {
+    border-radius: 12px;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35);
   }
 
   .cell {
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
   .piece-icon {
     font-size: min(14vw, 3rem);
+  }
+
+  .frog-piece {
+    filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.3));
+  }
+
+  .snake-overlay {
+    filter: drop-shadow(1px 3px 3px rgba(0, 0, 0, 0.35));
   }
 }
 
@@ -509,8 +644,13 @@
     border-radius: 16px;
   }
 
+  .grid::before {
+    border-radius: 16px;
+    box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.45);
+  }
+
   .cell {
-    border-radius: 8px;
+    border-radius: 10px;
   }
 }
 
