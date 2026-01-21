@@ -442,9 +442,12 @@
   height: 95%;
 }
 
+.frog-piece.selected {
+  transform: scale(1.05);
+}
+
 .frog-piece.dragging {
   cursor: grabbing;
-  position: relative;
   filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, 0.5));
 }
 
