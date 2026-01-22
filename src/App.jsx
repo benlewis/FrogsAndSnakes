@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import LevelEditor from './LevelEditor.jsx'
+import { solveLevel } from './solver.js'
 import {
   isSnakeAt,
   isLogAt,
@@ -655,6 +656,7 @@ function App() {
       setGameState(getInitialState())
       setMoves(0)
       setTime(0)
+      clearHint()
     }
 
     // Re-enable selection rendering after state is cleared
@@ -679,6 +681,11 @@ function App() {
   // Game stats
   const [moves, setMoves] = useState(0)
   const [time, setTime] = useState(0)
+
+  // Hint state
+  const [hintMove, setHintMove] = useState(null)
+  const [hintLoading, setHintLoading] = useState(false)
+  const hintTimerRef = useRef(null)
 
   // Frog selection state - track which frog is selected for tap-to-move
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
@@ -716,12 +723,47 @@ function App() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  const clearHint = () => {
+    setHintMove(null)
+    if (hintTimerRef.current) {
+      clearTimeout(hintTimerRef.current)
+      hintTimerRef.current = null
+    }
+  }
+
   const handleReset = () => {
     setGameState(getInitialState())
     setMoves(0)
     setTime(0)
     setSelectedFrogIndex(null)
     setDraggingFrogIndex(null)
+    clearHint()
+  }
+
+  const handleHint = () => {
+    if (isGameWon || !currentLevel || hintLoading) return
+    clearHint()
+    setHintLoading(true)
+
+    setTimeout(() => {
+      const solverFrogs = frogs.map(f => ({ position: [...f.position], color: f.color }))
+      const result = solveLevel(gridSize, solverFrogs, snakes, logs, lilyPads)
+
+      if (result.solvable && result.path.length > 0) {
+        setHintMove(result.path[0])
+        hintTimerRef.current = setTimeout(() => {
+          setHintMove(null)
+          hintTimerRef.current = null
+        }, 3000)
+      } else if (!result.solvable) {
+        setHintMove({ type: 'unsolvable' })
+        hintTimerRef.current = setTimeout(() => {
+          setHintMove(null)
+          hintTimerRef.current = null
+        }, 2000)
+      }
+      setHintLoading(false)
+    }, 10)
   }
 
   // Snake drag state - track which snake is being dragged
@@ -888,6 +930,7 @@ function App() {
         )
       }))
       setMoves(m => m + 1)
+      clearHint()
     }
 
     setDraggingSnakeIndex(null)
@@ -935,6 +978,7 @@ function App() {
       })
       setMoves(m => m + 1)
       setSelectedFrogIndex(null)
+      clearHint()
       return
     }
 
@@ -997,6 +1041,7 @@ function App() {
               }
             })
             setMoves(m => m + 1)
+            clearHint()
           }
         }
         // Block the click event that follows a drag
@@ -1124,10 +1169,13 @@ function App() {
               const isThisFrogDragging = isFrogCell && validDraggingFrogIndex === content.frogIndex
               const isValidDest = isValidFrogDestination(colIndex, rowIndex)
 
+              const isHintSource = hintMove?.type === 'frog' && hintMove.from[0] === colIndex && hintMove.from[1] === rowIndex
+              const isHintDest = hintMove?.type === 'frog' && hintMove.to[0] === colIndex && hintMove.to[1] === rowIndex
+
               return (
                 <div
                   key={`${colIndex}-${rowIndex}`}
-                  className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidDest ? 'cell-valid-dest' : ''}`}
+                  className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidDest ? 'cell-valid-dest' : ''} ${isHintSource ? 'cell-hint-source' : ''} ${isHintDest ? 'cell-hint-dest' : ''}`}
                   onClick={() => handleCellClick(colIndex, rowIndex)}
                 >
                   {content && content.type === 'frog' && content.hasLilyPad ? (
@@ -1183,7 +1231,7 @@ function App() {
           {snakes.map((snake, index) => (
             <div
               key={`snake-${index}`}
-              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''}`}
+              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${hintMove?.type === 'snake' && hintMove.snakeIdx === index ? 'snake-hint' : ''}`}
               style={getSnakeStyle(snake, index)}
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
             >
@@ -1195,9 +1243,18 @@ function App() {
 
       {/* Stats bar */}
       <div className="stats-bar">
-        <button className="reset-btn" onClick={handleReset}>
-          Reset
-        </button>
+        <div className="stats-bar-actions">
+          <button className="reset-btn" onClick={handleReset}>
+            Reset
+          </button>
+          <button
+            className="hint-btn"
+            onClick={handleHint}
+            disabled={isGameWon || !currentLevel || hintLoading}
+          >
+            {hintLoading ? 'Thinking...' : 'Hint'}
+          </button>
+        </div>
         <div className="stats">
           <span className="stat">
             <span className="stat-label">Time:</span> {formatTime(time)}
@@ -1207,6 +1264,9 @@ function App() {
           </span>
         </div>
       </div>
+      {hintMove?.type === 'unsolvable' && (
+        <div className="hint-feedback">No solution from here!</div>
+      )}
 
       {/* Win message */}
       {isGameWon && (

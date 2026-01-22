@@ -200,6 +200,11 @@
   padding: 0 12px;
 }
 
+.stats-bar-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .reset-btn {
   padding: 10px 20px;
   border: none;
@@ -215,6 +220,28 @@
 .reset-btn:hover {
   background: rgba(239, 68, 68, 1);
   transform: scale(1.05);
+}
+
+.hint-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(251, 191, 36, 0.8);
+  color: #1a1a2e;
+}
+
+.hint-btn:hover:not(:disabled) {
+  background: rgba(251, 191, 36, 1);
+  transform: scale(1.05);
+}
+
+.hint-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .stats {
@@ -398,6 +425,68 @@
       0 0 0 4px rgba(59, 130, 246, 0.7) inset,
       0 0 16px rgba(59, 130, 246, 0.45);
   }
+}
+
+/* Hint highlights */
+.cell.cell-hint-source {
+  background: linear-gradient(145deg,
+    rgba(251, 191, 36, 0.55) 0%,
+    rgba(245, 158, 11, 0.48) 50%,
+    rgba(217, 119, 6, 0.42) 100%) !important;
+  box-shadow:
+    0 0 0 3px rgba(251, 191, 36, 0.85) inset,
+    0 0 14px rgba(251, 191, 36, 0.5) !important;
+  animation: hint-pulse 1.2s ease-in-out infinite;
+  z-index: 50;
+}
+
+.cell.cell-hint-dest {
+  background: linear-gradient(145deg,
+    rgba(251, 191, 36, 0.40) 0%,
+    rgba(245, 158, 11, 0.33) 50%,
+    rgba(217, 119, 6, 0.28) 100%) !important;
+  box-shadow:
+    0 0 0 3px rgba(251, 191, 36, 0.7) inset,
+    0 0 12px rgba(251, 191, 36, 0.35) !important;
+  animation: hint-pulse 1.2s ease-in-out infinite;
+}
+
+.snake-overlay.snake-hint {
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 16px rgba(251, 191, 36, 0.4));
+  animation: hint-pulse-snake 1.2s ease-in-out infinite;
+}
+
+@keyframes hint-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(251, 191, 36, 0.85) inset,
+      0 0 14px rgba(251, 191, 36, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(251, 191, 36, 0.6) inset,
+      0 0 20px rgba(251, 191, 36, 0.7);
+  }
+}
+
+@keyframes hint-pulse-snake {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.8)) drop-shadow(0 0 16px rgba(251, 191, 36, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(251, 191, 36, 1)) drop-shadow(0 0 24px rgba(251, 191, 36, 0.6));
+  }
+}
+
+.hint-feedback {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .frog-piece {
