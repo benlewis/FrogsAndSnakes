@@ -4,6 +4,11 @@ import './LevelEditor.css'
 // API base URL - use relative path for production, localhost for dev
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
 
+// Get date string in local timezone (YYYY-MM-DD format)
+const getLocalDateString = (date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 // Generate array of dates for the next 2 weeks
 const generateDateRange = () => {
   const dates = []
@@ -11,7 +16,7 @@ const generateDateRange = () => {
   for (let i = 0; i < 14; i++) {
     const date = new Date(today)
     date.setDate(today.getDate() + i)
-    dates.push(date.toISOString().split('T')[0])
+    dates.push(getLocalDateString(date))
   }
   return dates
 }
@@ -573,7 +578,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [gridSize, setGridSize] = useState(existingLevel?.gridSize || 5)
   const [difficulty, setDifficulty] = useState(existingLevel?.difficulty || 'easy')
   const [par, setPar] = useState(existingLevel?.par || 3)
-  const [levelDate, setLevelDate] = useState(existingLevel?.date || new Date().toISOString().split('T')[0])
+  const [levelDate, setLevelDate] = useState(existingLevel?.date || getLocalDateString(new Date()))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [checkResult, setCheckResult] = useState(null)
@@ -629,7 +634,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setGridSize(level.gridSize || 5)
     setDifficulty(level.difficulty || 'easy')
     setPar(level.par || 3)
-    setLevelDate(level.date || new Date().toISOString().split('T')[0])
+    setLevelDate(level.date || getLocalDateString(new Date()))
     // Support both old single-frog and new multi-frog format
     if (level.frogs) {
       setFrogs(level.frogs)

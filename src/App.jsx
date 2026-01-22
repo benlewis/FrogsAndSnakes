@@ -552,10 +552,14 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
   )
 }
 
+// Helper to get a date in YYYY-MM-DD format using local timezone
+const getLocalDateString = (date) => {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
 // Helper to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
-  const today = new Date()
-  return today.toISOString().split('T')[0]
+  return getLocalDateString(new Date())
 }
 
 
@@ -628,12 +632,27 @@ function App() {
 
   // Reset game state when level changes
   useEffect(() => {
+    // Temporarily disable rendering of any selection to prevent stale highlights
+    setInitialized(false)
+
+    // Clear all selection state
+    setSelectedFrogIndex(null)
+    setDraggingFrogIndex(null)
+    setFrogDragPos({ x: 0, y: 0 })
+    justFinishedDragRef.current = false
+
     if (currentLevel) {
       setGameState(getInitialState())
       setMoves(0)
       setTime(0)
     }
-  }, [currentLevel?.name, currentLevel?.date, difficulty])
+
+    // Re-enable selection rendering after state is cleared
+    // Use requestAnimationFrame to ensure React has processed the state updates
+    requestAnimationFrame(() => {
+      setInitialized(true)
+    })
+  }, [levels, difficulty, currentDate])
 
   const { frogs, snakes, logs, lilyPads } = gameState
 
@@ -666,6 +685,25 @@ function App() {
   const [moves, setMoves] = useState(0)
   const [time, setTime] = useState(0)
 
+  // Frog selection state - track which frog is selected for tap-to-move
+  const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
+
+  // Frog drag state - track which frog index is being dragged
+  const [draggingFrogIndex, setDraggingFrogIndex] = useState(null)
+  const [frogDragPos, setFrogDragPos] = useState({ x: 0, y: 0 })
+  const frogDragStartRef = useRef({ x: 0, y: 0 })
+  const justFinishedDragRef = useRef(false)
+
+  // Track mount state to prevent showing stale HMR selection
+  const [initialized, setInitialized] = useState(false)
+
+  // Clear selection state on mount (handles HMR stale state)
+  useEffect(() => {
+    setSelectedFrogIndex(null)
+    setDraggingFrogIndex(null)
+    setInitialized(true)
+  }, [])
+
   // Timer effect
   useEffect(() => {
     if (isGameWon) return
@@ -687,20 +725,14 @@ function App() {
     setGameState(getInitialState())
     setMoves(0)
     setTime(0)
+    setSelectedFrogIndex(null)
+    setDraggingFrogIndex(null)
   }
 
   // Snake drag state - track which snake is being dragged
   const [draggingSnakeIndex, setDraggingSnakeIndex] = useState(null)
   const [snakeDragOffset, setSnakeDragOffset] = useState(0)
   const snakeDragStartRef = useRef({ y: 0, x: 0, startPos: 0 })
-
-  // Frog selection state - track which frog is selected for tap-to-move
-  const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
-
-  // Frog drag state - track which frog index is being dragged
-  const [draggingFrogIndex, setDraggingFrogIndex] = useState(null)
-  const [frogDragPos, setFrogDragPos] = useState({ x: 0, y: 0 })
-  const frogDragStartRef = useRef({ x: 0, y: 0, hasMoved: false })
 
   // Check if cell is occupied by any snake
   const isSnakeCell = (col, row) => {
@@ -865,7 +897,12 @@ function App() {
     return validMoves
   }
 
-  const activeFrogIndex = draggingFrogIndex !== null ? draggingFrogIndex : selectedFrogIndex
+  // Validate that selected/dragging frog index is valid for current level
+  // Don't show any selection until after initialization (prevents HMR stale state flash)
+  const validSelectedFrogIndex = initialized && selectedFrogIndex !== null && selectedFrogIndex < frogs.length ? selectedFrogIndex : null
+  const validDraggingFrogIndex = initialized && draggingFrogIndex !== null && draggingFrogIndex < frogs.length ? draggingFrogIndex : null
+
+  const activeFrogIndex = validDraggingFrogIndex !== null ? validDraggingFrogIndex : validSelectedFrogIndex
   const validFrogMoves = activeFrogIndex !== null ? getValidFrogMoves(activeFrogIndex) : []
 
   const isValidFrogDestination = (col, row) => {
@@ -988,18 +1025,30 @@ function App() {
     setSnakeDragOffset(0)
   }
 
-  // Cell click handler for tap-to-select, tap-to-move
+  // Frog click handler for tap-to-select
+  const handleFrogClick = (frogIndex) => {
+    // Skip if we just finished a drag
+    if (justFinishedDragRef.current) {
+      justFinishedDragRef.current = false
+      return
+    }
+    // Toggle selection
+    if (selectedFrogIndex === frogIndex) {
+      setSelectedFrogIndex(null)
+    } else {
+      setSelectedFrogIndex(frogIndex)
+    }
+  }
+
+  // Cell click handler for tap-to-move or deselect
   const handleCellClick = (col, row) => {
     if (isGameWon) return
-
-    const content = getCellContent(col, row)
 
     // If a frog is selected and clicking a valid destination, move the frog
     if (selectedFrogIndex !== null && isValidFrogDestination(col, row)) {
       const frogIdx = selectedFrogIndex
       setGameState(prev => {
         const oldPos = prev.frogs[frogIdx].position
-        // Calculate direction based on movement
         let direction = prev.frogs[frogIdx].direction
         const dx = col - oldPos[0]
         const dy = row - oldPos[1]
@@ -1020,29 +1069,77 @@ function App() {
       return
     }
 
-    // Clicking anywhere (including same frog) deselects
+    // Clicking anywhere else deselects
     setSelectedFrogIndex(null)
   }
 
-  // Frog pointer handlers - support both drag and tap
+  // Frog pointer handlers - for drag only
   const handleFrogPointerDown = (e, frogIndex) => {
     if (isGameWon) return
     e.preventDefault()
-    e.stopPropagation()
-    setDraggingFrogIndex(frogIndex)
-    frogDragStartRef.current = { x: e.clientX, y: e.clientY, hasMoved: false }
-    setFrogDragPos({ x: 0, y: 0 })
-  }
 
-  const handleFrogPointerMove = (e) => {
-    if (draggingFrogIndex === null) return
-    const deltaX = e.clientX - frogDragStartRef.current.x
-    const deltaY = e.clientY - frogDragStartRef.current.y
-    // Mark as moved if dragged more than 5px
-    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-      frogDragStartRef.current.hasMoved = true
+    setDraggingFrogIndex(frogIndex)
+    frogDragStartRef.current = { x: e.clientX, y: e.clientY }
+    setFrogDragPos({ x: 0, y: 0 })
+    let hasDragged = false
+
+    const onMove = (moveEvent) => {
+      const deltaX = moveEvent.clientX - frogDragStartRef.current.x
+      const deltaY = moveEvent.clientY - frogDragStartRef.current.y
+      // Only consider it a drag if moved more than 5 pixels
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        hasDragged = true
+      }
+      setFrogDragPos({ x: deltaX, y: deltaY })
     }
-    setFrogDragPos({ x: deltaX, y: deltaY })
+
+    const onUp = (upEvent) => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+
+      // Only process as drag if there was actual movement
+      if (hasDragged) {
+        const gridRect = gridRef.current?.getBoundingClientRect()
+        if (gridRect) {
+          const cellSize = gridRect.height / gridSize
+          const dropX = upEvent.clientX - gridRect.left
+          const dropY = upEvent.clientY - gridRect.top
+
+          const dropCol = Math.floor(dropX / cellSize)
+          const dropRow = Math.floor(dropY / cellSize)
+
+          const currentValidMoves = getValidFrogMoves(frogIndex)
+          if (currentValidMoves.some(move => move[0] === dropCol && move[1] === dropRow)) {
+            setGameState(prev => {
+              const oldPos = prev.frogs[frogIndex].position
+              let direction = prev.frogs[frogIndex].direction
+              const dx = dropCol - oldPos[0]
+              const dy = dropRow - oldPos[1]
+              if (Math.abs(dx) > Math.abs(dy)) {
+                direction = dx > 0 ? 'right' : 'left'
+              } else {
+                direction = dy > 0 ? 'down' : 'up'
+              }
+              return {
+                ...prev,
+                frogs: prev.frogs.map((f, idx) =>
+                  idx === frogIndex ? { ...f, position: [dropCol, dropRow], direction } : f
+                )
+              }
+            })
+            setMoves(m => m + 1)
+          }
+        }
+        // Block the click event that follows a drag
+        justFinishedDragRef.current = true
+      }
+
+      setDraggingFrogIndex(null)
+      setFrogDragPos({ x: 0, y: 0 })
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
   }
 
   // Event listeners
@@ -1056,71 +1153,6 @@ function App() {
       }
     }
   }, [draggingSnakeIndex, snakeDragOffset, snakes])
-
-  // Frog drag event listeners
-  useEffect(() => {
-    const onPointerMove = (e) => handleFrogPointerMove(e)
-    const onPointerUp = (e) => {
-      if (draggingFrogIndex === null) return
-
-      const hasMoved = frogDragStartRef.current.hasMoved
-
-      // If didn't drag much, treat as a tap to select
-      if (!hasMoved) {
-        setSelectedFrogIndex(draggingFrogIndex)
-        setDraggingFrogIndex(null)
-        setFrogDragPos({ x: 0, y: 0 })
-        return
-      }
-
-      // Handle drag drop
-      const gridRect = gridRef.current?.getBoundingClientRect()
-      if (gridRect) {
-        const cellSize = gridRect.height / gridSize
-        const dropX = e.clientX - gridRect.left
-        const dropY = e.clientY - gridRect.top
-
-        const dropCol = Math.floor(dropX / cellSize)
-        const dropRow = Math.floor(dropY / cellSize)
-
-        if (validFrogMoves.some(move => move[0] === dropCol && move[1] === dropRow)) {
-          const frogIdx = draggingFrogIndex
-          setGameState(prev => {
-            const oldPos = prev.frogs[frogIdx].position
-            // Calculate direction based on movement
-            let direction = prev.frogs[frogIdx].direction
-            const dx = dropCol - oldPos[0]
-            const dy = dropRow - oldPos[1]
-            if (Math.abs(dx) > Math.abs(dy)) {
-              direction = dx > 0 ? 'right' : 'left'
-            } else {
-              direction = dy > 0 ? 'down' : 'up'
-            }
-            return {
-              ...prev,
-              frogs: prev.frogs.map((f, idx) =>
-                idx === frogIdx ? { ...f, position: [dropCol, dropRow], direction } : f
-              )
-            }
-          })
-          setMoves(m => m + 1)
-        }
-      }
-
-      setDraggingFrogIndex(null)
-      setFrogDragPos({ x: 0, y: 0 })
-      setSelectedFrogIndex(null)
-    }
-
-    if (draggingFrogIndex !== null) {
-      window.addEventListener('pointermove', onPointerMove)
-      window.addEventListener('pointerup', onPointerUp)
-      return () => {
-        window.removeEventListener('pointermove', onPointerMove)
-        window.removeEventListener('pointerup', onPointerUp)
-      }
-    }
-  }, [draggingFrogIndex, validFrogMoves, gridSize])
 
   // Show loading or no level message
   if (loading) {
@@ -1176,9 +1208,9 @@ function App() {
           <button
             className="date-nav-btn"
             onClick={() => {
-              const d = new Date(currentDate)
+              const d = new Date(currentDate + 'T00:00:00')
               d.setDate(d.getDate() - 1)
-              setCurrentDate(d.toISOString().split('T')[0])
+              setCurrentDate(getLocalDateString(d))
             }}
           >
             &lt;
@@ -1192,9 +1224,9 @@ function App() {
           <button
             className="date-nav-btn"
             onClick={() => {
-              const d = new Date(currentDate)
+              const d = new Date(currentDate + 'T00:00:00')
               d.setDate(d.getDate() + 1)
-              setCurrentDate(d.toISOString().split('T')[0])
+              setCurrentDate(getLocalDateString(d))
             }}
           >
             &gt;
@@ -1213,14 +1245,14 @@ function App() {
       ) : (
       <>
       <div className="grid-container">
-        <div className="grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, gridTemplateRows: `repeat(${gridSize}, 1fr)` }}>
+        <div key={`${currentDate}-${difficulty}`} className="grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, gridTemplateRows: `repeat(${gridSize}, 1fr)` }}>
           {Array(gridSize).fill(null).map((_, rowIndex) => (
             Array(gridSize).fill(null).map((_, colIndex) => {
               const content = getCellContent(colIndex, rowIndex)
               const snakeCell = isSnakeCell(colIndex, rowIndex)
               const isFrogCell = content?.type === 'frog'
-              const isThisFrogSelected = isFrogCell && selectedFrogIndex === content.frogIndex
-              const isThisFrogDragging = isFrogCell && draggingFrogIndex === content.frogIndex
+              const isThisFrogSelected = isFrogCell && validSelectedFrogIndex === content.frogIndex
+              const isThisFrogDragging = isFrogCell && validDraggingFrogIndex === content.frogIndex
               const isValidDest = isValidFrogDestination(colIndex, rowIndex)
 
               return (
@@ -1238,6 +1270,7 @@ function App() {
                       <span
                         className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''}`}
                         onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
+                        onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                         style={{
                           transform: isThisFrogDragging
                             ? `translate(${frogDragPos.x}px, ${frogDragPos.y}px)`
@@ -1253,6 +1286,7 @@ function App() {
                     <span
                       className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''}`}
                       onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
+                      onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                       style={{
                         transform: isThisFrogDragging
                           ? `translate(${frogDragPos.x}px, ${frogDragPos.y}px)`
