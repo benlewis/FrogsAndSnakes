@@ -656,6 +656,7 @@ function App() {
       setGameState(getInitialState())
       setMoves(0)
       setTime(0)
+      setHintsUsed(0)
       clearHint()
     }
 
@@ -685,6 +686,7 @@ function App() {
   // Hint state
   const [hintMove, setHintMove] = useState(null)
   const [hintLoading, setHintLoading] = useState(false)
+  const [hintsUsed, setHintsUsed] = useState(0)
   const hintTimerRef = useRef(null)
 
   // Frog selection state - track which frog is selected for tap-to-move
@@ -735,6 +737,7 @@ function App() {
     setGameState(getInitialState())
     setMoves(0)
     setTime(0)
+    setHintsUsed(0)
     setSelectedFrogIndex(null)
     setDraggingFrogIndex(null)
     clearHint()
@@ -751,6 +754,7 @@ function App() {
 
       if (result.solvable && result.path.length > 0) {
         setHintMove(result.path[0])
+        setHintsUsed(h => h + 1)
         hintTimerRef.current = setTimeout(() => {
           setHintMove(null)
           hintTimerRef.current = null
@@ -1252,7 +1256,7 @@ function App() {
             onClick={handleHint}
             disabled={isGameWon || !currentLevel || hintLoading}
           >
-            {hintLoading ? 'Thinking...' : 'Hint'}
+            {hintLoading ? 'Thinking...' : hintsUsed > 0 ? `Hint (${hintsUsed})` : 'Hint'}
           </button>
         </div>
         <div className="stats">
@@ -1271,7 +1275,8 @@ function App() {
       {/* Win message */}
       {isGameWon && (
         <button className="win-message" onClick={() => {
-          const shareText = `Frogs & Snakes: I solved ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} in ${moves} Moves and ${formatTime(time)}\n${window.location.origin}`
+          const hintsText = hintsUsed > 0 ? ` (${hintsUsed} Hint${hintsUsed !== 1 ? 's' : ''})` : ''
+          const shareText = `Frogs & Snakes: I solved ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} in ${moves} Moves and ${formatTime(time)}${hintsText}\n${window.location.origin}`
           if (navigator.share) {
             navigator.share({
               text: shareText
