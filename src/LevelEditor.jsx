@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 import './LevelEditor.css'
+import {
+  getValidFrogMoves,
+  getValidSnakeMoves,
+  checkWinCondition
+} from './gameRules.js'
 
 // API base URL - use relative path for production, localhost for dev
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
@@ -340,6 +345,7 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
 }
 
 // Solver using BFS to find minimum moves (supports multiple frogs)
+// Uses shared game rules from gameRules.js
 const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
   if (!frogs || frogs.length === 0 || lilyPads.length < frogs.length) {
     return { solvable: false, moves: -1, reason: 'Not enough lily pads for frogs' }
@@ -350,162 +356,25 @@ const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
     return JSON.stringify({ frogs: frogPositions, snakes: snakePositions })
   }
 
-  // Check if a cell has an obstacle (snake, log, or another frog)
-  const hasObstacle = (col, row, snakePositions, frogPositions, excludeFrogIdx = -1) => {
-    for (const snake of snakePositions) {
-      if (snake.positions.some(p => p[0] === col && p[1] === row)) return true
-    }
-    for (const log of logs) {
-      if (log.positions.some(p => p[0] === col && p[1] === row)) return true
-    }
-    for (let i = 0; i < frogPositions.length; i++) {
-      if (i === excludeFrogIdx) continue
-      if (frogPositions[i][0] === col && frogPositions[i][1] === row) return true
-    }
-    return false
-  }
+  // Build game state object for shared rules (frogs as position arrays for BFS)
+  const buildGameState = (frogPositions, snakePositions) => ({
+    frogs: frogPositions, // position arrays like [[0,0], [1,1]]
+    snakes: snakePositions,
+    logs,
+    lilyPads
+  })
 
-  // Check if frog can land on this cell (empty, no other frog)
-  const canLandOn = (col, row, snakePositions, frogPositions, excludeFrogIdx) => {
-    // Can't land on snakes
-    for (const snake of snakePositions) {
-      if (snake.positions.some(p => p[0] === col && p[1] === row)) return false
-    }
-    // Can't land on logs
-    for (const log of logs) {
-      if (log.positions.some(p => p[0] === col && p[1] === row)) return false
-    }
-    // Can't land on another frog
-    for (let i = 0; i < frogPositions.length; i++) {
-      if (i === excludeFrogIdx) continue
-      if (frogPositions[i][0] === col && frogPositions[i][1] === row) return false
-    }
-    return true
-  }
-
-  // Check if a cell is a lily pad
-  const isLilyPad = (col, row) => {
-    return lilyPads.some(lp => lp.position[0] === col && lp.position[1] === row)
-  }
-
-  // Win condition: all frogs on separate lily pads
-  const isWin = (frogPositions) => {
-    for (let i = 0; i < frogPositions.length; i++) {
-      const [col, row] = frogPositions[i]
-      if (!isLilyPad(col, row)) return false
-      for (let j = i + 1; j < frogPositions.length; j++) {
-        if (frogPositions[j][0] === col && frogPositions[j][1] === row) return false
-      }
-    }
-    return true
-  }
-
-  // Get valid moves for a specific frog
+  // Get frog moves using shared rules
   const getFrogMoves = (frogIdx, frogPositions, snakePositions) => {
-    const moves = []
-    const frog = frogPositions[frogIdx]
-    const directions = [
-      { dc: 1, dr: 0 },
-      { dc: -1, dr: 0 },
-      { dc: 0, dr: 1 },
-      { dc: 0, dr: -1 },
-    ]
-
-    for (const { dc, dr } of directions) {
-      let col = frog[0] + dc
-      let row = frog[1] + dr
-
-      // Check bounds
-      if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) continue
-
-      // Must have an adjacent obstacle to jump over
-      if (!hasObstacle(col, row, snakePositions, frogPositions, frogIdx)) continue
-      // Can't jump over a lily pad (unless another frog is on it)
-      if (isLilyPad(col, row) && !frogPositions.some((f, idx) => idx !== frogIdx && f[0] === col && f[1] === row)) continue
-
-      // Found an obstacle, look for landing spot (skip over consecutive obstacles)
-      col += dc
-      row += dr
-      while (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
-        const onLilyPad = isLilyPad(col, row)
-        const hasFrog = frogPositions.some((f, idx) => idx !== frogIdx && f[0] === col && f[1] === row)
-        const hasSnake = snakePositions.some(s => s.positions.some(p => p[0] === col && p[1] === row))
-        const hasLog = logs.some(l => l.positions.some(p => p[0] === col && p[1] === row))
-
-        // If there's a lily pad here with no other frog, must land here
-        if (onLilyPad && !hasFrog) {
-          moves.push({ frogIdx, newPos: [col, row] })
-          break
-        }
-
-        // Can land on empty cells (no snake, log, or frog)
-        if (!hasSnake && !hasLog && !hasFrog) {
-          moves.push({ frogIdx, newPos: [col, row] })
-          break
-        }
-
-        // Can only continue jumping over snakes, logs, or frogs
-        if (hasSnake || hasLog || hasFrog) {
-          col += dc
-          row += dr
-          continue
-        }
-
-        // Shouldn't reach here, but break just in case
-        break
-      }
-    }
-
-    return moves
+    const gameState = buildGameState(frogPositions, snakePositions)
+    const moves = getValidFrogMoves(frogIdx, gridSize, gameState)
+    return moves.map(pos => ({ frogIdx, newPos: pos }))
   }
 
-  // Get valid snake moves
-  const getSnakeMoves = (snakeIdx, snakePositions, frogPositions) => {
-    const moves = []
-    const snake = snakePositions[snakeIdx]
-    const isVertical = snake.orientation === 'vertical'
-
-    const isCellBlocked = (col, row, excludeSnakeIdx) => {
-      for (const frogPos of frogPositions) {
-        if (frogPos[0] === col && frogPos[1] === row) return true
-      }
-      for (let i = 0; i < snakePositions.length; i++) {
-        if (i === excludeSnakeIdx) continue
-        if (snakePositions[i].positions.some(p => p[0] === col && p[1] === row)) return true
-      }
-      for (const log of logs) {
-        if (log.positions.some(p => p[0] === col && p[1] === row)) return true
-      }
-      return false
-    }
-
-    if (isVertical) {
-      const topRow = Math.min(...snake.positions.map(p => p[1]))
-      const col = snake.positions[0][0]
-      if (topRow > 0 && !isCellBlocked(col, topRow - 1, snakeIdx)) {
-        const newPositions = snake.positions.map(p => [p[0], p[1] - 1])
-        moves.push({ snakeIdx, positions: newPositions, orientation: snake.orientation })
-      }
-      const bottomRow = Math.max(...snake.positions.map(p => p[1]))
-      if (bottomRow < gridSize - 1 && !isCellBlocked(col, bottomRow + 1, snakeIdx)) {
-        const newPositions = snake.positions.map(p => [p[0], p[1] + 1])
-        moves.push({ snakeIdx, positions: newPositions, orientation: snake.orientation })
-      }
-    } else {
-      const leftCol = Math.min(...snake.positions.map(p => p[0]))
-      const row = snake.positions[0][1]
-      if (leftCol > 0 && !isCellBlocked(leftCol - 1, row, snakeIdx)) {
-        const newPositions = snake.positions.map(p => [p[0] - 1, p[1]])
-        moves.push({ snakeIdx, positions: newPositions, orientation: snake.orientation })
-      }
-      const rightCol = Math.max(...snake.positions.map(p => p[0]))
-      if (rightCol < gridSize - 1 && !isCellBlocked(rightCol + 1, row, snakeIdx)) {
-        const newPositions = snake.positions.map(p => [p[0] + 1, p[1]])
-        moves.push({ snakeIdx, positions: newPositions, orientation: snake.orientation })
-      }
-    }
-
-    return moves
+  // Get snake moves using shared rules
+  const getSolverSnakeMoves = (snakeIdx, snakePositions, frogPositions) => {
+    const gameState = buildGameState(frogPositions, snakePositions)
+    return getValidSnakeMoves(snakeIdx, gridSize, gameState)
   }
 
   // BFS
@@ -516,7 +385,7 @@ const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
   const initialFrogs = frogs.map(f => [...f.position])
 
   // Check if already won
-  if (isWin(initialFrogs)) {
+  if (checkWinCondition(initialFrogs, lilyPads)) {
     return { solvable: true, moves: 0 }
   }
 
@@ -540,7 +409,7 @@ const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
         )
 
         // Check win immediately after move
-        if (isWin(newFrogs)) {
+        if (checkWinCondition(newFrogs, lilyPads)) {
           return { solvable: true, moves: moves + 1 }
         }
 
@@ -554,7 +423,7 @@ const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
 
     // Try snake moves
     for (let i = 0; i < currentSnakes.length; i++) {
-      const snakeMoves = getSnakeMoves(i, currentSnakes, currentFrogs)
+      const snakeMoves = getSolverSnakeMoves(i, currentSnakes, currentFrogs)
       for (const move of snakeMoves) {
         const newSnakes = currentSnakes.map((s, idx) =>
           idx === move.snakeIdx
