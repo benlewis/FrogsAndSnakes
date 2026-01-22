@@ -253,6 +253,7 @@
 .stat {
   font-size: 1.1rem;
   color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
 }
 
 .stat-label {
@@ -689,6 +690,20 @@
 
   .snake-overlay {
     filter: drop-shadow(1px 3px 3px rgba(0, 0, 0, 0.35));
+  }
+
+  .reset-btn,
+  .hint-btn {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .stats {
+    gap: 12px;
+  }
+
+  .stat {
+    font-size: 0.9rem;
   }
 }
 
