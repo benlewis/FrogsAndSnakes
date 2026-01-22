@@ -467,33 +467,23 @@
   font-weight: 700;
   background: linear-gradient(135deg, #4ade80, #22d3ee);
   color: #1a1a2e;
+  border: none;
   border-radius: 10px;
   animation: bounce 0.5s ease-in-out infinite alternate;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 12px;
-}
-
-.share-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  border: none;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.2);
-  color: #1a1a2e;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: filter 0.2s;
 }
 
-.share-btn:hover {
-  background: rgba(0, 0, 0, 0.3);
+.win-message:hover {
+  filter: brightness(1.05);
 }
 
-.share-btn:active {
-  transform: scale(0.95);
+.win-message:active {
+  transform: scale(0.98);
 }
 
 .share-icon {
