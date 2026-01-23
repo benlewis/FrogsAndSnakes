@@ -22,7 +22,7 @@ const TUTORIAL_STEPS = [
   { text: 'The goal of the game is to move all of the frogs to a lily pad.', type: 'info', highlightLilyPads: true },
   { text: 'Frogs move by jumping. They must jump over at least one object move in a line.', type: 'info' },
   { text: 'Select the frog and jump to the indicated cell.', type: 'frog', moveIndex: 0 },
-  { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1, snakeTarget: [4, 1] },
+  { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1, snakeTarget: [3, 1] },
   { text: 'Jump the frog over the snake.', type: 'frog', moveIndex: 2 },
   { text: 'Jump the frog to the lily pad!', type: 'frog', moveIndex: 3 },
 ]
