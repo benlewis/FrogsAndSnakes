@@ -182,7 +182,8 @@ function Learn() {
   // Snake drag handlers
   const handleSnakePointerDown = (e, snakeIndex) => {
     if (isGameWon) return
-    if (currentStepDef?.type === 'frog' || currentStepDef?.type === 'info') return
+    if (currentStepDef?.type !== 'snake') return
+    if (currentHint && snakeIndex !== currentHint.snakeIdx) return
     e.preventDefault()
     const snake = snakes[snakeIndex]
     const isVertical = snake.orientation === 'vertical'
@@ -239,6 +240,8 @@ function Learn() {
   // Frog handlers
   const handleFrogClick = (frogIndex) => {
     if (justFinishedDragRef.current) { justFinishedDragRef.current = false; return }
+    // Only allow selecting the hinted frog during frog steps
+    if (currentStepDef?.type === 'frog' && currentHint && frogIndex !== currentHint.frogIdx) return
     setSelectedFrogIndex(selectedFrogIndex === frogIndex ? null : frogIndex)
   }
 
@@ -254,8 +257,9 @@ function Learn() {
 
   const handleCellClick = (col, row) => {
     if (isGameWon) return
-    // Only allow frog moves on frog-move steps or info steps
-    if (currentStepDef?.type === 'snake') { setSelectedFrogIndex(null); return }
+    if (currentStepDef?.type === 'snake' || currentStepDef?.type === 'info') { setSelectedFrogIndex(null); return }
+    // Only allow moving to the hinted destination
+    if (currentHint && (col !== currentHint.to[0] || row !== currentHint.to[1])) { return }
     if (selectedFrogIndex !== null && isValidFrogDestination(col, row)) {
       const oldPos = frogs[selectedFrogIndex].position
       setGameState(prev => {
@@ -274,7 +278,8 @@ function Learn() {
 
   const handleFrogPointerDown = (e, frogIndex) => {
     if (isGameWon) return
-    if (currentStepDef?.type === 'snake') return
+    if (currentStepDef?.type === 'snake' || currentStepDef?.type === 'info') return
+    if (currentStepDef?.type === 'frog' && currentHint && frogIndex !== currentHint.frogIdx) return
     e.preventDefault()
     setDraggingFrogIndex(frogIndex)
     frogDragStartRef.current = { x: e.clientX, y: e.clientY }
@@ -298,7 +303,7 @@ function Learn() {
           const dropCol = Math.floor((upEvent.clientX - gridRect.left) / cellSize)
           const dropRow = Math.floor((upEvent.clientY - gridRect.top) / cellSize)
           const currentValidMoves = calcValidFrogMoves(frogIndex)
-          if (currentValidMoves.some(m => m[0] === dropCol && m[1] === dropRow)) {
+          if (currentValidMoves.some(m => m[0] === dropCol && m[1] === dropRow) && (!currentHint || (dropCol === currentHint.to[0] && dropRow === currentHint.to[1]))) {
             const oldPos = frogs[frogIndex].position
             setGameState(prev => {
               let direction = prev.frogs[frogIndex].direction
@@ -360,10 +365,10 @@ function Learn() {
               const isFrogCell = content?.type === 'frog'
               const isThisFrogSelected = isFrogCell && selectedFrogIndex === content.frogIndex
               const isThisFrogDragging = isFrogCell && draggingFrogIndex === content.frogIndex
-              const isValidDest = isValidFrogDestination(colIndex, rowIndex)
+              const isValidDest = isValidFrogDestination(colIndex, rowIndex) && (!currentHint || (colIndex === currentHint.to[0] && rowIndex === currentHint.to[1]))
 
-              const isHintSource = currentHint?.type === 'frog' && currentHint.from[0] === colIndex && currentHint.from[1] === rowIndex
-              const isHintDest = currentHint?.type === 'frog' && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex
+              const isHintSource = currentHint?.type === 'frog' && selectedFrogIndex === null && currentHint.from[0] === colIndex && currentHint.from[1] === rowIndex
+              const isHintDest = currentHint?.type === 'frog' && selectedFrogIndex === currentHint.frogIdx && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex
 
               return (
                 <div
