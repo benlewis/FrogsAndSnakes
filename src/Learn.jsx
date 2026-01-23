@@ -226,13 +226,9 @@ function Learn() {
             : s
         )
       }))
-      // Check if snake moved to expected position
-      if (currentHint?.type === 'snake') {
-        const expectedPositions = currentHint.to
-        const matches = expectedPositions.every((ep, idx) => ep[0] === newPositions[idx][0] && ep[1] === newPositions[idx][1])
-        if (matches) {
-          setStep(s => s + 1)
-        }
+      // Advance tutorial on any snake move during a snake step
+      if (currentStepDef?.type === 'snake') {
+        setStep(s => s + 1)
       }
     }
     setDraggingSnakeIndex(null)
@@ -246,9 +242,12 @@ function Learn() {
   }
 
   const advanceAfterMove = (type, from, to) => {
-    if (!currentHint || currentHint.type !== type) return
-    if (type === 'frog' && to[0] === currentHint.to[0] && to[1] === currentHint.to[1]) {
-      setStep(s => s + 1)
+    if (!currentStepDef || currentStepDef.type !== type) return
+    if (type === 'frog') {
+      if (!currentHint || (to[0] === currentHint.to[0] && to[1] === currentHint.to[1])) {
+        setStep(s => s + 1)
+        setSelectedFrogIndex(null)
+      }
     }
   }
 
