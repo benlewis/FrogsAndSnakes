@@ -22,7 +22,7 @@ const TUTORIAL_STEPS = [
   { text: 'The goal of the game is to move all of the frogs to a lily pad.', type: 'info', highlightLilyPads: true },
   { text: 'Frogs move by jumping. They must jump over at least one object and only move in a line.', type: 'info' },
   { text: 'Select the frog and jump to the indicated cell.', type: 'frog', moveIndex: 0 },
-  { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1 },
+  { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1, snakeTarget: [4, 1] },
   { text: 'Jump the frog over the snake.', type: 'frog', moveIndex: 2 },
   { text: 'Jump the frog to the lily pad!', type: 'frog', moveIndex: 3 },
 ]
@@ -105,9 +105,35 @@ function Learn() {
   const gameStateForRules = { frogs, snakes, logs, lilyPads }
   const isGameWon = frogs.length > 0 && checkWinCondition(frogs, lilyPads)
 
-  // Current step's expected move from the solution path
+  // Current step's expected move
   const currentStepDef = TUTORIAL_STEPS[step]
-  const currentHint = currentStepDef?.moveIndex !== undefined ? solutionPath[currentStepDef.moveIndex] : null
+  const currentHint = (() => {
+    if (!currentStepDef || currentStepDef.moveIndex === undefined) return null
+    // First frog step uses pre-computed path
+    if (currentStepDef.moveIndex === 0) return solutionPath[0] || null
+    // Snake step with target override
+    if (currentStepDef.type === 'snake' && currentStepDef.snakeTarget) {
+      const snake = snakes[0]
+      if (!snake) return null
+      const isVertical = snake.orientation === 'vertical'
+      const targetPos = currentStepDef.snakeTarget
+      // Compute snake destination positions with head at target
+      const delta = isVertical
+        ? targetPos[1] - snake.positions[0][1]
+        : targetPos[0] - snake.positions[0][0]
+      const to = snake.positions.map(([c, r]) => isVertical ? [c, r + delta] : [c + delta, r])
+      return { type: 'snake', snakeIdx: 0, from: snake.positions.map(p => [...p]), to }
+    }
+    // Later frog steps: solve from current game state
+    if (currentStepDef.type === 'frog') {
+      const solverFrogs = frogs.map(f => ({ position: [...f.position], color: f.color }))
+      const result = solveLevel(gridSize, solverFrogs, snakes, logs, lilyPads)
+      if (result.solvable && result.path.length > 0) {
+        return result.path[0]
+      }
+    }
+    return null
+  })()
 
   // Selection/drag state
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
@@ -368,7 +394,7 @@ function Learn() {
               const isValidDest = isValidFrogDestination(colIndex, rowIndex) && (!currentHint || (colIndex === currentHint.to[0] && rowIndex === currentHint.to[1]))
 
               const isHintSource = currentHint?.type === 'frog' && selectedFrogIndex === null && currentHint.from[0] === colIndex && currentHint.from[1] === rowIndex
-              const isSnakeHeadDest = currentHint?.type === 'snake' && currentHint.to.some(p => p[0] === colIndex && p[1] === rowIndex) && !currentHint.from.some(p => p[0] === colIndex && p[1] === rowIndex)
+              const isSnakeHeadDest = currentStepDef?.snakeTarget && currentStepDef.snakeTarget[0] === colIndex && currentStepDef.snakeTarget[1] === rowIndex
               const isHintDest = (currentHint?.type === 'frog' && selectedFrogIndex === currentHint.frogIdx && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex)
                 || isSnakeHeadDest
                 || (currentStepDef?.highlightLilyPads && (content?.type === 'lilypad' || content?.hasLilyPad))
