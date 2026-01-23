@@ -23,7 +23,8 @@ const TUTORIAL_STEPS = [
   { text: 'Frogs move by jumping. They must jump over at least one object and only move in a line.', type: 'info' },
   { text: 'Select the frog and jump to the indicated cell.', type: 'frog', moveIndex: 0 },
   { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1 },
-  { text: 'Jump the frog to the lily pad!', type: 'frog', moveIndex: 2 },
+  { text: 'Jump the frog over the snake.', type: 'frog', moveIndex: 2 },
+  { text: 'Jump the frog to the lily pad!', type: 'frog', moveIndex: 3 },
 ]
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
