@@ -80,23 +80,21 @@
   border-radius: 12px;
 }
 
-.help-btn {
-  width: 32px;
-  height: 32px;
+.learn-btn {
+  padding: 8px 14px;
   border: none;
-  border-radius: 50%;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.8);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.help-btn:hover {
+.learn-btn:hover {
   background: rgba(255, 255, 255, 0.25);
   color: #ffffff;
 }
@@ -654,10 +652,9 @@
     font-size: 0.9rem;
   }
 
-  .help-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
+  .learn-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
   }
 
   .grid-container {

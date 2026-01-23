@@ -1,0 +1,47 @@
+.learn-page .grid-container {
+  margin-top: 16px;
+}
+
+.learn-controls {
+  margin-top: 16px;
+}
+
+.learn-win-message {
+  margin-top: 16px;
+  padding: 10px 24px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+  color: #1a1a2e;
+  border-radius: 10px;
+  animation: bounce 0.5s ease-in-out infinite alternate;
+}
+
+.learn-instructions {
+  margin-top: 20px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+.learn-instructions p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.1rem;
+  line-height: 1.6;
+}
+
+.learn-back-link {
+  margin-top: 20px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.learn-back-link:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
