@@ -117,10 +117,11 @@ function Learn() {
       if (!snake) return null
       const isVertical = snake.orientation === 'vertical'
       const targetPos = currentStepDef.snakeTarget
-      // Compute snake destination positions with head at target
+      // Compute delta so the head (last position) ends at target
+      const head = snake.positions[snake.positions.length - 1]
       const delta = isVertical
-        ? targetPos[1] - snake.positions[0][1]
-        : targetPos[0] - snake.positions[0][0]
+        ? targetPos[1] - head[1]
+        : targetPos[0] - head[0]
       const to = snake.positions.map(([c, r]) => isVertical ? [c, r + delta] : [c + delta, r])
       return { type: 'snake', snakeIdx: 0, from: snake.positions.map(p => [...p]), to }
     }
@@ -227,9 +228,10 @@ function Learn() {
     const delta = isVertical ? e.clientY - snakeDragStartRef.current.y : e.clientX - snakeDragStartRef.current.x
     // Lock drag to exact target position if snakeTarget is set
     if (currentStepDef?.snakeTarget) {
+      const head = snake.positions[snake.positions.length - 1]
       const targetDelta = isVertical
-        ? (currentStepDef.snakeTarget[1] - snake.positions[0][1]) * cellSize
-        : (currentStepDef.snakeTarget[0] - snake.positions[0][0]) * cellSize
+        ? (currentStepDef.snakeTarget[1] - head[1]) * cellSize
+        : (currentStepDef.snakeTarget[0] - head[0]) * cellSize
       const clamped = targetDelta > 0
         ? Math.max(0, Math.min(targetDelta, delta))
         : Math.min(0, Math.max(targetDelta, delta))
@@ -256,9 +258,10 @@ function Learn() {
     const cellSize = getCellSize()
     // If snakeTarget is set, snap to exact target position
     if (currentStepDef?.snakeTarget) {
+      const head = snake.positions[snake.positions.length - 1]
       const targetDelta = isVertical
-        ? currentStepDef.snakeTarget[1] - snake.positions[0][1]
-        : currentStepDef.snakeTarget[0] - snake.positions[0][0]
+        ? currentStepDef.snakeTarget[1] - head[1]
+        : currentStepDef.snakeTarget[0] - head[0]
       const draggedCells = Math.round(snakeDragOffset / cellSize)
       if (draggedCells === targetDelta && targetDelta !== 0) {
         const newPositions = snake.positions.map(([col, row]) => isVertical ? [col, row + targetDelta] : [col + targetDelta, row])
