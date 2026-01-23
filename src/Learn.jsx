@@ -19,7 +19,7 @@ import {
 } from './gameRules.js'
 
 const TUTORIAL_STEPS = [
-  { text: 'The goal of the game is to move all of the frogs to a lily pad.', type: 'info' },
+  { text: 'The goal of the game is to move all of the frogs to a lily pad.', type: 'info', highlightLilyPads: true },
   { text: 'Frogs move by jumping. They must jump over at least one object and only move in a line.', type: 'info' },
   { text: 'Select the frog and jump to the indicated cell.', type: 'frog', moveIndex: 0 },
   { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1 },
@@ -368,8 +368,10 @@ function Learn() {
               const isValidDest = isValidFrogDestination(colIndex, rowIndex) && (!currentHint || (colIndex === currentHint.to[0] && rowIndex === currentHint.to[1]))
 
               const isHintSource = currentHint?.type === 'frog' && selectedFrogIndex === null && currentHint.from[0] === colIndex && currentHint.from[1] === rowIndex
+              const isSnakeHeadDest = currentHint?.type === 'snake' && currentHint.to.some(p => p[0] === colIndex && p[1] === rowIndex) && !currentHint.from.some(p => p[0] === colIndex && p[1] === rowIndex)
               const isHintDest = (currentHint?.type === 'frog' && selectedFrogIndex === currentHint.frogIdx && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex)
-                || (currentHint?.type === 'snake' && currentHint.to.some(p => p[0] === colIndex && p[1] === rowIndex))
+                || isSnakeHeadDest
+                || (currentStepDef?.highlightLilyPads && (content?.type === 'lilypad' || content?.hasLilyPad))
 
               return (
                 <div
