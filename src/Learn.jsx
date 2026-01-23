@@ -54,22 +54,14 @@ function Learn() {
 
   const gridSize = level?.gridSize || 5
 
+  // Override frog start position for tutorial
+  const TUTORIAL_FROG_START = [3, 3]
+
   const getInitialState = () => {
     if (!level) {
       return { frogs: [{ position: [0, 0], color: 'green', direction: 'up' }], snakes: [], logs: [], lilyPads: [] }
     }
-    let frogs
-    if (level.frogs) {
-      frogs = level.frogs.map(f => ({
-        position: [...f.position],
-        color: f.color || 'green',
-        direction: 'up'
-      }))
-    } else if (level.frog) {
-      frogs = [{ position: [...level.frog.position], color: 'green', direction: 'up' }]
-    } else {
-      frogs = [{ position: [0, 0], color: 'green', direction: 'up' }]
-    }
+    const frogs = [{ position: [...TUTORIAL_FROG_START], color: 'green', direction: 'up' }]
     return {
       frogs,
       snakes: level.snakes.map(s => ({
@@ -93,11 +85,8 @@ function Learn() {
     if (level) {
       setGameState(getInitialState())
       setStep(0)
-      // Compute solution path for guided steps
-      const solverFrogs = (level.frogs || [{ position: level.frog?.position }]).map(f => ({
-        position: [...f.position],
-        color: f.color || 'green'
-      }))
+      // Compute solution path from tutorial start position
+      const solverFrogs = [{ position: [...TUTORIAL_FROG_START], color: 'green' }]
       const result = solveLevel(
         level.gridSize || 5,
         solverFrogs,
