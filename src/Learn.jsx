@@ -20,7 +20,7 @@ import {
 
 const TUTORIAL_STEPS = [
   { text: 'The goal of the game is to move all of the frogs to a lily pad.', type: 'info', highlightLilyPads: true },
-  { text: 'Frogs move by jumping. They must jump over at least one object and only move in a line.', type: 'info' },
+  { text: 'Frogs move by jumping. They must jump over at least one object move in a line.', type: 'info' },
   { text: 'Select the frog and jump to the indicated cell.', type: 'frog', moveIndex: 0 },
   { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1, snakeTarget: [4, 1] },
   { text: 'Jump the frog over the snake.', type: 'frog', moveIndex: 2 },
@@ -225,6 +225,17 @@ function Learn() {
     const isVertical = snake.orientation === 'vertical'
     const cellSize = getCellSize()
     const delta = isVertical ? e.clientY - snakeDragStartRef.current.y : e.clientX - snakeDragStartRef.current.x
+    // Lock drag to exact target position if snakeTarget is set
+    if (currentStepDef?.snakeTarget) {
+      const targetDelta = isVertical
+        ? (currentStepDef.snakeTarget[1] - snake.positions[0][1]) * cellSize
+        : (currentStepDef.snakeTarget[0] - snake.positions[0][0]) * cellSize
+      const clamped = targetDelta > 0
+        ? Math.max(0, Math.min(targetDelta, delta))
+        : Math.min(0, Math.max(targetDelta, delta))
+      setSnakeDragOffset(clamped)
+      return
+    }
     const snakeLength = snake.positions.length
     const currentPos = snakeDragStartRef.current.startPos
     const minBoundOffset = (0 - currentPos) * cellSize
@@ -243,6 +254,26 @@ function Learn() {
     const snake = snakes[draggingSnakeIndex]
     const isVertical = snake.orientation === 'vertical'
     const cellSize = getCellSize()
+    // If snakeTarget is set, snap to exact target position
+    if (currentStepDef?.snakeTarget) {
+      const targetDelta = isVertical
+        ? currentStepDef.snakeTarget[1] - snake.positions[0][1]
+        : currentStepDef.snakeTarget[0] - snake.positions[0][0]
+      const draggedCells = Math.round(snakeDragOffset / cellSize)
+      if (draggedCells === targetDelta && targetDelta !== 0) {
+        const newPositions = snake.positions.map(([col, row]) => isVertical ? [col, row + targetDelta] : [col + targetDelta, row])
+        setGameState(prev => ({
+          ...prev,
+          snakes: prev.snakes.map((s, i) =>
+            i === draggingSnakeIndex ? { ...s, positions: newPositions } : s
+          )
+        }))
+        setStep(s => s + 1)
+      }
+      setDraggingSnakeIndex(null)
+      setSnakeDragOffset(0)
+      return
+    }
     const posDelta = Math.round(snakeDragOffset / cellSize)
     if (posDelta !== 0) {
       const newPositions = snake.positions.map(([col, row]) => isVertical ? [col, row + posDelta] : [col + posDelta, row])
@@ -254,7 +285,6 @@ function Learn() {
             : s
         )
       }))
-      // Advance tutorial on any snake move during a snake step
       if (currentStepDef?.type === 'snake') {
         setStep(s => s + 1)
       }
