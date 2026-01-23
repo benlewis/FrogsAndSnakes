@@ -368,7 +368,8 @@ function Learn() {
               const isValidDest = isValidFrogDestination(colIndex, rowIndex) && (!currentHint || (colIndex === currentHint.to[0] && rowIndex === currentHint.to[1]))
 
               const isHintSource = currentHint?.type === 'frog' && selectedFrogIndex === null && currentHint.from[0] === colIndex && currentHint.from[1] === rowIndex
-              const isHintDest = currentHint?.type === 'frog' && selectedFrogIndex === currentHint.frogIdx && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex
+              const isHintDest = (currentHint?.type === 'frog' && selectedFrogIndex === currentHint.frogIdx && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex)
+                || (currentHint?.type === 'snake' && currentHint.to.some(p => p[0] === colIndex && p[1] === rowIndex))
 
               return (
                 <div
