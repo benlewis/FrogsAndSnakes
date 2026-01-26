@@ -592,40 +592,42 @@ function App() {
             Hard
           </button>
         </div>
-        <a className="learn-btn" href="/learn">Learn to Play</a>
       </div>
-      {import.meta.env.DEV ? (
-        <div className="date-picker-row">
-          <button
-            className="date-nav-btn"
-            onClick={() => {
-              const d = new Date(currentDate + 'T00:00:00')
-              d.setDate(d.getDate() - 1)
-              setCurrentDate(getLocalDateString(d))
-            }}
-          >
-            &lt;
-          </button>
-          <input
-            type="date"
-            className="date-picker"
-            value={currentDate}
-            onChange={(e) => setCurrentDate(e.target.value)}
-          />
-          <button
-            className="date-nav-btn"
-            onClick={() => {
-              const d = new Date(currentDate + 'T00:00:00')
-              d.setDate(d.getDate() + 1)
-              setCurrentDate(getLocalDateString(d))
-            }}
-          >
-            &gt;
-          </button>
-        </div>
-      ) : (
-        <div className="date-display">{formattedDate}</div>
-      )}
+      <div className="date-row">
+        {import.meta.env.DEV ? (
+          <div className="date-picker-row">
+            <button
+              className="date-nav-btn"
+              onClick={() => {
+                const d = new Date(currentDate + 'T00:00:00')
+                d.setDate(d.getDate() - 1)
+                setCurrentDate(getLocalDateString(d))
+              }}
+            >
+              &lt;
+            </button>
+            <input
+              type="date"
+              className="date-picker"
+              value={currentDate}
+              onChange={(e) => setCurrentDate(e.target.value)}
+            />
+            <button
+              className="date-nav-btn"
+              onClick={() => {
+                const d = new Date(currentDate + 'T00:00:00')
+                d.setDate(d.getDate() + 1)
+                setCurrentDate(getLocalDateString(d))
+              }}
+            >
+              &gt;
+            </button>
+          </div>
+        ) : (
+          <div className="date-display">{formattedDate}</div>
+        )}
+        <a className="learn-btn" href="/learn">Learn</a>
+      </div>
 
       {!currentLevel ? (
         <div className="no-level-message">
