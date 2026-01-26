@@ -580,6 +580,11 @@
   height: 20px;
 }
 
+.next-arrow {
+  font-size: 1.5rem;
+  margin-left: 4px;
+}
+
 .next-level-btn {
   padding: 10px 24px;
   border: none;

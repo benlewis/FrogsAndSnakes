@@ -45,6 +45,7 @@ function App() {
   useEffect(() => {
     const fetchLevels = async () => {
       setLoading(true)
+      setCompletedLevels({}) // Reset completed levels when date changes
       try {
         const response = await fetch(`${API_BASE}/api/levels?date=${currentDate}`)
         if (response.ok) {
@@ -141,6 +142,19 @@ function App() {
   // Game stats
   const [moves, setMoves] = useState(0)
   const [time, setTime] = useState(0)
+
+  // Track completed levels with their stats for the current date
+  const [completedLevels, setCompletedLevels] = useState({})
+
+  // Save stats when a level is won (only first time)
+  useEffect(() => {
+    if (isGameWon && !completedLevels[difficulty]) {
+      setCompletedLevels(prev => ({
+        ...prev,
+        [difficulty]: { moves, time, hints: hintsUsed }
+      }))
+    }
+  }, [isGameWon])
 
   // Hint state
   const [hintMove, setHintMove] = useState(null)
@@ -732,14 +746,31 @@ function App() {
       )}
 
       {/* Win message */}
-      {isGameWon && (
+      {isGameWon && difficulty !== 'hard' && (
         <button className="win-message" onClick={() => {
-          const hintsText = hintsUsed > 0 ? ` (${hintsUsed} Hint${hintsUsed !== 1 ? 's' : ''})` : ''
-          const shareText = `Frogs & Snakes: I solved ${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} in ${moves} Moves and ${formatTime(time)}${hintsText}\n${window.location.origin}`
+          const nextDifficulty = difficulty === 'easy' ? 'medium' : 'hard'
+          setDifficulty(nextDifficulty)
+        }}>
+          <span>You Win!</span>
+          <span className="next-arrow">→</span>
+        </button>
+      )}
+      {isGameWon && difficulty === 'hard' && (
+        <button className="win-message" onClick={() => {
+          const allStats = { ...completedLevels, [difficulty]: { moves, time, hints: hintsUsed } }
+          const formatStats = (d) => {
+            const s = allStats[d]
+            if (!s) return null
+            const hintsText = s.hints > 0 ? ` (${s.hints} hint${s.hints !== 1 ? 's' : ''})` : ''
+            return `${d.charAt(0).toUpperCase() + d.slice(1)}: ${s.moves} moves${hintsText}`
+          }
+          const lines = ['easy', 'medium', 'hard'].map(formatStats).filter(Boolean)
+          const totalMoves = ['easy', 'medium', 'hard'].reduce((sum, d) => sum + (allStats[d]?.moves || 0), 0)
+          const totalHints = ['easy', 'medium', 'hard'].reduce((sum, d) => sum + (allStats[d]?.hints || 0), 0)
+          const totalHintsText = totalHints > 0 ? `, ${totalHints} hint${totalHints !== 1 ? 's' : ''}` : ''
+          const shareText = `🐸 Frogs & Snakes\n${lines.join('\n')}\nTotal: ${totalMoves} moves${totalHintsText}\n${window.location.origin}`
           if (navigator.share) {
-            navigator.share({
-              text: shareText
-            }).catch(() => {})
+            navigator.share({ text: shareText }).catch(() => {})
           } else {
             navigator.clipboard.writeText(shareText)
             alert('Copied to clipboard!')
