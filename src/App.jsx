@@ -544,6 +544,11 @@ function App() {
   })
 
   return (
+    <>
+    <div className="rotate-message">
+      <div className="rotate-icon">📱</div>
+      <div className="rotate-text">Please rotate your device to portrait mode</div>
+    </div>
     <div className="app">
       <h1 className="title">Frogs And Snakes</h1>
 
@@ -783,6 +788,7 @@ function App() {
       )}
 
     </div>
+    </>
   )
 }
 

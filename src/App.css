@@ -1,3 +1,48 @@
+/* Rotate message - hidden by default, shown in landscape on small screens */
+.rotate-message {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #1a1a2e;
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 20px;
+}
+
+.rotate-icon {
+  font-size: 4rem;
+  animation: rotate-hint 2s ease-in-out infinite;
+}
+
+@keyframes rotate-hint {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-20deg); }
+  75% { transform: rotate(20deg); }
+}
+
+.rotate-text {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  max-width: 280px;
+}
+
+/* Show rotate message and hide app in landscape on small screens */
+@media (orientation: landscape) and (max-height: 500px) {
+  .rotate-message {
+    display: flex;
+  }
+  .app {
+    display: none;
+  }
+}
+
 .app {
   display: flex;
   flex-direction: column;
