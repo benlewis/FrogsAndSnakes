@@ -116,7 +116,6 @@ function App() {
     if (currentLevel) {
       setGameState(getInitialState())
       setMoves(0)
-      setTime(0)
       setHintsUsed(0)
       clearHint()
     }
@@ -141,7 +140,6 @@ function App() {
 
   // Game stats
   const [moves, setMoves] = useState(0)
-  const [time, setTime] = useState(0)
 
   // Track completed levels with their stats for the current date
   const [completedLevels, setCompletedLevels] = useState({})
@@ -151,7 +149,7 @@ function App() {
     if (isGameWon && !completedLevels[difficulty]) {
       setCompletedLevels(prev => ({
         ...prev,
-        [difficulty]: { moves, time, hints: hintsUsed }
+        [difficulty]: { moves, hints: hintsUsed }
       }))
     }
   }, [isGameWon])
@@ -181,23 +179,6 @@ function App() {
     setInitialized(true)
   }, [])
 
-  // Timer effect
-  useEffect(() => {
-    if (isGameWon) return
-
-    const interval = setInterval(() => {
-      setTime(t => t + 1)
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [isGameWon])
-
-  const formatTime = (seconds) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-
   const clearHint = () => {
     setHintMove(null)
     if (hintTimerRef.current) {
@@ -209,7 +190,6 @@ function App() {
   const handleReset = () => {
     setGameState(getInitialState())
     setMoves(0)
-    setTime(0)
     setHintsUsed(0)
     setSelectedFrogIndex(null)
     setDraggingFrogIndex(null)
@@ -736,9 +716,6 @@ function App() {
         </div>
         <div className="stats">
           <span className="stat">
-            <span className="stat-label">Time:</span> {formatTime(time)}
-          </span>
-          <span className="stat">
             <span className="stat-label">Moves:</span> {moves}
           </span>
         </div>
@@ -759,7 +736,7 @@ function App() {
       )}
       {isGameWon && difficulty === 'hard' && (
         <button className="win-message" onClick={() => {
-          const allStats = { ...completedLevels, [difficulty]: { moves, time, hints: hintsUsed } }
+          const allStats = { ...completedLevels, [difficulty]: { moves, hints: hintsUsed } }
           const formatStats = (d) => {
             const s = allStats[d]
             if (!s) return null
