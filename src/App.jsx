@@ -120,7 +120,10 @@ function App() {
 
   const [gameState, setGameState] = useState(getInitialState)
 
-  // Reset game state when level changes
+  // Cookie key for current game state
+  const gameStateKey = `game_${currentDate}_${difficulty}`
+
+  // Reset game state when level changes (or restore from cookie if available)
   useEffect(() => {
     // Temporarily disable rendering of any selection to prevent stale highlights
     setInitialized(false)
@@ -132,9 +135,17 @@ function App() {
     justFinishedDragRef.current = false
 
     if (currentLevel) {
-      setGameState(getInitialState())
-      setMoves(0)
-      setHintsUsed(0)
+      // Try to restore saved game state
+      const saved = getCookie(gameStateKey)
+      if (saved && saved.gameState) {
+        setGameState(saved.gameState)
+        setMoves(saved.moves || 0)
+        setHintsUsed(saved.hints || 0)
+      } else {
+        setGameState(getInitialState())
+        setMoves(0)
+        setHintsUsed(0)
+      }
       clearHint()
     }
 
@@ -173,11 +184,15 @@ function App() {
 
   // Save stats when a level is won (only first time)
   useEffect(() => {
-    if (isGameWon && !completedLevels[difficulty]) {
-      setCompletedLevels(prev => ({
-        ...prev,
-        [difficulty]: { moves, hints: hintsUsed }
-      }))
+    if (isGameWon) {
+      // Clear the in-progress game state cookie since level is complete
+      setCookie(gameStateKey, null)
+      if (!completedLevels[difficulty]) {
+        setCompletedLevels(prev => ({
+          ...prev,
+          [difficulty]: { moves, hints: hintsUsed }
+        }))
+      }
     }
   }, [isGameWon])
 
@@ -186,6 +201,13 @@ function App() {
   const [hintLoading, setHintLoading] = useState(false)
   const [hintsUsed, setHintsUsed] = useState(0)
   const hintTimerRef = useRef(null)
+
+  // Save game state to cookie whenever it changes (but not when game is won)
+  useEffect(() => {
+    if (currentLevel && !isGameWon) {
+      setCookie(gameStateKey, { gameState, moves, hints: hintsUsed })
+    }
+  }, [gameState, moves, hintsUsed, gameStateKey, isGameWon, currentLevel])
 
   // Frog selection state - track which frog is selected for tap-to-move
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
