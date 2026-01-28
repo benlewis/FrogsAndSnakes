@@ -814,7 +814,7 @@ function App() {
                 else if (hasLilyPad) line += '🪷'
                 else if (hasSnake) line += '🐍'
                 else if (hasLog) line += '🪵'
-                else line += '⬜'
+                else line += '🟦'
               }
               gridLines.push(line)
             }
