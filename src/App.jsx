@@ -53,11 +53,18 @@ const getCookie = (name) => {
 
 
 function App() {
-  const [difficulty, setDifficulty] = useState('easy')
+  const [currentDate, setCurrentDate] = useState(getTodayDate())
+  const [difficulty, setDifficulty] = useState(() => {
+    return getCookie(`difficulty_${getTodayDate()}`) || 'easy'
+  })
   const [levels, setLevels] = useState({})
   const [loading, setLoading] = useState(true)
-  const [currentDate, setCurrentDate] = useState(getTodayDate())
   const gridRef = useRef(null)
+
+  // Save difficulty to cookie when it changes
+  useEffect(() => {
+    setCookie(`difficulty_${currentDate}`, difficulty)
+  }, [difficulty, currentDate])
 
   // Fetch levels for current date from Vercel Blob
   useEffect(() => {
@@ -183,16 +190,13 @@ function App() {
   }, [completedLevels, currentDate])
 
   // Save stats when a level is won (only first time)
+  // Save stats when a level is won (only first time)
   useEffect(() => {
-    if (isGameWon) {
-      // Clear the in-progress game state cookie since level is complete
-      setCookie(gameStateKey, null)
-      if (!completedLevels[difficulty]) {
-        setCompletedLevels(prev => ({
-          ...prev,
-          [difficulty]: { moves, hints: hintsUsed }
-        }))
-      }
+    if (isGameWon && !completedLevels[difficulty]) {
+      setCompletedLevels(prev => ({
+        ...prev,
+        [difficulty]: { moves, hints: hintsUsed }
+      }))
     }
   }, [isGameWon])
 
@@ -203,11 +207,12 @@ function App() {
   const hintTimerRef = useRef(null)
 
   // Save game state to cookie whenever it changes (but not when game is won)
+  // Save game state to cookie whenever it changes (including won state)
   useEffect(() => {
-    if (currentLevel && !isGameWon) {
+    if (currentLevel) {
       setCookie(gameStateKey, { gameState, moves, hints: hintsUsed })
     }
-  }, [gameState, moves, hintsUsed, gameStateKey, isGameWon, currentLevel])
+  }, [gameState, moves, hintsUsed, gameStateKey, currentLevel])
 
   // Frog selection state - track which frog is selected for tap-to-move
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
