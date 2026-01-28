@@ -784,41 +784,32 @@ function App() {
       )}
 
       {/* Win message */}
-      {isGameWon && difficulty !== 'hard' && (
-        <button className="win-message" onClick={() => {
-          const nextDifficulty = difficulty === 'easy' ? 'medium' : 'hard'
-          setDifficulty(nextDifficulty)
-        }}>
-          <span>You Win!</span>
-          <span className="next-arrow">→</span>
-        </button>
-      )}
-      {isGameWon && difficulty === 'hard' && (
-        <button className="win-message" onClick={() => {
-          const allStats = { ...completedLevels, [difficulty]: { moves, hints: hintsUsed } }
-          const formatStats = (d) => {
-            const s = allStats[d]
-            if (!s) return null
-            const hintsText = s.hints > 0 ? ` (${s.hints} hint${s.hints !== 1 ? 's' : ''})` : ''
-            return `${d.charAt(0).toUpperCase() + d.slice(1)}: ${s.moves} moves${hintsText}`
-          }
-          const lines = ['easy', 'medium', 'hard'].map(formatStats).filter(Boolean)
-          const totalMoves = ['easy', 'medium', 'hard'].reduce((sum, d) => sum + (allStats[d]?.moves || 0), 0)
-          const totalHints = ['easy', 'medium', 'hard'].reduce((sum, d) => sum + (allStats[d]?.hints || 0), 0)
-          const totalHintsText = totalHints > 0 ? `, ${totalHints} hint${totalHints !== 1 ? 's' : ''}` : ''
-          const shareText = `🐸 Frogs & Snakes\n${lines.join('\n')}\nTotal: ${totalMoves} moves${totalHintsText}\n${window.location.origin}`
-          if (navigator.share) {
-            navigator.share({ text: shareText }).catch(() => {})
-          } else {
-            navigator.clipboard.writeText(shareText)
-            alert('Copied to clipboard!')
-          }
-        }}>
-          <span>You Win!</span>
-          <svg viewBox="0 0 24 24" className="share-icon">
-            <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
-          </svg>
-        </button>
+      {isGameWon && (
+        <div className="win-buttons">
+          <button className="win-message" onClick={() => {
+            const hintsText = hintsUsed > 0 ? ` (${hintsUsed} hint${hintsUsed !== 1 ? 's' : ''})` : ''
+            const shareText = `🐸 Frogs & Snakes\n${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}: ${moves} moves${hintsText}\n${window.location.origin}`
+            if (navigator.share) {
+              navigator.share({ text: shareText }).catch(() => {})
+            } else {
+              navigator.clipboard.writeText(shareText)
+              alert('Copied to clipboard!')
+            }
+          }}>
+            <span>You Win!</span>
+            <svg viewBox="0 0 24 24" className="share-icon">
+              <path fill="currentColor" d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z"/>
+            </svg>
+          </button>
+          {difficulty !== 'hard' && (
+            <button className="next-level-btn" onClick={() => {
+              const nextDifficulty = difficulty === 'easy' ? 'medium' : 'hard'
+              setDifficulty(nextDifficulty)
+            }}>
+              Next →
+            </button>
+          )}
+        </div>
       )}
       </>
       )}
