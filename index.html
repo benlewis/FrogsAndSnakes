@@ -8,36 +8,11 @@
         document.getElementById('favicon').href = '/favicon-dev.svg';
       }
 
-      // Fix iOS Safari zoom bug on orientation change
-      var isResetting = false;
-
-      function forceLayoutReset() {
-        if (isResetting) return;
-        isResetting = true;
-
-        // Force reflow with transform
-        document.body.style.transform = 'translateZ(0)';
-        document.body.style.opacity = '0.999';
-
-        requestAnimationFrame(function() {
-          document.body.style.transform = '';
-          document.body.style.opacity = '';
-          window.scrollTo(0, 0);
-
-          // Check if zoom is still stuck after settling
-          setTimeout(function() {
-            if (window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.05) {
-              // Nuclear option: reload the page
-              window.location.reload();
-            }
-            isResetting = false;
-          }, 500);
-        });
-      }
-
+      // Fix iOS Safari zoom bug - reload on orientation change
       window.addEventListener('orientationchange', function() {
-        // Wait for iOS to finish its orientation animation
-        setTimeout(forceLayoutReset, 300);
+        setTimeout(function() {
+          window.location.reload();
+        }, 100);
       });
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
