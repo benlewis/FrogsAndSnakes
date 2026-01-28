@@ -9,38 +9,36 @@
       }
 
       // Fix iOS Safari zoom bug on orientation change
-      function resetViewport() {
-        var viewport = document.querySelector('meta[name="viewport"]');
-        if (!viewport) return;
+      var isResetting = false;
 
-        // Remove and re-add the viewport meta tag to force a complete reset
-        var parent = viewport.parentNode;
-        var nextSibling = viewport.nextSibling;
-        parent.removeChild(viewport);
+      function forceLayoutReset() {
+        if (isResetting) return;
+        isResetting = true;
 
-        // Create fresh viewport meta
-        var newViewport = document.createElement('meta');
-        newViewport.name = 'viewport';
-        newViewport.content = 'width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover';
+        // Force reflow with transform
+        document.body.style.transform = 'translateZ(0)';
+        document.body.style.opacity = '0.999';
 
-        setTimeout(function() {
-          parent.insertBefore(newViewport, nextSibling);
+        requestAnimationFrame(function() {
+          document.body.style.transform = '';
+          document.body.style.opacity = '';
           window.scrollTo(0, 0);
-        }, 10);
+
+          // Check if zoom is still stuck after settling
+          setTimeout(function() {
+            if (window.visualViewport && Math.abs(window.visualViewport.scale - 1) > 0.05) {
+              // Nuclear option: reload the page
+              window.location.reload();
+            }
+            isResetting = false;
+          }, 500);
+        });
       }
 
       window.addEventListener('orientationchange', function() {
-        setTimeout(resetViewport, 100);
+        // Wait for iOS to finish its orientation animation
+        setTimeout(forceLayoutReset, 300);
       });
-
-      // Also check visualViewport for stuck zoom
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', function() {
-          if (Math.abs(window.visualViewport.scale - 1) > 0.01) {
-            resetViewport();
-          }
-        });
-      }
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
 
