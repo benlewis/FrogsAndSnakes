@@ -34,7 +34,7 @@ const getTodayDate = () => {
 }
 
 // Cookie helpers for persisting progress
-const setCookie = (name, value, days = 7) => {
+const setCookie = (name, value, days = 3) => {
   const expires = new Date(Date.now() + days * 864e5).toUTCString()
   document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))}; expires=${expires}; path=/; SameSite=Lax`
 }
