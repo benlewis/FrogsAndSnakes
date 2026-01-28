@@ -801,7 +801,25 @@ function App() {
           )}
           <button className="share-btn" onClick={() => {
             const hintsText = hintsUsed === 1 ? ', 1 hint' : `, ${hintsUsed} hints`
-            const shareText = `🐸 Frogs & Snakes\n${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}: ${moves} moves${hintsText}\n${window.location.origin}`
+            // Build grid visualization
+            const gridLines = []
+            for (let row = 0; row < gridSize; row++) {
+              let line = ''
+              for (let col = 0; col < gridSize; col++) {
+                const hasFrog = frogs.some(f => f.position[0] === col && f.position[1] === row)
+                const hasLilyPad = lilyPads.some(lp => lp.position[0] === col && lp.position[1] === row)
+                const hasSnake = snakes.some(s => s.positions.some(p => p[0] === col && p[1] === row))
+                const hasLog = logs.some(l => l.positions.some(p => p[0] === col && p[1] === row))
+                if (hasFrog) line += '🐸'
+                else if (hasLilyPad) line += '🪷'
+                else if (hasSnake) line += '🐍'
+                else if (hasLog) line += '🪵'
+                else line += '⬜'
+              }
+              gridLines.push(line)
+            }
+            const gridText = gridLines.join('\n')
+            const shareText = `🐸 Frogs & Snakes\n${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}: ${moves} moves${hintsText}\n\n${gridText}\n\n${window.location.origin}`
             if (navigator.share) {
               navigator.share({ text: shareText }).catch(() => {})
             } else {
