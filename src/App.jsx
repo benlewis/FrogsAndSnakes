@@ -800,7 +800,7 @@ function App() {
             </div>
           )}
           <button className="share-btn" onClick={() => {
-            const hintsText = hintsUsed > 0 ? ` (${hintsUsed} hint${hintsUsed !== 1 ? 's' : ''})` : ''
+            const hintsText = hintsUsed === 1 ? ', 1 hint' : `, ${hintsUsed} hints`
             const shareText = `🐸 Frogs & Snakes\n${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}: ${moves} moves${hintsText}\n${window.location.origin}`
             if (navigator.share) {
               navigator.share({ text: shareText }).catch(() => {})
