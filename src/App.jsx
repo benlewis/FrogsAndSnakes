@@ -33,6 +33,24 @@ const getTodayDate = () => {
   return getLocalDateString(new Date())
 }
 
+// Cookie helpers for persisting progress
+const setCookie = (name, value, days = 7) => {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString()
+  document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))}; expires=${expires}; path=/; SameSite=Lax`
+}
+
+const getCookie = (name) => {
+  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
+  if (match) {
+    try {
+      return JSON.parse(decodeURIComponent(match[2]))
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 
 function App() {
   const [difficulty, setDifficulty] = useState('easy')
@@ -45,7 +63,7 @@ function App() {
   useEffect(() => {
     const fetchLevels = async () => {
       setLoading(true)
-      setCompletedLevels({}) // Reset completed levels when date changes
+      setCompletedLevels(getCookie(`progress_${currentDate}`) || {})
       try {
         const response = await fetch(`${API_BASE}/api/levels?date=${currentDate}`)
         if (response.ok) {
@@ -142,7 +160,16 @@ function App() {
   const [moves, setMoves] = useState(0)
 
   // Track completed levels with their stats for the current date
-  const [completedLevels, setCompletedLevels] = useState({})
+  const [completedLevels, setCompletedLevels] = useState(() => {
+    return getCookie(`progress_${currentDate}`) || {}
+  })
+
+  // Save completedLevels to cookie whenever it changes
+  useEffect(() => {
+    if (Object.keys(completedLevels).length > 0) {
+      setCookie(`progress_${currentDate}`, completedLevels)
+    }
+  }, [completedLevels, currentDate])
 
   // Save stats when a level is won (only first time)
   useEffect(() => {
