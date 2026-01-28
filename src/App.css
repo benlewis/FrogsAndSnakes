@@ -640,6 +640,41 @@
   margin-left: 4px;
 }
 
+.win-message-static {
+  cursor: default;
+}
+
+.win-message-static:hover {
+  filter: none;
+}
+
+.share-btn {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+  color: #1a1a2e;
+  cursor: pointer;
+  transition: filter 0.2s;
+  animation: bounce 0.5s ease-in-out infinite alternate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-btn:hover {
+  filter: brightness(1.05);
+}
+
+.share-btn:active {
+  transform: scale(0.98);
+}
+
+.share-btn .share-icon {
+  width: 24px;
+  height: 24px;
+}
+
 .next-level-btn {
   padding: 10px 20px;
   border: none;
