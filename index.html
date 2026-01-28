@@ -7,6 +7,32 @@
       if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
         document.getElementById('favicon').href = '/favicon-dev.svg';
       }
+
+      // Fix iOS Safari zoom bug on orientation change
+      var lastWidth = window.innerWidth;
+      function resetViewport() {
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+          var content = viewport.getAttribute('content');
+          viewport.setAttribute('content', 'width=device-width');
+          setTimeout(function() {
+            viewport.setAttribute('content', content);
+            window.scrollTo(0, 0);
+            document.body.style.minHeight = '100.1%';
+            setTimeout(function() {
+              document.body.style.minHeight = '100%';
+            }, 50);
+          }, 100);
+        }
+      }
+      window.addEventListener('orientationchange', resetViewport);
+      window.addEventListener('resize', function() {
+        // Only trigger on significant width changes (orientation flip)
+        if (Math.abs(window.innerWidth - lastWidth) > 100) {
+          lastWidth = window.innerWidth;
+          resetViewport();
+        }
+      });
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
 
