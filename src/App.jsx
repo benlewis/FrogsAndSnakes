@@ -149,9 +149,12 @@ function App() {
       const initial = getInitialState()
 
       // Validate saved state matches current level structure
+      // Check counts AND that each snake has the correct number of positions
+      const snakesMatch = saved?.gameState?.snakes?.length === initial.snakes.length &&
+        saved.gameState.snakes.every((s, i) => s.positions?.length === initial.snakes[i].positions.length)
       const isValidSavedState = saved?.gameState &&
         saved.gameState.frogs?.length === initial.frogs.length &&
-        saved.gameState.snakes?.length === initial.snakes.length &&
+        snakesMatch &&
         saved.gameState.lilyPads?.length === initial.lilyPads.length
 
       if (isValidSavedState) {
@@ -287,10 +290,13 @@ function App() {
     }, 10)
   }
 
+  // Snake selection state - track which snake is selected for tap-to-move
+  const [selectedSnakeIndex, setSelectedSnakeIndex] = useState(null)
+
   // Snake drag state - track which snake is being dragged
   const [draggingSnakeIndex, setDraggingSnakeIndex] = useState(null)
   const [snakeDragOffset, setSnakeDragOffset] = useState(0)
-  const snakeDragStartRef = useRef({ y: 0, x: 0, startPos: 0 })
+  const justFinishedSnakeDragRef = useRef(false)
 
   // Convenience wrappers for shared game rules
   const isSnakeCell = (col, row) => isSnakeAt(col, row, snakes)
@@ -329,6 +335,71 @@ function App() {
     return getValidFrogMoves(frogIndex, gridSize, gameStateForRules)
   }
 
+  // Calculate valid snake destinations for tap-to-move
+  // Returns all cells the snake can touch (not just head positions)
+  const calcValidSnakeDestinations = (snakeIndex) => {
+    if (snakeIndex === null || !snakes[snakeIndex]) return []
+    const snake = snakes[snakeIndex]
+    const isVertical = snake.orientation === 'vertical'
+    const positions = snake.positions
+
+    // Get current snake range on its axis
+    const axisPositions = positions.map(p => isVertical ? p[1] : p[0])
+    const currentMin = Math.min(...axisPositions)
+    const currentMax = Math.max(...axisPositions)
+    const fixedAxis = isVertical ? positions[0][0] : positions[0][1] // col for vertical, row for horizontal
+
+    const maxPositive = calcMaxSnakeDelta(snakeIndex, 1)
+    const maxNegative = calcMaxSnakeDelta(snakeIndex, -1)
+
+    const destinations = []
+
+    // All cells the snake can reach by moving
+    const reachableMin = currentMin + maxNegative
+    const reachableMax = currentMax + maxPositive
+
+    for (let pos = reachableMin; pos <= reachableMax; pos++) {
+      // Skip cells the snake currently occupies
+      if (pos >= currentMin && pos <= currentMax) continue
+
+      if (pos >= 0 && pos < gridSize) {
+        const col = isVertical ? fixedAxis : pos
+        const row = isVertical ? pos : fixedAxis
+        destinations.push([col, row])
+      }
+    }
+    return destinations
+  }
+
+  // Calculate the delta needed to make the snake touch a specific cell
+  const calcSnakeDeltaForCell = (snakeIndex, col, row) => {
+    if (snakeIndex === null || !snakes[snakeIndex]) return 0
+    const snake = snakes[snakeIndex]
+    const isVertical = snake.orientation === 'vertical'
+    const positions = snake.positions
+
+    const targetPos = isVertical ? row : col
+    const axisPositions = positions.map(p => isVertical ? p[1] : p[0])
+    const currentMin = Math.min(...axisPositions)
+    const currentMax = Math.max(...axisPositions)
+
+    const maxPositive = calcMaxSnakeDelta(snakeIndex, 1)
+    const maxNegative = calcMaxSnakeDelta(snakeIndex, -1)
+
+    // If target is ahead of snake (beyond head), move forward to touch it with head
+    if (targetPos > currentMax) {
+      const neededDelta = targetPos - currentMax
+      return Math.min(neededDelta, maxPositive)
+    }
+    // If target is behind snake (before tail), move backward to touch it with tail
+    if (targetPos < currentMin) {
+      const neededDelta = targetPos - currentMin
+      return Math.max(neededDelta, maxNegative)
+    }
+
+    return 0 // Already touching
+  }
+
   // Validate that selected/dragging frog index is valid for current level
   // Don't show any selection until after initialization (prevents HMR stale state flash)
   const validSelectedFrogIndex = initialized && selectedFrogIndex !== null && selectedFrogIndex < frogs.length ? selectedFrogIndex : null
@@ -339,6 +410,18 @@ function App() {
 
   const isValidFrogDestination = (col, row) => {
     return validFrogMoves.some(move => move[0] === col && move[1] === row)
+  }
+
+  // Snake selection validation
+  const validSelectedSnakeIndex = initialized && selectedSnakeIndex !== null && selectedSnakeIndex < snakes.length ? selectedSnakeIndex : null
+  const validSnakeDestinations = validSelectedSnakeIndex !== null ? calcValidSnakeDestinations(validSelectedSnakeIndex) : []
+
+  const isValidSnakeDestination = (col, row) => {
+    return validSnakeDestinations.some(dest => dest[0] === col && dest[1] === row)
+  }
+
+  const getSnakeDeltaForDestination = (col, row) => {
+    return calcSnakeDeltaForCell(validSelectedSnakeIndex, col, row)
   }
 
   const getCellSize = () => {
@@ -377,94 +460,117 @@ function App() {
     }
   }
 
-  // Snake drag handlers
+  // Snake click handler for tap-to-select
+  const handleSnakeClick = (snakeIndex) => {
+    if (isGameWon) return
+    if (justFinishedSnakeDragRef.current) {
+      justFinishedSnakeDragRef.current = false
+      return
+    }
+    // Clear frog selection when selecting a snake
+    setSelectedFrogIndex(null)
+    // Toggle snake selection
+    if (selectedSnakeIndex === snakeIndex) {
+      setSelectedSnakeIndex(null)
+    } else {
+      setSelectedSnakeIndex(snakeIndex)
+    }
+  }
+
+  // Snake drag handler - uses same inline listener pattern as frog drag
   const handleSnakePointerDown = (e, snakeIndex) => {
     if (isGameWon) return
     e.preventDefault()
+    e.stopPropagation()
+
     const snake = snakes[snakeIndex]
     const isVertical = snake.orientation === 'vertical'
-    setDraggingSnakeIndex(snakeIndex)
     const startPos = isVertical ? snake.positions[0][1] : snake.positions[0][0]
-    snakeDragStartRef.current = {
-      y: e.clientY,
-      x: e.clientX,
-      startPos
-    }
+    const startY = e.clientY
+    const startX = e.clientX
+    let currentOffset = 0
+    let hasDragged = false
+
+    setDraggingSnakeIndex(snakeIndex)
     setSnakeDragOffset(0)
-  }
 
-  const handleSnakePointerMove = (e) => {
-    if (draggingSnakeIndex === null) return
+    const onPointerMove = (moveEvent) => {
+      const cellSize = getCellSize()
+      const delta = isVertical
+        ? moveEvent.clientY - startY
+        : moveEvent.clientX - startX
 
-    const snake = snakes[draggingSnakeIndex]
-    const isVertical = snake.orientation === 'vertical'
-    const cellSize = getCellSize()
-    const delta = isVertical
-      ? e.clientY - snakeDragStartRef.current.y
-      : e.clientX - snakeDragStartRef.current.x
+      if (Math.abs(delta) > 5) {
+        hasDragged = true
+      }
 
-    const snakeLength = snake.positions.length
-    const currentPos = snakeDragStartRef.current.startPos
+      const snakeLength = snake.positions.length
+      const minPos = 0
+      const maxPos = gridSize - snakeLength
+      const minBoundOffset = (minPos - startPos) * cellSize
+      const maxBoundOffset = (maxPos - startPos) * cellSize
 
-    // Grid bounds constraints
-    const minPos = 0
-    const maxPos = gridSize - snakeLength
-    const minBoundOffset = (minPos - currentPos) * cellSize
-    const maxBoundOffset = (maxPos - currentPos) * cellSize
+      const maxDeltaPositive = calcMaxSnakeDelta(snakeIndex, 1)
+      const maxDeltaNegative = calcMaxSnakeDelta(snakeIndex, -1)
 
-    // Collision constraints - calculate max movement in each direction
-    const maxDeltaPositive = calcMaxSnakeDelta(draggingSnakeIndex, 1)
-    const maxDeltaNegative = calcMaxSnakeDelta(draggingSnakeIndex, -1)
+      const minCollisionOffset = maxDeltaNegative * cellSize
+      const maxCollisionOffset = maxDeltaPositive * cellSize
 
-    // Convert cell deltas to pixel offsets
-    const minCollisionOffset = maxDeltaNegative * cellSize
-    const maxCollisionOffset = maxDeltaPositive * cellSize
+      const minOffset = Math.max(minBoundOffset, minCollisionOffset)
+      const maxOffset = Math.min(maxBoundOffset, maxCollisionOffset)
 
-    // Apply both bounds and collision constraints
-    const minOffset = Math.max(minBoundOffset, minCollisionOffset)
-    const maxOffset = Math.min(maxBoundOffset, maxCollisionOffset)
-
-    const constrainedOffset = Math.max(minOffset, Math.min(maxOffset, delta))
-    setSnakeDragOffset(constrainedOffset)
-  }
-
-  const handleSnakePointerUp = () => {
-    if (draggingSnakeIndex === null) return
-
-    const snake = snakes[draggingSnakeIndex]
-    const isVertical = snake.orientation === 'vertical'
-    const cellSize = getCellSize()
-    const posDelta = Math.round(snakeDragOffset / cellSize)
-
-    if (posDelta !== 0) {
-      setGameState(prev => ({
-        ...prev,
-        snakes: prev.snakes.map((s, i) =>
-          i === draggingSnakeIndex
-            ? {
-                ...s,
-                positions: s.positions.map(([col, row]) =>
-                  isVertical ? [col, row + posDelta] : [col + posDelta, row]
-                )
-              }
-            : s
-        )
-      }))
-      setMoves(m => m + 1)
-      clearHint()
+      currentOffset = Math.max(minOffset, Math.min(maxOffset, delta))
+      setSnakeDragOffset(currentOffset)
     }
 
-    setDraggingSnakeIndex(null)
-    setSnakeDragOffset(0)
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+
+      const cellSize = getCellSize()
+      const posDelta = Math.round(currentOffset / cellSize)
+
+      if (posDelta !== 0) {
+        setGameState(prev => ({
+          ...prev,
+          snakes: prev.snakes.map((s, i) =>
+            i === snakeIndex
+              ? {
+                  ...s,
+                  positions: s.positions.map(([col, row]) =>
+                    isVertical ? [col, row + posDelta] : [col + posDelta, row]
+                  )
+                }
+              : s
+          )
+        }))
+        setMoves(m => m + 1)
+        setSelectedSnakeIndex(null)
+        clearHint()
+      }
+
+      if (hasDragged) {
+        justFinishedSnakeDragRef.current = true
+      }
+
+      setDraggingSnakeIndex(null)
+      setSnakeDragOffset(0)
+    }
+
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
   }
 
   // Frog click handler for tap-to-select
   const handleFrogClick = (frogIndex) => {
+    if (isGameWon) return
     // Skip if we just finished a drag
     if (justFinishedDragRef.current) {
       justFinishedDragRef.current = false
       return
     }
+    // Clear snake selection when selecting a frog
+    setSelectedSnakeIndex(null)
     // Toggle selection
     if (selectedFrogIndex === frogIndex) {
       setSelectedFrogIndex(null)
@@ -503,8 +609,35 @@ function App() {
       return
     }
 
-    // Clicking anywhere else deselects
+    // If a snake is selected and clicking a valid destination, move the snake
+    if (selectedSnakeIndex !== null && isValidSnakeDestination(col, row)) {
+      const snakeIdx = selectedSnakeIndex
+      const delta = getSnakeDeltaForDestination(col, row)
+      const snake = snakes[snakeIdx]
+      const isVertical = snake.orientation === 'vertical'
+
+      setGameState(prev => ({
+        ...prev,
+        snakes: prev.snakes.map((s, i) =>
+          i === snakeIdx
+            ? {
+                ...s,
+                positions: s.positions.map(([c, r]) =>
+                  isVertical ? [c, r + delta] : [c + delta, r]
+                )
+              }
+            : s
+        )
+      }))
+      setMoves(m => m + 1)
+      setSelectedSnakeIndex(null)
+      clearHint()
+      return
+    }
+
+    // Clicking anywhere else deselects both
     setSelectedFrogIndex(null)
+    setSelectedSnakeIndex(null)
   }
 
   // Frog pointer handlers - for drag only
@@ -577,17 +710,6 @@ function App() {
     window.addEventListener('pointerup', onUp)
   }
 
-  // Event listeners
-  useEffect(() => {
-    if (draggingSnakeIndex !== null) {
-      window.addEventListener('pointermove', handleSnakePointerMove)
-      window.addEventListener('pointerup', handleSnakePointerUp)
-      return () => {
-        window.removeEventListener('pointermove', handleSnakePointerMove)
-        window.removeEventListener('pointerup', handleSnakePointerUp)
-      }
-    }
-  }, [draggingSnakeIndex, snakeDragOffset, snakes])
 
   // Show loading or no level message
   if (loading) {
@@ -695,7 +817,8 @@ function App() {
               const isFrogCell = content?.type === 'frog'
               const isThisFrogSelected = isFrogCell && validSelectedFrogIndex === content.frogIndex
               const isThisFrogDragging = isFrogCell && validDraggingFrogIndex === content.frogIndex
-              const isValidDest = isValidFrogDestination(colIndex, rowIndex)
+              const isValidFrogDest = isValidFrogDestination(colIndex, rowIndex)
+              const isValidSnakeDest = isValidSnakeDestination(colIndex, rowIndex)
 
               const isHintSource = hintMove?.type === 'frog' && hintMove.from[0] === colIndex && hintMove.from[1] === rowIndex
               const isHintDest = hintMove?.type === 'frog' && hintMove.to[0] === colIndex && hintMove.to[1] === rowIndex
@@ -703,7 +826,7 @@ function App() {
               return (
                 <div
                   key={`${colIndex}-${rowIndex}`}
-                  className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidDest ? 'cell-valid-dest' : ''} ${isHintSource ? 'cell-hint-source' : ''} ${isHintDest ? 'cell-hint-dest' : ''}`}
+                  className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidFrogDest ? 'cell-valid-dest' : ''} ${validSelectedSnakeIndex !== null && isValidSnakeDest ? 'cell-valid-snake-dest' : ''} ${isHintSource ? 'cell-hint-source' : ''} ${isHintDest ? 'cell-hint-dest' : ''}`}
                   onClick={() => handleCellClick(colIndex, rowIndex)}
                 >
                   {content && content.type === 'frog' && content.hasLilyPad ? (
@@ -759,9 +882,10 @@ function App() {
           {snakes.map((snake, index) => (
             <div
               key={`snake-${index}`}
-              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${hintMove?.type === 'snake' && hintMove.snakeIdx === index ? 'snake-hint' : ''}`}
+              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${validSelectedSnakeIndex === index ? 'snake-selected' : ''} ${hintMove?.type === 'snake' && hintMove.snakeIdx === index ? 'snake-hint' : ''}`}
               style={getSnakeStyle(snake, index)}
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
+              onClick={(e) => { e.stopPropagation(); handleSnakeClick(index); }}
             >
               {snake.orientation === 'vertical' ? <VerticalSnakeSVG length={snake.positions.length} /> : <HorizontalSnakeSVG length={snake.positions.length} />}
             </div>
