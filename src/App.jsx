@@ -72,7 +72,9 @@ function App() {
       setLoading(true)
       setCompletedLevels(getCookie(`progress_${currentDate}`) || {})
       try {
-        const response = await fetch(`${API_BASE}/api/levels?date=${currentDate}`)
+        const response = await fetch(`${API_BASE}/api/levels?date=${currentDate}`, {
+          cache: 'no-store'
+        })
         if (response.ok) {
           const levelMap = await response.json()
           setLevels(levelMap)
@@ -144,12 +146,20 @@ function App() {
     if (currentLevel) {
       // Try to restore saved game state
       const saved = getCookie(gameStateKey)
-      if (saved && saved.gameState) {
+      const initial = getInitialState()
+
+      // Validate saved state matches current level structure
+      const isValidSavedState = saved?.gameState &&
+        saved.gameState.frogs?.length === initial.frogs.length &&
+        saved.gameState.snakes?.length === initial.snakes.length &&
+        saved.gameState.lilyPads?.length === initial.lilyPads.length
+
+      if (isValidSavedState) {
         setGameState(saved.gameState)
         setMoves(saved.moves || 0)
         setHintsUsed(saved.hints || 0)
       } else {
-        setGameState(getInitialState())
+        setGameState(initial)
         setMoves(0)
         setHintsUsed(0)
       }

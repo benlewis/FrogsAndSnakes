@@ -5,13 +5,20 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 import express from 'express';
 import cors from 'cors';
-import { put, list } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 
 const app = express();
 const PORT = 3002;
 
 app.use(cors());
 app.use(express.json());
+
+// Prevent caching
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
 
 // GET /api/levels?date=2025-01-20 or GET /api/levels?all=true
 app.get('/api/levels', async (req, res) => {
@@ -81,10 +88,21 @@ app.post('/api/levels', async (req, res) => {
   try {
     const filename = `level-${date}-${difficulty}.json`;
 
+    // Delete any existing blobs with this name to avoid caching issues
+    const { blobs } = await list({ prefix: filename.replace('.json', '') });
+    for (const existingBlob of blobs) {
+      try {
+        await del(existingBlob.url);
+        console.log(`Deleted old blob: ${existingBlob.url}`);
+      } catch (e) {
+        console.log('Could not delete old blob:', e);
+      }
+    }
+
     const blob = await put(filename, JSON.stringify(level), {
       access: 'public',
       addRandomSuffix: false,
-      allowOverwrite: true,
+      cacheControlMaxAge: 0,
     });
 
     console.log(`Saved level to Vercel Blob: ${blob.url}`);
