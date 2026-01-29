@@ -1,10 +1,13 @@
-import { put, list } from '@vercel/blob';
+import { put, list, del } from '@vercel/blob';
 
 export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Prevent caching
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -82,9 +85,20 @@ export default async function handler(req, res) {
     try {
       const filename = `level-${date}-${difficulty}.json`;
 
+      // Delete any existing blobs with this name to avoid caching issues
+      const { blobs } = await list({ prefix: filename.replace('.json', '') });
+      for (const existingBlob of blobs) {
+        try {
+          await del(existingBlob.url);
+        } catch (e) {
+          console.log('Could not delete old blob:', e);
+        }
+      }
+
       const blob = await put(filename, JSON.stringify(level), {
         access: 'public',
         addRandomSuffix: false,
+        cacheControlMaxAge: 0,
       });
 
       return res.status(200).json({ success: true, url: blob.url });

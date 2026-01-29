@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './LevelEditor.css'
 import { solveLevel } from './solver.js'
+import GameBoard from './GameBoard.jsx'
 
 // API base URL - use relative path for production, localhost for dev
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
@@ -351,6 +352,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [checkResult, setCheckResult] = useState(null)
   const [checking, setChecking] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [tryItMode, setTryItMode] = useState(false)
+  const [tryItHints, setTryItHints] = useState(0)
+  const gameBoardRef = useRef(null)
 
   // Support both old single-frog format and new multi-frog format
   const [frogs, setFrogs] = useState(() => {
@@ -433,6 +437,26 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [snakeOrientation, setSnakeOrientation] = useState('vertical')
   const [snakeLength, setSnakeLength] = useState(2)
   const [logLength, setLogLength] = useState(1)
+
+  // Generation options
+  const defaultMoveRanges = {
+    easy: { min: 4, max: 7 },
+    medium: { min: 8, max: 13 },
+    hard: { min: 14, max: 20 }
+  }
+  const [genNumFrogs, setGenNumFrogs] = useState(1)
+  const [genNumSnakes, setGenNumSnakes] = useState(2)
+  const [genMaxSnakeSize, setGenMaxSnakeSize] = useState(3)
+  const [genNumLogs, setGenNumLogs] = useState(2)
+  const [genExtraLilyPads, setGenExtraLilyPads] = useState(0)
+  const [genMinMoves, setGenMinMoves] = useState(defaultMoveRanges[difficulty].min)
+  const [genMaxMoves, setGenMaxMoves] = useState(defaultMoveRanges[difficulty].max)
+
+  // Update move ranges when difficulty changes
+  useEffect(() => {
+    setGenMinMoves(defaultMoveRanges[difficulty].min)
+    setGenMaxMoves(defaultMoveRanges[difficulty].max)
+  }, [difficulty])
 
   const isSnakeCell = (col, row) => {
     return snakes.some(snake =>
@@ -675,13 +699,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   // Generate a random level that's solvable in the target move range
   const generateRandomLevel = () => {
-    // Move ranges by difficulty
-    const moveRanges = {
-      easy: { min: 4, max: 7 },
-      medium: { min: 8, max: 13 },
-      hard: { min: 14, max: 20 }
-    }
-    const range = moveRanges[difficulty] || moveRanges.easy
+    const range = { min: genMinMoves, max: genMaxMoves }
 
     setGenerating(true)
     setCheckResult(null)
@@ -695,11 +713,11 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       while (!found && attempts < maxAttempts) {
         attempts++
 
-        // Random configuration based on difficulty
-        const numFrogs = difficulty === 'easy' ? 1 : (Math.random() < 0.6 ? 1 : 2)
-        const numSnakes = difficulty === 'easy' ? Math.floor(Math.random() * 2) + 1 : Math.floor(Math.random() * 3) + 1
-        const numLogs = Math.floor(Math.random() * 3)
-        const numLilyPads = numFrogs
+        // Use generation options from state
+        const numFrogs = genNumFrogs
+        const numSnakes = genNumSnakes
+        const numLogs = genNumLogs
+        const numLilyPads = numFrogs + genExtraLilyPads
 
         // Track occupied cells
         const occupied = new Set()
@@ -727,7 +745,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         const newSnakes = []
         for (let i = 0; i < numSnakes; i++) {
           const orientation = Math.random() < 0.5 ? 'vertical' : 'horizontal'
-          const length = Math.floor(Math.random() * 2) + 2 // 2-3 length
+          const length = Math.floor(Math.random() * (genMaxSnakeSize - 1)) + 2 // 2 to genMaxSnakeSize
 
           let placed = false
           for (let tries = 0; tries < 50 && !placed; tries++) {
@@ -1027,6 +1045,61 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       Paste
                     </button>
                   </div>
+
+                  <div className="generation-options">
+                    <label>Generation Options</label>
+                    <div className="gen-option-row">
+                      <span>Frogs:</span>
+                      <select value={genNumFrogs} onChange={(e) => setGenNumFrogs(parseInt(e.target.value))}>
+                        {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div className="gen-option-row">
+                      <span>Snakes:</span>
+                      <select value={genNumSnakes} onChange={(e) => setGenNumSnakes(parseInt(e.target.value))}>
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div className="gen-option-row">
+                      <span>Max Snake Size:</span>
+                      <select value={genMaxSnakeSize} onChange={(e) => setGenMaxSnakeSize(parseInt(e.target.value))}>
+                        {[2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div className="gen-option-row">
+                      <span>Stumps:</span>
+                      <select value={genNumLogs} onChange={(e) => setGenNumLogs(parseInt(e.target.value))}>
+                        {Array.from({ length: 16 }, (_, i) => i).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div className="gen-option-row">
+                      <span>Extra Lily Pads:</span>
+                      <select value={genExtraLilyPads} onChange={(e) => setGenExtraLilyPads(parseInt(e.target.value))}>
+                        {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
+                    </div>
+                    <div className="gen-option-row">
+                      <span>Min Moves:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={genMinMoves}
+                        onChange={(e) => setGenMinMoves(parseInt(e.target.value) || 1)}
+                      />
+                    </div>
+                    <div className="gen-option-row">
+                      <span>Max Moves:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        value={genMaxMoves}
+                        onChange={(e) => setGenMaxMoves(parseInt(e.target.value) || 20)}
+                      />
+                    </div>
+                  </div>
+
                   <button
                     className="action-btn generate"
                     onClick={generateRandomLevel}
@@ -1051,6 +1124,24 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     </div>
                   )}
                   <button
+                    className="action-btn try-it"
+                    onClick={() => {
+                      if (frogs.length === 0) {
+                        alert('Please place at least one frog!')
+                        return
+                      }
+                      if (lilyPads.length < frogs.length) {
+                        alert(`Please place at least ${frogs.length} lily pad${frogs.length > 1 ? 's' : ''} (one per frog)!`)
+                        return
+                      }
+                      setTryItHints(0)
+                      setTryItMode(true)
+                    }}
+                    disabled={frogs.length === 0 || lilyPads.length < frogs.length}
+                  >
+                    Try It
+                  </button>
+                  <button
                     className="action-btn export"
                     onClick={saveLevel}
                     disabled={saving}
@@ -1064,49 +1155,76 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
               </div>
 
               <div className="editor-grid-area">
-                <div
-                  className="editor-grid"
-                  style={{
-                    gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
-                    gridTemplateRows: `repeat(${gridSize}, 1fr)`
-                  }}
-                >
-                  {Array(gridSize).fill(null).map((_, rowIndex) => (
-                    Array(gridSize).fill(null).map((_, colIndex) => (
-                      <div
-                        key={`${colIndex}-${rowIndex}`}
-                        className={getCellClass(colIndex, rowIndex)}
-                        onClick={() => handleCellClick(colIndex, rowIndex)}
+                {tryItMode ? (
+                  <div className="try-it-container">
+                    <div className="try-it-header">
+                      <button
+                        className="action-btn edit-btn"
+                        onClick={() => setTryItMode(false)}
                       >
-                        <span className="cell-coords">{colIndex},{rowIndex}</span>
-                        <span className="cell-piece">{getCellContent(colIndex, rowIndex)}</span>
-                      </div>
-                    ))
-                  ))}
-
-                  {/* Snake overlays - rendered as continuous pieces spanning cells */}
-                  {snakes.map((snake, index) => (
-                    <div
-                      key={`snake-${index}`}
-                      className="editor-snake-overlay"
-                      style={getSnakeOverlayStyle(snake)}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        // Click on snake to delete it when eraser is active
-                        if (currentTool === 'eraser') {
-                          setSnakes(prev => prev.filter((_, i) => i !== index))
-                          setCheckResult(null)
-                        }
-                      }}
-                    >
-                      {snake.orientation === 'vertical' ? (
-                        <VerticalSnakeSVG length={snake.positions.length} />
-                      ) : (
-                        <HorizontalSnakeSVG length={snake.positions.length} />
-                      )}
+                        Edit
+                      </button>
                     </div>
-                  ))}
-                </div>
+                    <GameBoard
+                      ref={gameBoardRef}
+                      initialState={{
+                        frogs: frogs.map(f => ({ position: [...f.position], color: f.color })),
+                        snakes: snakes.map(s => ({ positions: s.positions.map(p => [...p]), orientation: s.orientation })),
+                        logs: logs.map(l => ({ positions: l.positions.map(p => [...p]) })),
+                        lilyPads: lilyPads.map(lp => ({ position: [...lp.position] }))
+                      }}
+                      gridSize={gridSize}
+                      onHintUsed={() => setTryItHints(h => h + 1)}
+                      showHintButton={true}
+                      showMoveCounter={true}
+                      className="editor-game-board"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="editor-grid"
+                    style={{
+                      gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
+                      gridTemplateRows: `repeat(${gridSize}, 1fr)`
+                    }}
+                  >
+                    {Array(gridSize).fill(null).map((_, rowIndex) => (
+                      Array(gridSize).fill(null).map((_, colIndex) => (
+                        <div
+                          key={`${colIndex}-${rowIndex}`}
+                          className={getCellClass(colIndex, rowIndex)}
+                          onClick={() => handleCellClick(colIndex, rowIndex)}
+                        >
+                          <span className="cell-coords">{colIndex},{rowIndex}</span>
+                          <span className="cell-piece">{getCellContent(colIndex, rowIndex)}</span>
+                        </div>
+                      ))
+                    ))}
+
+                    {/* Snake overlays - rendered as continuous pieces spanning cells */}
+                    {snakes.map((snake, index) => (
+                      <div
+                        key={`snake-${index}`}
+                        className="editor-snake-overlay"
+                        style={getSnakeOverlayStyle(snake)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Click on snake to delete it when eraser is active
+                          if (currentTool === 'eraser') {
+                            setSnakes(prev => prev.filter((_, i) => i !== index))
+                            setCheckResult(null)
+                          }
+                        }}
+                      >
+                        {snake.orientation === 'vertical' ? (
+                          <VerticalSnakeSVG length={snake.positions.length} />
+                        ) : (
+                          <HorizontalSnakeSVG length={snake.positions.length} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
