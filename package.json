@@ -8,14 +8,19 @@
     "dev:api": "node dev-server.js",
     "dev:all": "node dev-server.js & vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.12.0",
+    "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.0.0",
+    "@vercel/postgres": "^0.10.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
     "lucide-react": "^0.563.0",
+    "pg": "^8.18.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "tailwind-merge": "^3.4.0"

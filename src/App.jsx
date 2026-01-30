@@ -1,7 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
+import { useAuth0 } from '@auth0/auth0-react'
 import './App.css'
 import { Button } from '@/components/ui/button'
 import LevelEditor from './LevelEditor.jsx'
+import AccountMenu from './components/AccountMenu.jsx'
+import StatsModal from './components/StatsModal.jsx'
 import { solveLevel } from './solver.js'
 import {
   FrogSVG,
@@ -54,7 +57,25 @@ const getCookie = (name) => {
 
 
 function App() {
+  const { user, isAuthenticated } = useAuth0()
+  const [showStats, setShowStats] = useState(false)
   const [currentDate, setCurrentDate] = useState(getTodayDate())
+
+  // Sync user info to database on login
+  useEffect(() => {
+    if (isAuthenticated && user?.sub) {
+      fetch(`${API_BASE}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.sub,
+          displayName: user.name,
+          email: user.email,
+          pictureUrl: user.picture
+        })
+      }).catch(err => console.error('Failed to sync user:', err))
+    }
+  }, [isAuthenticated, user?.sub])
   const [difficulty, setDifficulty] = useState(() => {
     return getCookie(`difficulty_${getTodayDate()}`) || 'easy'
   })
@@ -204,13 +225,27 @@ function App() {
   }, [completedLevels, currentDate])
 
   // Save stats when a level is won (only first time)
-  // Save stats when a level is won (only first time)
   useEffect(() => {
     if (isGameWon && !completedLevels[difficulty]) {
       setCompletedLevels(prev => ({
         ...prev,
         [difficulty]: { moves, hints: hintsUsed }
       }))
+
+      // Save to database if user is logged in
+      if (isAuthenticated && user?.sub) {
+        fetch(`${API_BASE}/api/stats`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user.sub,
+            puzzleDate: currentDate,
+            difficulty,
+            moves,
+            hintsUsed
+          })
+        }).catch(err => console.error('Failed to save stats:', err))
+      }
     }
   }, [isGameWon])
 
@@ -716,8 +751,12 @@ function App() {
   if (loading) {
     return (
       <div className="app">
-        <h1 className="title">Frogs And Snakes</h1>
+        <header className="app-header">
+          <h1 className="title">Frogs And Snakes</h1>
+          <AccountMenu onShowStats={() => setShowStats(true)} />
+        </header>
         <div className="loading-message">Loading puzzles...</div>
+        {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
       </div>
     )
   }
@@ -737,7 +776,12 @@ function App() {
       <div className="rotate-text">Please rotate your device to portrait mode</div>
     </div>
     <div className="app">
-      <h1 className="title">Frogs And Snakes</h1>
+      <header className="app-header">
+        <h1 className="title">Frogs And Snakes</h1>
+        <AccountMenu onShowStats={() => setShowStats(true)} />
+      </header>
+
+      {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
 
       {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">

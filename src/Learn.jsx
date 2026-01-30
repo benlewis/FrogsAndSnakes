@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
 import './Learn.css'
+import AccountMenu from './components/AccountMenu.jsx'
+import StatsModal from './components/StatsModal.jsx'
 import {
   FrogSVG,
   LilyPadSVG,
@@ -33,6 +35,7 @@ function Learn() {
   const gridRef = useRef(null)
   const [level, setLevel] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showStats, setShowStats] = useState(false)
 
   // Fetch the Easy level from 2026-01-22
   useEffect(() => {
@@ -527,15 +530,24 @@ function Learn() {
   if (loading) {
     return (
       <div className="app learn-page">
-        <h1 className="title">Learn to Play</h1>
+        <header className="app-header">
+          <h1 className="title">Learn to Play</h1>
+          <AccountMenu onShowStats={() => setShowStats(true)} />
+        </header>
         <div className="loading-message">Loading...</div>
+        {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate="2026-01-22" />}
       </div>
     )
   }
 
   return (
     <div className="app learn-page">
-      <h1 className="title">Learn to Play</h1>
+      <header className="app-header">
+        <h1 className="title">Learn to Play</h1>
+        <AccountMenu onShowStats={() => setShowStats(true)} />
+      </header>
+
+      {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate="2026-01-22" />}
 
       <div className="grid-container">
         <div className="grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, gridTemplateRows: `repeat(${gridSize}, 1fr)` }}>
