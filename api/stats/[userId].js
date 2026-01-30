@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { query } from '../_db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,12 +16,13 @@ export default async function handler(req, res) {
   const { userId } = req.query;
 
   try {
-    const completions = await sql`
-      SELECT puzzle_date, difficulty, moves, hints_used, completed_at
-      FROM completions
-      WHERE user_id = ${userId}
-      ORDER BY puzzle_date DESC
-    `;
+    const completions = await query(
+      `SELECT puzzle_date, difficulty, moves, hints_used, completed_at
+       FROM completions
+       WHERE user_id = $1
+       ORDER BY puzzle_date DESC`,
+      [userId]
+    );
 
     // Calculate streaks and totals per difficulty
     const stats = {
@@ -82,6 +83,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ stats, completions: completions.rows });
   } catch (error) {
     console.error('Error fetching stats:', error);
-    return res.status(500).json({ error: 'Failed to fetch stats' });
+    return res.status(500).json({ error: 'Failed to fetch stats: ' + error.message });
   }
 }

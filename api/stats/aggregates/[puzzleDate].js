@@ -1,4 +1,4 @@
-import { sql } from '@vercel/postgres';
+import { query } from '../../_db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,15 +16,16 @@ export default async function handler(req, res) {
   const { puzzleDate } = req.query;
 
   try {
-    const result = await sql`
-      SELECT difficulty,
-             COUNT(*) as total_completions,
-             AVG(moves)::numeric(10,1) as avg_moves,
-             MIN(moves) as min_moves
-      FROM completions
-      WHERE puzzle_date = ${puzzleDate}
-      GROUP BY difficulty
-    `;
+    const result = await query(
+      `SELECT difficulty,
+              COUNT(*) as total_completions,
+              AVG(moves)::numeric(10,1) as avg_moves,
+              MIN(moves) as min_moves
+       FROM completions
+       WHERE puzzle_date = $1
+       GROUP BY difficulty`,
+      [puzzleDate]
+    );
 
     const aggregates = {};
     for (const row of result.rows) {
@@ -38,6 +39,6 @@ export default async function handler(req, res) {
     return res.status(200).json(aggregates);
   } catch (error) {
     console.error('Error fetching aggregates:', error);
-    return res.status(500).json({ error: 'Failed to fetch aggregates' });
+    return res.status(500).json({ error: 'Failed to fetch aggregates: ' + error.message });
   }
 }
