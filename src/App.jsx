@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import './App.css'
+import { Button } from '@/components/ui/button'
 import LevelEditor from './LevelEditor.jsx'
 import { solveLevel } from './solver.js'
 import {
@@ -896,16 +897,17 @@ function App() {
       {/* Stats bar */}
       <div className="stats-bar">
         <div className="stats-bar-actions">
-          <button className="reset-btn" onClick={handleReset}>
+          <Button variant="secondary" size="xs" onClick={handleReset}>
             Reset
-          </button>
-          <button
-            className="hint-btn"
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
             onClick={handleHint}
             disabled={isGameWon || !currentLevel || hintLoading}
           >
             {hintLoading ? 'Thinking...' : hintsUsed > 0 ? `Hint (${hintsUsed})` : 'Hint'}
-          </button>
+          </Button>
         </div>
         <div className="stats">
           <span className="stat">
@@ -983,12 +985,14 @@ function App() {
 
       {/* Editor button - dev only */}
       {import.meta.env.DEV && (
-        <button
+        <Button
+          variant="ghost"
+          size="xs"
           className="editor-toggle-btn"
           onClick={() => setShowEditor(true)}
         >
           Level Editor
-        </button>
+        </Button>
       )}
 
       {/* Level Editor - dev only */}
