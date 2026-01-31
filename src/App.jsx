@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import LevelEditor from './LevelEditor.jsx'
 import AccountMenu from './components/AccountMenu.jsx'
 import StatsModal from './components/StatsModal.jsx'
+import DailyStreakModal from './components/DailyStreakModal.jsx'
 import { solveLevel } from './solver.js'
 import {
   FrogSVG,
@@ -55,11 +56,83 @@ const getCookie = (name) => {
   return null
 }
 
+// Get or create a persistent visitor ID for anonymous tracking
+const getOrCreateVisitorId = () => {
+  const cookieName = 'visitor_id'
+  const match = document.cookie.match(new RegExp('(^| )' + cookieName + '=([^;]+)'))
+  if (match) {
+    return match[2]
+  }
+  // Generate a UUID-like ID
+  const id = 'anon_' + crypto.randomUUID()
+  // Store for 365 days
+  const expires = new Date(Date.now() + 365 * 864e5).toUTCString()
+  document.cookie = `${cookieName}=${id}; expires=${expires}; path=/; SameSite=Lax`
+  return id
+}
+
+// Get streak data from cookies (for anonymous users)
+const getStreaksFromCookie = () => {
+  return getCookie('streaks') || {
+    easy: { current: 0, best: 0, lastDate: null },
+    medium: { current: 0, best: 0, lastDate: null },
+    hard: { current: 0, best: 0, lastDate: null }
+  }
+}
+
+// Update streak in cookies when a puzzle is completed
+const updateStreakCookie = (difficulty, puzzleDate) => {
+  const streaks = getStreaksFromCookie()
+  const streak = streaks[difficulty]
+
+  // Calculate if this continues the streak
+  const yesterday = new Date(puzzleDate + 'T12:00:00')
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayStr = getLocalDateString(yesterday)
+
+  if (streak.lastDate === puzzleDate) {
+    // Already completed today, no change
+    return streaks
+  } else if (streak.lastDate === yesterdayStr) {
+    // Continues the streak
+    streak.current += 1
+    streak.best = Math.max(streak.best, streak.current)
+  } else {
+    // Streak broken or first completion
+    streak.current = 1
+    streak.best = Math.max(streak.best, 1)
+  }
+  streak.lastDate = puzzleDate
+
+  setCookie('streaks', streaks, 365)
+  return streaks
+}
+
 
 function App() {
   const { user, isAuthenticated } = useAuth0()
   const [showStats, setShowStats] = useState(false)
+  const [showStreakModal, setShowStreakModal] = useState(false)
+  const [visitorId] = useState(() => getOrCreateVisitorId())
   const [currentDate, setCurrentDate] = useState(getTodayDate())
+
+  // Show streak modal on first visit of the day
+  useEffect(() => {
+    const lastVisitDate = getCookie('last_visit_date')
+    const today = getTodayDate()
+
+    if (lastVisitDate !== today) {
+      // First visit today - show the streak modal
+      setShowStreakModal(true)
+      setCookie('last_visit_date', today, 7)
+    }
+  }, [])
+
+  // Debug: expose function to show streak modal from console
+  useEffect(() => {
+    window.showStreakModal = () => setShowStreakModal(true)
+    return () => { delete window.showStreakModal }
+  }, [])
 
   // Sync user info to database on login
   useEffect(() => {
@@ -235,20 +308,26 @@ function App() {
         }))
       }
 
-      // Always save to database if user is logged in (DB handles duplicates with ON CONFLICT)
-      if (isAuthenticated && user?.sub) {
-        fetch(`${API_BASE}/api/stats`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.sub,
-            puzzleDate: currentDate,
-            difficulty,
-            moves,
-            hintsUsed
-          })
-        }).catch(err => console.error('Failed to save stats:', err))
-      }
+      // Update streak in cookies (for all users, enables offline tracking)
+      updateStreakCookie(difficulty, currentDate)
+
+      // Always save to database (DB handles duplicates with ON CONFLICT)
+      // Use userId if logged in, otherwise use visitorId for anonymous tracking
+      const userId = isAuthenticated && user?.sub ? user.sub : null
+      const visitorId = !userId ? getOrCreateVisitorId() : null
+
+      fetch(`${API_BASE}/api/stats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          visitorId,
+          puzzleDate: currentDate,
+          difficulty,
+          moves,
+          hintsUsed
+        })
+      }).catch(err => console.error('Failed to save stats:', err))
     }
   }, [isGameWon])
 
@@ -760,6 +839,7 @@ function App() {
         </header>
         <div className="loading-message">Loading puzzles...</div>
         {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
+        {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
       </div>
     )
   }
@@ -785,6 +865,7 @@ function App() {
       </header>
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
+      {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
 
       {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">

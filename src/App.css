@@ -1347,3 +1347,155 @@
     margin-top: 4px;
   }
 }
+
+/* Daily Streak Modal */
+.streak-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.streak-modal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  max-width: 400px;
+  width: 100%;
+  padding: 32px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.streak-title {
+  margin: 0 0 8px 0;
+  color: white;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.streak-subtitle {
+  margin: 0 0 24px 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+}
+
+.streak-welcome {
+  margin-bottom: 24px;
+}
+
+.streak-tip {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.streak-loading {
+  color: rgba(255, 255, 255, 0.7);
+  padding: 20px 0;
+}
+
+.streak-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.streak-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px 8px;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.streak-card.streak-active {
+  background: rgba(74, 222, 128, 0.1);
+  border-color: rgba(74, 222, 128, 0.4);
+}
+
+.streak-difficulty {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.streak-count {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: white;
+  line-height: 1;
+}
+
+.streak-active .streak-count {
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.streak-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
+}
+
+.streak-play-btn {
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  color: #1a1a2e;
+  border: none;
+  padding: 14px 32px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.streak-play-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(74, 222, 128, 0.3);
+}
+
+.streak-play-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 360px) {
+  .streak-grid {
+    grid-template-columns: 1fr;
+    max-width: 200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .streak-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+  }
+
+  .streak-difficulty {
+    margin-bottom: 0;
+  }
+
+  .streak-count {
+    font-size: 1.8rem;
+  }
+
+  .streak-label {
+    margin-top: 0;
+    margin-left: 4px;
+  }
+}
