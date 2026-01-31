@@ -15,7 +15,7 @@ function StatsModal({ onClose, currentDate }) {
 
       try {
         const [statsRes, aggRes] = await Promise.all([
-          fetch(`${API_BASE}/api/stats/${encodeURIComponent(user.sub)}`),
+          fetch(`${API_BASE}/api/stats/user/${encodeURIComponent(user.sub)}`),
           fetch(`${API_BASE}/api/stats/aggregates/${currentDate}`)
         ])
 

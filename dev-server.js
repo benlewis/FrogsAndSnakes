@@ -166,8 +166,8 @@ app.post('/api/stats', async (req, res) => {
   }
 });
 
-// GET /api/stats/:userId - Get user's personal stats
-app.get('/api/stats/:userId', async (req, res) => {
+// GET /api/stats/user/:userId - Get user's personal stats
+app.get('/api/stats/user/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
