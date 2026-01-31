@@ -2,6 +2,9 @@
 import pg from 'pg';
 const { Pool } = pg;
 
+// Disable strict SSL verification for cloud databases
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 let pool = null;
 
 export function getPool() {
