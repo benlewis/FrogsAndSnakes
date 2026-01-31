@@ -224,15 +224,18 @@ function App() {
     }
   }, [completedLevels, currentDate])
 
-  // Save stats when a level is won (only first time)
+  // Save stats when a level is won
   useEffect(() => {
-    if (isGameWon && !completedLevels[difficulty]) {
-      setCompletedLevels(prev => ({
-        ...prev,
-        [difficulty]: { moves, hints: hintsUsed }
-      }))
+    if (isGameWon) {
+      // Update local state (only first time for cookie storage)
+      if (!completedLevels[difficulty]) {
+        setCompletedLevels(prev => ({
+          ...prev,
+          [difficulty]: { moves, hints: hintsUsed }
+        }))
+      }
 
-      // Save to database if user is logged in
+      // Always save to database if user is logged in (DB handles duplicates with ON CONFLICT)
       if (isAuthenticated && user?.sub) {
         fetch(`${API_BASE}/api/stats`, {
           method: 'POST',
