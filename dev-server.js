@@ -166,9 +166,9 @@ app.post('/api/stats', async (req, res) => {
   }
 });
 
-// GET /api/stats/user/:userId - Get user's personal stats
-app.get('/api/stats/user/:userId', async (req, res) => {
-  const { userId } = req.params;
+// GET /api/user-stats?userId=xxx - Get user's personal stats
+app.get('/api/user-stats', async (req, res) => {
+  const { userId } = req.query;
 
   try {
     // Get all completions for user
@@ -247,9 +247,9 @@ app.get('/api/stats/user/:userId', async (req, res) => {
   }
 });
 
-// GET /api/stats/aggregates/:puzzleDate - Get average and min moves for a puzzle
-app.get('/api/stats/aggregates/:puzzleDate', async (req, res) => {
-  const { puzzleDate } = req.params;
+// GET /api/aggregates?date=xxx - Get average and min moves for a puzzle
+app.get('/api/aggregates', async (req, res) => {
+  const { date: puzzleDate } = req.query;
 
   try {
     const result = await query(

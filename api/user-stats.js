@@ -1,4 +1,4 @@
-import { query } from '../../_db.js';
+import { query } from './_db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -15,6 +15,10 @@ export default async function handler(req, res) {
 
   const { userId } = req.query;
 
+  if (!userId) {
+    return res.status(400).json({ error: 'userId query parameter required' });
+  }
+
   try {
     const completions = await query(
       `SELECT puzzle_date, difficulty, moves, hints_used, completed_at
@@ -24,7 +28,6 @@ export default async function handler(req, res) {
       [userId]
     );
 
-    // Calculate streaks and totals per difficulty
     const stats = {
       easy: { total: 0, currentStreak: 0, bestStreak: 0 },
       medium: { total: 0, currentStreak: 0, bestStreak: 0 },
@@ -46,7 +49,6 @@ export default async function handler(req, res) {
 
       const sortedDates = dates.map(d => new Date(d)).sort((a, b) => a - b);
 
-      let currentStreak = 1;
       let bestStreak = 1;
       let tempStreak = 1;
 
@@ -70,10 +72,9 @@ export default async function handler(req, res) {
       const lastPlayed = sortedDates[sortedDates.length - 1];
       lastPlayed.setHours(0, 0, 0, 0);
 
+      let currentStreak = 0;
       if (lastPlayed.getTime() === today.getTime() || lastPlayed.getTime() === yesterday.getTime()) {
         currentStreak = tempStreak;
-      } else {
-        currentStreak = 0;
       }
 
       stats[difficulty].currentStreak = currentStreak;

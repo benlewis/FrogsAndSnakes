@@ -1,4 +1,4 @@
-import { query } from '../../_db.js';
+import { query } from './_db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,7 +13,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { puzzleDate } = req.query;
+  const { date } = req.query;
+
+  if (!date) {
+    return res.status(400).json({ error: 'date query parameter required' });
+  }
 
   try {
     const result = await query(
@@ -24,7 +28,7 @@ export default async function handler(req, res) {
        FROM completions
        WHERE puzzle_date = $1
        GROUP BY difficulty`,
-      [puzzleDate]
+      [date]
     );
 
     const aggregates = {};
