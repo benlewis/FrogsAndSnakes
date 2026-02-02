@@ -420,8 +420,19 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setCheckResult(null) // Reset check when loading a level
   }
 
+  const resetGenOptionsToDefault = () => {
+    setGenNumFrogs('default')
+    setGenNumSnakes('default')
+    setGenMaxSnakeSize('default')
+    setGenNumLogs('default')
+    setGenExtraLilyPads('default')
+    setGenMinMoves('default')
+    setGenMaxMoves('default')
+  }
+
   const selectSlot = (date, diff) => {
     const existing = getLevel(date, diff)
+    resetGenOptionsToDefault()
     if (existing) {
       loadLevel(existing)
     } else {
@@ -438,25 +449,35 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [snakeLength, setSnakeLength] = useState(2)
   const [logLength, setLogLength] = useState(1)
 
-  // Generation options
-  const defaultMoveRanges = {
-    easy: { min: 4, max: 7 },
-    medium: { min: 8, max: 13 },
-    hard: { min: 14, max: 20 }
+  // Generation options - difficulty defaults
+  const difficultyDefaults = {
+    easy: { frogs: [1, 1], snakes: [1, 2], maxSnakeSize: 3, logs: [0, 2], extraLilyPads: [0, 1], moves: { min: 4, max: 7 } },
+    medium: { frogs: [1, 2], snakes: [2, 4], maxSnakeSize: 3, logs: [1, 3], extraLilyPads: [0, 2], moves: { min: 8, max: 13 } },
+    hard: { frogs: [1, 3], snakes: [3, 6], maxSnakeSize: 4, logs: [2, 5], extraLilyPads: [0, 3], moves: { min: 14, max: 20 } }
   }
-  const [genNumFrogs, setGenNumFrogs] = useState(1)
-  const [genNumSnakes, setGenNumSnakes] = useState(2)
-  const [genMaxSnakeSize, setGenMaxSnakeSize] = useState(3)
-  const [genNumLogs, setGenNumLogs] = useState(2)
-  const [genExtraLilyPads, setGenExtraLilyPads] = useState(0)
-  const [genMinMoves, setGenMinMoves] = useState(defaultMoveRanges[difficulty].min)
-  const [genMaxMoves, setGenMaxMoves] = useState(defaultMoveRanges[difficulty].max)
 
-  // Update move ranges when difficulty changes
-  useEffect(() => {
-    setGenMinMoves(defaultMoveRanges[difficulty].min)
-    setGenMaxMoves(defaultMoveRanges[difficulty].max)
-  }, [difficulty])
+  // "default" means use difficulty-based range, otherwise it's a specific number
+  const [genNumFrogs, setGenNumFrogs] = useState('default')
+  const [genNumSnakes, setGenNumSnakes] = useState('default')
+  const [genMaxSnakeSize, setGenMaxSnakeSize] = useState('default')
+  const [genNumLogs, setGenNumLogs] = useState('default')
+  const [genExtraLilyPads, setGenExtraLilyPads] = useState('default')
+  const [genMinMoves, setGenMinMoves] = useState('default')
+  const [genMaxMoves, setGenMaxMoves] = useState('default')
+
+  // Helper to get actual value from state (resolves 'default' to difficulty-based value)
+  const getGenValue = (stateValue, difficultyKey, isRange = false) => {
+    if (stateValue === 'default') {
+      const defaults = difficultyDefaults[difficulty]
+      const value = defaults[difficultyKey]
+      if (isRange && Array.isArray(value)) {
+        // Return random value in range
+        return value[0] + Math.floor(Math.random() * (value[1] - value[0] + 1))
+      }
+      return Array.isArray(value) ? value[1] : value // Use max for non-range defaults
+    }
+    return parseInt(stateValue)
+  }
 
   const isSnakeCell = (col, row) => {
     return snakes.some(snake =>
@@ -699,7 +720,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   // Generate a random level that's solvable in the target move range
   const generateRandomLevel = () => {
-    const range = { min: genMinMoves, max: genMaxMoves }
+    const defaults = difficultyDefaults[difficulty]
+    const minMoves = genMinMoves === 'default' ? defaults.moves.min : parseInt(genMinMoves)
+    const maxMoves = genMaxMoves === 'default' ? defaults.moves.max : parseInt(genMaxMoves)
+    const range = { min: minMoves, max: maxMoves }
 
     setGenerating(true)
     setCheckResult(null)
@@ -713,11 +737,13 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       while (!found && attempts < maxAttempts) {
         attempts++
 
-        // Use generation options from state
-        const numFrogs = genNumFrogs
-        const numSnakes = genNumSnakes
-        const numLogs = genNumLogs
-        const numLilyPads = numFrogs + genExtraLilyPads
+        // Use generation options from state (resolve 'default' to difficulty-based values)
+        const numFrogs = getGenValue(genNumFrogs, 'frogs', true)
+        const numSnakes = getGenValue(genNumSnakes, 'snakes', true)
+        const numLogs = getGenValue(genNumLogs, 'logs', true)
+        const extraLilyPads = getGenValue(genExtraLilyPads, 'extraLilyPads', true)
+        const maxSnakeSize = getGenValue(genMaxSnakeSize, 'maxSnakeSize', false)
+        const numLilyPads = numFrogs + extraLilyPads
 
         // Track occupied cells
         const occupied = new Set()
@@ -745,7 +771,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         const newSnakes = []
         for (let i = 0; i < numSnakes; i++) {
           const orientation = Math.random() < 0.5 ? 'vertical' : 'horizontal'
-          const length = Math.floor(Math.random() * (genMaxSnakeSize - 1)) + 2 // 2 to genMaxSnakeSize
+          const length = Math.floor(Math.random() * (maxSnakeSize - 1)) + 2 // 2 to maxSnakeSize
 
           let placed = false
           for (let tries = 0; tries < 50 && !placed; tries++) {
@@ -1050,53 +1076,52 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     <label>Generation Options</label>
                     <div className="gen-option-row">
                       <span>Frogs:</span>
-                      <select value={genNumFrogs} onChange={(e) => setGenNumFrogs(parseInt(e.target.value))}>
-                        {[1, 2, 3, 4].map(n => <option key={n} value={n}>{n}</option>)}
+                      <select value={genNumFrogs} onChange={(e) => setGenNumFrogs(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].frogs[0]}-{difficultyDefaults[difficulty].frogs[1]})</option>
+                        {[1, 2, 3].map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </div>
                     <div className="gen-option-row">
                       <span>Snakes:</span>
-                      <select value={genNumSnakes} onChange={(e) => setGenNumSnakes(parseInt(e.target.value))}>
+                      <select value={genNumSnakes} onChange={(e) => setGenNumSnakes(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].snakes[0]}-{difficultyDefaults[difficulty].snakes[1]})</option>
                         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </div>
                     <div className="gen-option-row">
                       <span>Max Snake Size:</span>
-                      <select value={genMaxSnakeSize} onChange={(e) => setGenMaxSnakeSize(parseInt(e.target.value))}>
+                      <select value={genMaxSnakeSize} onChange={(e) => setGenMaxSnakeSize(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].maxSnakeSize})</option>
                         {[2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </div>
                     <div className="gen-option-row">
                       <span>Stumps:</span>
-                      <select value={genNumLogs} onChange={(e) => setGenNumLogs(parseInt(e.target.value))}>
+                      <select value={genNumLogs} onChange={(e) => setGenNumLogs(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].logs[0]}-{difficultyDefaults[difficulty].logs[1]})</option>
                         {Array.from({ length: 16 }, (_, i) => i).map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </div>
                     <div className="gen-option-row">
                       <span>Extra Lily Pads:</span>
-                      <select value={genExtraLilyPads} onChange={(e) => setGenExtraLilyPads(parseInt(e.target.value))}>
+                      <select value={genExtraLilyPads} onChange={(e) => setGenExtraLilyPads(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].extraLilyPads[0]}-{difficultyDefaults[difficulty].extraLilyPads[1]})</option>
                         {[0, 1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </div>
                     <div className="gen-option-row">
                       <span>Min Moves:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={genMinMoves}
-                        onChange={(e) => setGenMinMoves(parseInt(e.target.value) || 1)}
-                      />
+                      <select value={genMinMoves} onChange={(e) => setGenMinMoves(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].moves.min})</option>
+                        {Array.from({ length: 30 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
                     </div>
                     <div className="gen-option-row">
                       <span>Max Moves:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={genMaxMoves}
-                        onChange={(e) => setGenMaxMoves(parseInt(e.target.value) || 20)}
-                      />
+                      <select value={genMaxMoves} onChange={(e) => setGenMaxMoves(e.target.value)}>
+                        <option value="default">Default ({difficultyDefaults[difficulty].moves.max})</option>
+                        {Array.from({ length: 50 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                      </select>
                     </div>
                   </div>
 

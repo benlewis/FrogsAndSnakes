@@ -1041,6 +1041,11 @@ function App() {
           <span className="stat">
             <span className="stat-label">Moves:</span> {moves}
           </span>
+          {currentLevel?.par && (
+            <span className="stat stat-min">
+              <span className="stat-label">Min:</span> {currentLevel.par}
+            </span>
+          )}
         </div>
       </div>
       {hintMove?.type === 'unsolvable' && (

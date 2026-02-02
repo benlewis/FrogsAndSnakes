@@ -446,6 +446,10 @@
   margin-right: 4px;
 }
 
+.stat-min {
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .par {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.9rem;

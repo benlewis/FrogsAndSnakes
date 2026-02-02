@@ -117,42 +117,25 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
 }
 
 // Get valid snake moves (returns array of { snakeIndex, positions, orientation })
+// Each possible end position counts as one move option (sliding multiple squares is 1 move)
 export const getValidSnakeMoves = (snakeIndex, gridSize, { frogs, snakes, logs, lilyPads }) => {
   const moves = []
   const snake = snakes[snakeIndex]
   const isVertical = snake.orientation === 'vertical'
   const gameState = { frogs, snakes, logs, lilyPads }
 
-  if (isVertical) {
-    const topRow = Math.min(...snake.positions.map(p => p[1]))
-    const bottomRow = Math.max(...snake.positions.map(p => p[1]))
-    const col = snake.positions[0][0]
+  // Get max movement in each direction
+  const maxNegative = getMaxSnakeDelta(snakeIndex, -1, gridSize, gameState)
+  const maxPositive = getMaxSnakeDelta(snakeIndex, 1, gridSize, gameState)
 
-    // Move up
-    if (topRow > 0 && !isCellBlockedForSnake(col, topRow - 1, gameState, snakeIndex)) {
-      const newPositions = snake.positions.map(p => [p[0], p[1] - 1])
-      moves.push({ snakeIdx: snakeIndex, positions: newPositions, orientation: snake.orientation })
-    }
-    // Move down
-    if (bottomRow < gridSize - 1 && !isCellBlockedForSnake(col, bottomRow + 1, gameState, snakeIndex)) {
-      const newPositions = snake.positions.map(p => [p[0], p[1] + 1])
-      moves.push({ snakeIdx: snakeIndex, positions: newPositions, orientation: snake.orientation })
-    }
-  } else {
-    const leftCol = Math.min(...snake.positions.map(p => p[0]))
-    const rightCol = Math.max(...snake.positions.map(p => p[0]))
-    const row = snake.positions[0][1]
+  // Generate all possible end positions (each is a single move)
+  for (let delta = maxNegative; delta <= maxPositive; delta++) {
+    if (delta === 0) continue // Skip no movement
 
-    // Move left
-    if (leftCol > 0 && !isCellBlockedForSnake(leftCol - 1, row, gameState, snakeIndex)) {
-      const newPositions = snake.positions.map(p => [p[0] - 1, p[1]])
-      moves.push({ snakeIdx: snakeIndex, positions: newPositions, orientation: snake.orientation })
-    }
-    // Move right
-    if (rightCol < gridSize - 1 && !isCellBlockedForSnake(rightCol + 1, row, gameState, snakeIndex)) {
-      const newPositions = snake.positions.map(p => [p[0] + 1, p[1]])
-      moves.push({ snakeIdx: snakeIndex, positions: newPositions, orientation: snake.orientation })
-    }
+    const newPositions = snake.positions.map(p =>
+      isVertical ? [p[0], p[1] + delta] : [p[0] + delta, p[1]]
+    )
+    moves.push({ snakeIdx: snakeIndex, positions: newPositions, orientation: snake.orientation })
   }
 
   return moves
