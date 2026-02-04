@@ -906,7 +906,7 @@ function App() {
               onClick={() => setDifficulty('expert')}
             >
               <span className="expert-icon">★</span>
-              Weekly Challenge
+              Weekly
             </button>
           )}
           <AccountMenu onShowStats={() => setShowStats(true)} />
