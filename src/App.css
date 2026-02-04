@@ -309,6 +309,67 @@
   font-weight: 600;
 }
 
+.difficulty-btn.expert {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #a855f7;
+  color: #c084fc;
+}
+
+.difficulty-btn.expert:hover {
+  background: rgba(168, 85, 247, 0.3);
+}
+
+.difficulty-btn.expert.active {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: white;
+}
+
+.no-hints-label {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+  font-style: italic;
+  padding: 4px 8px;
+}
+
+/* Header right section */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Weekly Challenge button in header */
+.weekly-challenge-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.5);
+  border-radius: 8px;
+  color: #c084fc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.weekly-challenge-btn:hover {
+  background: rgba(168, 85, 247, 0.3);
+  border-color: rgba(168, 85, 247, 0.7);
+}
+
+.weekly-challenge-btn.active {
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  border-color: transparent;
+  color: white;
+}
+
+.expert-icon {
+  font-size: 1rem;
+}
+
 /* Level selector */
 .level-selector {
   display: flex;

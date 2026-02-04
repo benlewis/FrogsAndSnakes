@@ -38,6 +38,14 @@ const getTodayDate = () => {
   return getLocalDateString(new Date())
 }
 
+// Helper to get the most recent Sunday (for Expert level)
+const getMostRecentSunday = (fromDate = new Date()) => {
+  const date = new Date(fromDate)
+  const day = date.getDay()
+  date.setDate(date.getDate() - day) // Go back to Sunday
+  return getLocalDateString(date)
+}
+
 // Cookie helpers for persisting progress
 const setCookie = (name, value, days = 3) => {
   const expires = new Date(Date.now() + days * 864e5).toUTCString()
@@ -76,24 +84,35 @@ const getStreaksFromCookie = () => {
   return getCookie('streaks') || {
     easy: { current: 0, best: 0, lastDate: null },
     medium: { current: 0, best: 0, lastDate: null },
-    hard: { current: 0, best: 0, lastDate: null }
+    hard: { current: 0, best: 0, lastDate: null },
+    expert: { current: 0, best: 0, lastDate: null }
   }
 }
 
 // Update streak in cookies when a puzzle is completed
 const updateStreakCookie = (difficulty, puzzleDate) => {
   const streaks = getStreaksFromCookie()
+
+  // Initialize streak for this difficulty if it doesn't exist
+  if (!streaks[difficulty]) {
+    streaks[difficulty] = { current: 0, best: 0, lastDate: null }
+  }
   const streak = streaks[difficulty]
 
-  // Calculate if this continues the streak
-  const yesterday = new Date(puzzleDate + 'T12:00:00')
-  yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = getLocalDateString(yesterday)
+  // For expert (weekly), compare against last Sunday; for daily levels, compare against yesterday
+  const isExpert = difficulty === 'expert'
+  const prevDate = new Date(puzzleDate + 'T12:00:00')
+  if (isExpert) {
+    prevDate.setDate(prevDate.getDate() - 7) // Last week's Sunday
+  } else {
+    prevDate.setDate(prevDate.getDate() - 1) // Yesterday
+  }
+  const prevDateStr = getLocalDateString(prevDate)
 
   if (streak.lastDate === puzzleDate) {
-    // Already completed today, no change
+    // Already completed this puzzle, no change
     return streaks
-  } else if (streak.lastDate === yesterdayStr) {
+  } else if (streak.lastDate === prevDateStr) {
     // Continues the streak
     streak.current += 1
     streak.best = Math.max(streak.best, streak.current)
@@ -167,15 +186,34 @@ function App() {
       setLoading(true)
       setCompletedLevels(getCookie(`progress_${currentDate}`) || {})
       try {
+        // Fetch daily levels
         const response = await fetch(`${API_BASE}/api/levels?date=${currentDate}`, {
           cache: 'no-store'
         })
+        let levelMap = {}
         if (response.ok) {
-          const levelMap = await response.json()
-          setLevels(levelMap)
+          levelMap = await response.json()
         } else {
           console.error('Error fetching levels:', await response.text())
         }
+
+        // Fetch Expert level - in dev mode check current date first, then fall back to most recent Sunday
+        if (!levelMap.expert) {
+          const sundayDate = getMostRecentSunday(new Date(currentDate + 'T12:00:00'))
+          if (sundayDate !== currentDate) {
+            const expertResponse = await fetch(`${API_BASE}/api/levels?date=${sundayDate}`, {
+              cache: 'no-store'
+            })
+            if (expertResponse.ok) {
+              const sundayLevels = await expertResponse.json()
+              if (sundayLevels.expert) {
+                levelMap.expert = sundayLevels.expert
+              }
+            }
+          }
+        }
+
+        setLevels(levelMap)
       } catch (error) {
         console.error('Error fetching levels:', error)
       }
@@ -861,7 +899,18 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="title">Frogs And Snakes</h1>
-        <AccountMenu onShowStats={() => setShowStats(true)} />
+        <div className="header-right">
+          {isAuthenticated && levels.expert && (
+            <button
+              className={`weekly-challenge-btn ${difficulty === 'expert' ? 'active' : ''}`}
+              onClick={() => setDifficulty('expert')}
+            >
+              <span className="expert-icon">★</span>
+              Weekly Challenge
+            </button>
+          )}
+          <AccountMenu onShowStats={() => setShowStats(true)} />
+        </div>
       </header>
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
@@ -1028,14 +1077,18 @@ function App() {
           <Button variant="secondary" size="xs" onClick={handleReset}>
             Reset
           </Button>
-          <Button
-            variant="outline"
-            size="xs"
-            onClick={handleHint}
-            disabled={isGameWon || !currentLevel || hintLoading}
-          >
-            {hintLoading ? 'Thinking...' : hintsUsed > 0 ? `Hint (${hintsUsed})` : 'Hint'}
-          </Button>
+          {difficulty === 'expert' ? (
+            <span className="no-hints-label">No Hints</span>
+          ) : (
+            <Button
+              variant="outline"
+              size="xs"
+              onClick={handleHint}
+              disabled={isGameWon || !currentLevel || hintLoading}
+            >
+              {hintLoading ? 'Thinking...' : hintsUsed > 0 ? `Hint (${hintsUsed})` : 'Hint'}
+            </Button>
+          )}
         </div>
         <div className="stats">
           <span className="stat">

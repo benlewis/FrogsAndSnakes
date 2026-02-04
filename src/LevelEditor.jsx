@@ -11,15 +11,26 @@ const getLocalDateString = (date) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-// Generate array of dates for the next 2 weeks
+// Generate array of dates from most recent Sunday through next 2 weeks
 const generateDateRange = () => {
   const dates = []
   const today = new Date()
-  for (let i = 0; i < 14; i++) {
-    const date = new Date(today)
-    date.setDate(today.getDate() + i)
-    dates.push(getLocalDateString(date))
+
+  // Start from the most recent Sunday (or today if it's Sunday)
+  const dayOfWeek = today.getDay()
+  const startDate = new Date(today)
+  startDate.setDate(today.getDate() - dayOfWeek)
+
+  // Generate dates from last Sunday through 2 weeks from today
+  const endDate = new Date(today)
+  endDate.setDate(today.getDate() + 14)
+
+  const currentDate = new Date(startDate)
+  while (currentDate <= endDate) {
+    dates.push(getLocalDateString(currentDate))
+    currentDate.setDate(currentDate.getDate() + 1)
   }
+
   return dates
 }
 
@@ -453,7 +464,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const difficultyDefaults = {
     easy: { frogs: [1, 1], snakes: [1, 2], maxSnakeSize: 3, logs: [0, 2], extraLilyPads: [0, 1], moves: { min: 4, max: 7 } },
     medium: { frogs: [1, 2], snakes: [2, 4], maxSnakeSize: 3, logs: [1, 3], extraLilyPads: [0, 2], moves: { min: 8, max: 13 } },
-    hard: { frogs: [1, 3], snakes: [3, 6], maxSnakeSize: 4, logs: [2, 5], extraLilyPads: [0, 3], moves: { min: 14, max: 20 } }
+    hard: { frogs: [1, 3], snakes: [3, 6], maxSnakeSize: 4, logs: [2, 5], extraLilyPads: [0, 3], moves: { min: 14, max: 20 } },
+    expert: { frogs: [2, 3], snakes: [5, 8], maxSnakeSize: 4, logs: [3, 6], extraLilyPads: [1, 3], moves: { min: 45, max: 60 } }
   }
 
   // "default" means use difficulty-based range, otherwise it's a specific number
@@ -795,26 +807,17 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           }
         }
 
-        // Generate logs
+        // Generate stumps (single-cell logs)
         const newLogs = []
         for (let i = 0; i < numLogs; i++) {
-          const length = Math.floor(Math.random() * 2) + 1 // 1-2 length
-
           let placed = false
           for (let tries = 0; tries < 50 && !placed; tries++) {
-            const col = Math.floor(Math.random() * (gridSize - length + 1))
+            const col = Math.floor(Math.random() * gridSize)
             const row = Math.floor(Math.random() * gridSize)
 
-            const positions = []
-            let valid = true
-            for (let j = 0; j < length && valid; j++) {
-              if (isOccupied(col + j, row)) valid = false
-              else positions.push([col + j, row])
-            }
-
-            if (valid && positions.length === length) {
-              newLogs.push({ positions })
-              positions.forEach(([c, r]) => markOccupied(c, r))
+            if (!isOccupied(col, row)) {
+              newLogs.push({ positions: [[col, row]] })
+              markOccupied(col, row)
               placed = true
             }
           }
@@ -1111,34 +1114,71 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     </div>
                     <div className="gen-option-row">
                       <span>Min Moves:</span>
-                      <select value={genMinMoves} onChange={(e) => setGenMinMoves(e.target.value)}>
-                        <option value="default">Default ({difficultyDefaults[difficulty].moves.min})</option>
-                        {Array.from({ length: 30 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder={difficultyDefaults[difficulty].moves.min}
+                        value={genMinMoves === 'default' ? '' : genMinMoves}
+                        onChange={(e) => setGenMinMoves(e.target.value === '' ? 'default' : e.target.value)}
+                      />
+                      {genMinMoves === 'default' && <span className="default-hint">({difficultyDefaults[difficulty].moves.min})</span>}
                     </div>
                     <div className="gen-option-row">
                       <span>Max Moves:</span>
-                      <select value={genMaxMoves} onChange={(e) => setGenMaxMoves(e.target.value)}>
-                        <option value="default">Default ({difficultyDefaults[difficulty].moves.max})</option>
-                        {Array.from({ length: 50 }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                      </select>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        placeholder={difficultyDefaults[difficulty].moves.max}
+                        value={genMaxMoves === 'default' ? '' : genMaxMoves}
+                        onChange={(e) => setGenMaxMoves(e.target.value === '' ? 'default' : e.target.value)}
+                      />
+                      {genMaxMoves === 'default' && <span className="default-hint">({difficultyDefaults[difficulty].moves.max})</span>}
                     </div>
                   </div>
 
-                  <button
-                    className="action-btn generate"
-                    onClick={generateRandomLevel}
-                    disabled={generating}
-                  >
-                    {generating ? 'Generating...' : 'Generate Random'}
-                  </button>
-                  <button
-                    className="action-btn check"
-                    onClick={checkLevel}
-                    disabled={checking}
-                  >
-                    {checking ? 'Checking...' : 'Check Level'}
-                  </button>
+                  <div className="action-btn-row">
+                    <button
+                      className="action-btn generate"
+                      onClick={generateRandomLevel}
+                      disabled={generating}
+                    >
+                      {generating ? '...' : 'Generate'}
+                    </button>
+                    <button
+                      className="action-btn check"
+                      onClick={checkLevel}
+                      disabled={checking}
+                    >
+                      {checking ? '...' : 'Check'}
+                    </button>
+                    <button
+                      className="action-btn try-it"
+                      onClick={() => {
+                        if (frogs.length === 0) {
+                          alert('Please place at least one frog!')
+                          return
+                        }
+                        if (lilyPads.length < frogs.length) {
+                          alert(`Please place at least ${frogs.length} lily pad${frogs.length > 1 ? 's' : ''} (one per frog)!`)
+                          return
+                        }
+                        setTryItHints(0)
+                        setTryItMode(true)
+                      }}
+                      disabled={frogs.length === 0 || lilyPads.length < frogs.length}
+                    >
+                      Try It
+                    </button>
+                    <button
+                      className="action-btn export"
+                      onClick={saveLevel}
+                      disabled={saving}
+                    >
+                      {saving ? '...' : 'Save'}
+                    </button>
+                  </div>
                   {checkResult && (
                     <div className={`check-result ${checkResult.solvable ? 'solvable' : 'unsolvable'}`}>
                       {checkResult.solvable ? (
@@ -1148,31 +1188,6 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       )}
                     </div>
                   )}
-                  <button
-                    className="action-btn try-it"
-                    onClick={() => {
-                      if (frogs.length === 0) {
-                        alert('Please place at least one frog!')
-                        return
-                      }
-                      if (lilyPads.length < frogs.length) {
-                        alert(`Please place at least ${frogs.length} lily pad${frogs.length > 1 ? 's' : ''} (one per frog)!`)
-                        return
-                      }
-                      setTryItHints(0)
-                      setTryItMode(true)
-                    }}
-                    disabled={frogs.length === 0 || lilyPads.length < frogs.length}
-                  >
-                    Try It
-                  </button>
-                  <button
-                    className="action-btn export"
-                    onClick={saveLevel}
-                    disabled={saving}
-                  >
-                    {saving ? 'Saving...' : 'Save Level'}
-                  </button>
                   {saveError && (
                     <div className="save-error">{saveError}</div>
                   )}
@@ -1261,27 +1276,34 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
               <div className="schedule-loading">Loading...</div>
             ) : (
               <div className="schedule-list">
-                {dateRange.map(date => (
-                  <div key={date} className="schedule-day">
-                    <div className="schedule-date">{formatDate(date)}</div>
-                    <div className="schedule-slots">
-                      {['easy', 'medium', 'hard'].map(diff => {
-                        const level = getLevel(date, diff)
-                        const isSelected = isCurrentSelection(date, diff)
-                        return (
-                          <div
-                            key={diff}
-                            className={`schedule-slot ${diff} ${level ? 'filled' : 'empty'} ${isSelected ? 'selected' : ''}`}
-                            onClick={() => selectSlot(date, diff)}
-                          >
-                            <span className="slot-difficulty">{diff.charAt(0).toUpperCase()}</span>
-                            {!level && <span className="slot-needed">+</span>}
-                          </div>
-                        )
-                      })}
+                {dateRange.map(date => {
+                  // Check if this date is a Sunday (Expert day)
+                  const dateObj = new Date(date + 'T12:00:00')
+                  const isSunday = dateObj.getDay() === 0
+                  const difficulties = isSunday ? ['easy', 'medium', 'hard', 'expert'] : ['easy', 'medium', 'hard']
+
+                  return (
+                    <div key={date} className="schedule-day">
+                      <div className="schedule-date">{formatDate(date)}</div>
+                      <div className="schedule-slots">
+                        {difficulties.map(diff => {
+                          const level = getLevel(date, diff)
+                          const isSelected = isCurrentSelection(date, diff)
+                          return (
+                            <div
+                              key={diff}
+                              className={`schedule-slot ${diff} ${level ? 'filled' : 'empty'} ${isSelected ? 'selected' : ''}`}
+                              onClick={() => selectSlot(date, diff)}
+                            >
+                              <span className="slot-difficulty">{diff === 'expert' ? 'X' : diff.charAt(0).toUpperCase()}</span>
+                              {!level && <span className="slot-needed">+</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
