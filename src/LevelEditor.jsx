@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
+import { useAuth0 } from '@auth0/auth0-react'
 import './LevelEditor.css'
 import { solveLevel } from './solver.js'
 import GameBoard from './GameBoard.jsx'
 
 // API base URL - use relative path for production, localhost for dev
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
+
+// Allowed emails for level editor access
+const ALLOWED_EMAILS = ['ben.lewis@gmail.com']
 
 // Get date string in local timezone (YYYY-MM-DD format)
 const getLocalDateString = (date) => {
@@ -354,6 +358,11 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
 
 
 const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
+  const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0()
+
+  // Check authorization
+  const isAuthorized = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
+
   const [gridSize, setGridSize] = useState(existingLevel?.gridSize || 5)
   const [difficulty, setDifficulty] = useState(existingLevel?.difficulty || 'easy')
   const [par, setPar] = useState(existingLevel?.par || 3)
@@ -940,6 +949,43 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   const isCurrentSelection = (date, diff) => {
     return date === levelDate && diff === difficulty
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="level-editor-overlay">
+        <div className="level-editor-auth">
+          <p>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="level-editor-overlay">
+        <div className="level-editor-auth">
+          <h2>Level Editor</h2>
+          <p>Please log in to access the level editor.</p>
+          <button className="auth-btn" onClick={() => loginWithRedirect()}>Log In</button>
+        </div>
+      </div>
+    )
+  }
+
+  // Show access denied if not authorized
+  if (!isAuthorized) {
+    return (
+      <div className="level-editor-overlay">
+        <div className="level-editor-auth">
+          <h2>Access Denied</h2>
+          <p>You don't have permission to access the level editor.</p>
+          <a href="/" className="auth-btn">Back to Game</a>
+        </div>
+      </div>
+    )
   }
 
   return (

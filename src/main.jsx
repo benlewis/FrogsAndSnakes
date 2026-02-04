@@ -4,10 +4,11 @@ import { Auth0Provider } from '@auth0/auth0-react'
 import { Analytics } from '@vercel/analytics/react'
 import App from './App.jsx'
 import Learn from './Learn.jsx'
+import LevelEditor from './LevelEditor.jsx'
 import './index.css'
 
 const path = window.location.pathname
-const Page = path === '/learn' ? Learn : App
+const Page = path === '/learn' ? Learn : path === '/level-editor' ? LevelEditor : App
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
