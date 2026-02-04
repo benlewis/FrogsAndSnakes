@@ -988,12 +988,10 @@ function App() {
           </div>
         ) : (
           <div className="date-display">
-            {formattedDate}
-            {difficulty === 'expert' && (
-              <span className="expert-date-range">
-                Weekly: {formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))}
-              </span>
-            )}
+            {difficulty === 'expert'
+              ? `Weekly: ${formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))}`
+              : formattedDate
+            }
           </div>
         )}
         <a className="learn-btn" href="/learn">Learn</a>

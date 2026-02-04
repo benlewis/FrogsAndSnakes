@@ -215,16 +215,6 @@
 .date-display {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.expert-date-range {
-  color: #c084fc;
-  font-size: 0.75rem;
-  font-weight: 500;
 }
 
 .date-picker-row {
