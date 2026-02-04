@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import './App.css'
 import { Button } from '@/components/ui/button'
-import LevelEditor from './LevelEditor.jsx'
 import AccountMenu from './components/AccountMenu.jsx'
 import StatsModal from './components/StatsModal.jsx'
 import DailyStreakModal from './components/DailyStreakModal.jsx'
@@ -26,6 +25,9 @@ import {
 
 // API base URL - use relative path for production, localhost for dev
 const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
+
+// Allowed emails for level editor access
+const ALLOWED_EMAILS = ['ben.lewis@gmail.com']
 
 
 // Helper to get a date in YYYY-MM-DD format using local timezone
@@ -333,9 +335,6 @@ function App() {
 
   // Check win condition using shared rules
   const isGameWon = frogs.length > 0 && checkWinCondition(frogs, lilyPads)
-
-  // Level editor state
-  const [showEditor, setShowEditor] = useState(false)
 
   // Game stats
   const [moves, setMoves] = useState(0)
@@ -1188,24 +1187,11 @@ function App() {
       </>
       )}
 
-      {/* Editor button - dev only */}
-      {import.meta.env.DEV && (
-        <Button
-          variant="ghost"
-          size="xs"
-          className="editor-toggle-btn"
-          onClick={() => setShowEditor(true)}
-        >
+      {/* Editor link - for allowed users */}
+      {isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email) && (
+        <a href="/level-editor" className="editor-link">
           Level Editor
-        </Button>
-      )}
-
-      {/* Level Editor - dev only */}
-      {import.meta.env.DEV && showEditor && (
-        <LevelEditor
-          onClose={() => setShowEditor(false)}
-          existingLevel={currentLevel}
-        />
+        </a>
       )}
 
     </div>
