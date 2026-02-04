@@ -46,6 +46,23 @@ const getMostRecentSunday = (fromDate = new Date()) => {
   return getLocalDateString(date)
 }
 
+// Helper to get the Saturday after a given Sunday
+const getSaturdayAfter = (sundayDate) => {
+  const date = new Date(sundayDate + 'T12:00:00')
+  date.setDate(date.getDate() + 6)
+  return getLocalDateString(date)
+}
+
+// Format date range for Expert level display
+const formatDateRange = (sundayDate) => {
+  const sunday = new Date(sundayDate + 'T12:00:00')
+  const saturday = new Date(sundayDate + 'T12:00:00')
+  saturday.setDate(saturday.getDate() + 6)
+
+  const formatShort = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return `${formatShort(sunday)} - ${formatShort(saturday)}`
+}
+
 // Cookie helpers for persisting progress
 const setCookie = (name, value, days = 3) => {
   const expires = new Date(Date.now() + days * 864e5).toUTCString()
@@ -899,18 +916,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="title">Frogs And Snakes</h1>
-        <div className="header-right">
-          {isAuthenticated && levels.expert && (
-            <button
-              className={`weekly-challenge-btn ${difficulty === 'expert' ? 'active' : ''}`}
-              onClick={() => setDifficulty('expert')}
-            >
-              <span className="expert-icon">★</span>
-              Weekly
-            </button>
-          )}
-          <AccountMenu onShowStats={() => setShowStats(true)} />
-        </div>
+        <AccountMenu onShowStats={() => setShowStats(true)} />
       </header>
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
@@ -940,6 +946,14 @@ function App() {
           >
             Hard
           </button>
+          {isAuthenticated && levels.expert && (
+            <button
+              className={`difficulty-btn expert ${difficulty === 'expert' ? 'active' : ''}`}
+              onClick={() => setDifficulty('expert')}
+            >
+              Expert
+            </button>
+          )}
         </div>
       </div>
       <div className="date-row">
@@ -973,7 +987,14 @@ function App() {
             </button>
           </div>
         ) : (
-          <div className="date-display">{formattedDate}</div>
+          <div className="date-display">
+            {formattedDate}
+            {difficulty === 'expert' && (
+              <span className="expert-date-range">
+                Weekly: {formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))}
+              </span>
+            )}
+          </div>
         )}
         <a className="learn-btn" href="/learn">Learn</a>
       </div>

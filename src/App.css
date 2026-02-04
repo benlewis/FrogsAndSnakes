@@ -215,6 +215,16 @@
 .date-display {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.expert-date-range {
+  color: #c084fc;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .date-picker-row {
@@ -1303,7 +1313,7 @@
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-bottom: 24px;
 }
@@ -1313,6 +1323,24 @@
   border-radius: 12px;
   padding: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stats-card-expert {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.stats-card-expert .stats-card-title {
+  color: #c084fc;
+}
+
+.stats-comparison-expert {
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.stats-comparison-expert .stats-comparison-label {
+  color: #c084fc;
 }
 
 .stats-card-title {
