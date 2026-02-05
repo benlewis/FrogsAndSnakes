@@ -993,7 +993,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       <div className="level-editor wide">
         <div className="editor-header">
           <h2>Level Editor</h2>
-          <button className="close-btn" onClick={onClose}>X</button>
+          <button className="close-btn" onClick={onClose || (() => window.location.href = '/')}>X</button>
         </div>
 
         <div className="editor-layout">
