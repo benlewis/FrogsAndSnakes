@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 
-function AccountMenu({ onShowStats }) {
+function AccountMenu({ onShowStats, isAdmin }) {
   const { isAuthenticated, isLoading, user, loginWithRedirect, logout } = useAuth0()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -64,6 +64,15 @@ function AccountMenu({ onShowStats }) {
             {user?.email && <div className="account-dropdown-email">{user.email}</div>}
           </div>
           <div className="account-dropdown-divider" />
+          {isAdmin && (
+            <a
+              className="account-dropdown-item"
+              href="/level-editor"
+              onClick={() => setDropdownOpen(false)}
+            >
+              Level Editor
+            </a>
+          )}
           <button
             className="account-dropdown-item"
             onClick={() => { setDropdownOpen(false); onShowStats?.(); }}

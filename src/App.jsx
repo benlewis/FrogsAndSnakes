@@ -889,7 +889,7 @@ function App() {
       <div className="app">
         <header className="app-header">
           <h1 className="title">Frogs And Snakes</h1>
-          <AccountMenu onShowStats={() => setShowStats(true)} />
+          <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)} />
         </header>
         <div className="loading-message">Loading puzzles...</div>
         {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
@@ -915,7 +915,7 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="title">Frogs And Snakes</h1>
-        <AccountMenu onShowStats={() => setShowStats(true)} />
+        <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)} />
       </header>
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
@@ -1187,12 +1187,6 @@ function App() {
       </>
       )}
 
-      {/* Editor link - for allowed users */}
-      {isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email) && (
-        <a href="/level-editor" className="editor-link">
-          Level Editor
-        </a>
-      )}
 
     </div>
     </>
