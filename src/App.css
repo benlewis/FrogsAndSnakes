@@ -519,7 +519,7 @@
 
 .grid-container {
   width: 100%;
-  max-width: 500px;
+  max-width: min(500px, calc(100dvh - 300px));
   aspect-ratio: 1;
   padding: 10px;
 }
@@ -962,6 +962,44 @@
   }
 }
 
+/* Short viewport styles */
+@media (max-height: 700px) {
+  .app {
+    padding: 12px 20px;
+  }
+
+  .app-header {
+    margin-bottom: 8px;
+  }
+
+  .app-header .title {
+    font-size: 1.4rem;
+  }
+
+  .difficulty-selector {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .difficulty-btn {
+    padding: 3px 10px;
+    font-size: 0.8rem;
+  }
+
+  .date-row {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+
+  .stats-bar {
+    margin-top: 8px;
+  }
+
+  .win-buttons {
+    margin-top: 8px;
+  }
+}
+
 /* Mobile-first responsive styles */
 @media (max-width: 480px) {
   .app {
@@ -1015,7 +1053,7 @@
   }
 
   .grid-container {
-    max-width: 100%;
+    max-width: min(100%, calc(100dvh - 260px));
     padding: 0;
   }
 
@@ -1064,7 +1102,7 @@
 /* Tablet styles */
 @media (min-width: 481px) and (max-width: 768px) {
   .grid-container {
-    max-width: 400px;
+    max-width: min(400px, calc(100dvh - 300px));
   }
 }
 
@@ -1081,7 +1119,7 @@
   }
 
   .grid-container {
-    max-width: 500px;
+    max-width: min(500px, calc(100dvh - 300px));
   }
 
   .grid {

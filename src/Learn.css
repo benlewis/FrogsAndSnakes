@@ -1,5 +1,6 @@
 .learn-page .grid-container {
   margin-top: 16px;
+  max-width: min(500px, calc(100dvh - 250px));
 }
 
 .learn-instructions {
