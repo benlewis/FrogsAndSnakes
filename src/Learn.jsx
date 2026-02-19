@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import './App.css'
 import './Learn.css'
 import AccountMenu from './components/AccountMenu.jsx'
@@ -10,7 +10,6 @@ import {
   VerticalSnakeSVG,
   HorizontalSnakeSVG,
 } from './GamePieces.jsx'
-import { solveLevel } from './solver.js'
 import {
   isSnakeAt,
   isLogAt,
@@ -20,134 +19,82 @@ import {
   checkWinCondition
 } from './gameRules.js'
 
-const TUTORIAL_STEPS = [
-  { text: 'The goal of the game is to move all of the frogs to a lily pad.', type: 'info' },
-  { text: 'Frogs move by jumping. They must jump over at least one object to move in a line.', type: 'info' },
-  { text: 'Select the frog and jump to the indicated cell.', type: 'frog', moveIndex: 0, frogTarget: [1, 3] },
-  { text: 'Snakes move by sliding. Slide the snake to the indicated place.', type: 'snake', moveIndex: 1, snakeTarget: [3, 1] },
-  { text: 'Jump the frog over the snake.', type: 'frog', moveIndex: 2 },
-  { text: 'Jump the frog to the lily pad!', type: 'frog', moveIndex: 3 },
+const TUTORIAL_LEVELS = [
+  {
+    title: 'Frog Jumping',
+    instruction: 'The goal of this game is to place all the frogs on a lily pad. Frogs jump over objects. Tap the frog, then tap the lily pad.',
+    gridSize: 5,
+    frogs: [{ position: [2, 3], color: 'green' }],
+    logs: [{ positions: [[2, 2]] }],
+    snakes: [],
+    lilyPads: [{ position: [2, 1] }],
+  },
+  {
+    title: 'Jumping Over Multiple',
+    instruction: 'Frogs can only move by jumping over at least one object. They can also jump over multiple objects at once. Jump the frog to the lily pad.',
+    gridSize: 5,
+    frogs: [{ position: [1, 0], color: 'green' }],
+    logs: [{ positions: [[1, 1]] }, { positions: [[1, 2]] }, { positions: [[2, 3]] }, { positions: [[3, 3]] }],
+    snakes: [],
+    lilyPads: [{ position: [4, 3] }],
+  },
+  {
+    title: 'Jumping Over Frogs',
+    instruction: 'Frogs can also jump over other frogs. Move each frog to a lily pad.',
+    gridSize: 5,
+    frogs: [{ position: [2, 3], color: 'green' }, { position: [1, 1], color: 'green' }],
+    logs: [{ positions: [[2, 2]] }],
+    snakes: [],
+    lilyPads: [{ position: [2, 1] }, { position: [3, 1] }],
+  },
+  {
+    title: 'Sliding Snakes',
+    instruction: 'Snakes slide along their body. Drag or tap to move them. Rearrange the snakes to create a jumping path for the frog.',
+    gridSize: 5,
+    frogs: [{ position: [0, 2], color: 'green' }],
+    logs: [],
+    snakes: [
+      { positions: [[1, 0], [1, 1]], orientation: 'vertical' },
+      { positions: [[1, 2], [2, 2]], orientation: 'horizontal' },
+    ],
+    lilyPads: [{ position: [4, 2] }],
+  },
+  // Future levels added here
 ]
-
-const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
 
 function Learn() {
   const gridRef = useRef(null)
-  const [level, setLevel] = useState(null)
-  const [loading, setLoading] = useState(true)
   const [showStats, setShowStats] = useState(false)
+  const [currentLevelIndex, setCurrentLevelIndex] = useState(0)
 
-  // Fetch the Easy level from 2026-01-22
-  useEffect(() => {
-    const fetchLevel = async () => {
-      try {
-        const response = await fetch(`${API_BASE}/api/levels?date=2026-01-22`)
-        if (response.ok) {
-          const levelMap = await response.json()
-          if (levelMap.easy) {
-            setLevel(levelMap.easy)
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching tutorial level:', error)
-      }
-      setLoading(false)
-    }
-    fetchLevel()
-  }, [])
-
-  const gridSize = level?.gridSize || 5
-
-  // Override frog start position for tutorial
-  const TUTORIAL_FROG_START = [4, 3]
-  // Extra log to teach jumping over 2 pieces
-  const TUTORIAL_EXTRA_LOG = { positions: [[3, 3]] }
+  const currentLevel = TUTORIAL_LEVELS[currentLevelIndex]
+  const gridSize = currentLevel.gridSize
 
   const getInitialState = () => {
-    if (!level) {
-      return { frogs: [{ position: [0, 0], color: 'green', direction: 'up' }], snakes: [], logs: [], lilyPads: [] }
-    }
-    const frogs = [{ position: [...TUTORIAL_FROG_START], color: 'green', direction: 'up' }]
     return {
-      frogs,
-      snakes: level.snakes.map(s => ({
-        positions: s.positions.map(p => [...p]),
-        orientation: s.orientation
+      frogs: currentLevel.frogs.map(f => ({
+        position: [...f.position],
+        color: f.color,
+        direction: 'up',
       })),
-      logs: [
-        ...level.logs.map(l => ({
-          positions: l.positions.map(p => [...p])
-        })),
-        { positions: TUTORIAL_EXTRA_LOG.positions.map(p => [...p]) }
-      ],
-      lilyPads: level.lilyPads.map(lp => ({
-        position: [...lp.position]
-      }))
+      snakes: currentLevel.snakes.map(s => ({
+        positions: s.positions.map(p => [...p]),
+        orientation: s.orientation,
+      })),
+      logs: currentLevel.logs.map(l => ({
+        positions: l.positions.map(p => [...p]),
+      })),
+      lilyPads: currentLevel.lilyPads.map(lp => ({
+        position: [...lp.position],
+      })),
     }
   }
 
   const [gameState, setGameState] = useState(getInitialState)
-  const [step, setStep] = useState(0)
-  const [solutionPath, setSolutionPath] = useState([])
-
-  useEffect(() => {
-    if (level) {
-      setGameState(getInitialState())
-      setStep(0)
-      // Compute solution path from tutorial start position (include extra log)
-      const solverFrogs = [{ position: [...TUTORIAL_FROG_START], color: 'green' }]
-      const tutorialLogs = [...level.logs, TUTORIAL_EXTRA_LOG]
-      const result = solveLevel(
-        level.gridSize || 5,
-        solverFrogs,
-        level.snakes,
-        tutorialLogs,
-        level.lilyPads
-      )
-      if (result.solvable) {
-        setSolutionPath(result.path)
-      }
-    }
-  }, [level])
 
   const { frogs, snakes, logs, lilyPads } = gameState
   const gameStateForRules = { frogs, snakes, logs, lilyPads }
   const isGameWon = frogs.length > 0 && checkWinCondition(frogs, lilyPads)
-
-  // Current step's expected move
-  const currentStepDef = TUTORIAL_STEPS[step]
-  const currentHint = (() => {
-    if (!currentStepDef || currentStepDef.moveIndex === undefined) return null
-    // Frog step with hardcoded target
-    if (currentStepDef.type === 'frog' && currentStepDef.frogTarget) {
-      const frog = frogs[0]
-      if (!frog) return null
-      return { type: 'frog', frogIdx: 0, from: [...frog.position], to: currentStepDef.frogTarget }
-    }
-    // Snake step with target override
-    if (currentStepDef.type === 'snake' && currentStepDef.snakeTarget) {
-      const snake = snakes[0]
-      if (!snake) return null
-      const isVertical = snake.orientation === 'vertical'
-      const targetPos = currentStepDef.snakeTarget
-      // Compute delta so the head (last position) ends at target
-      const head = snake.positions[snake.positions.length - 1]
-      const delta = isVertical
-        ? targetPos[1] - head[1]
-        : targetPos[0] - head[0]
-      const to = snake.positions.map(([c, r]) => isVertical ? [c, r + delta] : [c + delta, r])
-      return { type: 'snake', snakeIdx: 0, from: snake.positions.map(p => [...p]), to }
-    }
-    // Later frog steps: solve from current game state
-    if (currentStepDef.type === 'frog') {
-      const solverFrogs = frogs.map(f => ({ position: [...f.position], color: f.color }))
-      const result = solveLevel(gridSize, solverFrogs, snakes, logs, lilyPads)
-      if (result.solvable && result.path.length > 0) {
-        return result.path[0]
-      }
-    }
-    return null
-  })()
 
   // Selection/drag state
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
@@ -276,21 +223,17 @@ function Learn() {
   // Snake click handler for tap-to-select
   const handleSnakeClick = (snakeIndex) => {
     if (isGameWon) return
-    if (currentStepDef?.type !== 'snake') return
     if (justFinishedSnakeDragRef.current) {
       justFinishedSnakeDragRef.current = false
       return
     }
-    if (currentHint && snakeIndex !== currentHint.snakeIdx) return
     setSelectedFrogIndex(null)
     setSelectedSnakeIndex(selectedSnakeIndex === snakeIndex ? null : snakeIndex)
   }
 
-  // Snake drag handler - inline listener pattern
+  // Snake drag handler
   const handleSnakePointerDown = (e, snakeIndex) => {
     if (isGameWon) return
-    if (currentStepDef?.type !== 'snake') return
-    if (currentHint && snakeIndex !== currentHint.snakeIdx) return
     e.preventDefault()
     e.stopPropagation()
 
@@ -311,20 +254,6 @@ function Learn() {
 
       if (Math.abs(delta) > 5) hasDragged = true
 
-      // Lock drag to exact target position if snakeTarget is set
-      if (currentStepDef?.snakeTarget) {
-        const head = snake.positions[snake.positions.length - 1]
-        const targetDelta = isVertical
-          ? (currentStepDef.snakeTarget[1] - head[1]) * cellSize
-          : (currentStepDef.snakeTarget[0] - head[0]) * cellSize
-        const clamped = targetDelta > 0
-          ? Math.max(0, Math.min(targetDelta, delta))
-          : Math.min(0, Math.max(targetDelta, delta))
-        currentOffset = clamped
-        setSnakeDragOffset(clamped)
-        return
-      }
-
       const snakeLength = snake.positions.length
       const minBoundOffset = (0 - startPos) * cellSize
       const maxBoundOffset = (gridSize - snakeLength - startPos) * cellSize
@@ -343,29 +272,6 @@ function Learn() {
       window.removeEventListener('pointerup', onPointerUp)
 
       const cellSize = getCellSize()
-
-      // If snakeTarget is set, snap to exact target position
-      if (currentStepDef?.snakeTarget) {
-        const head = snake.positions[snake.positions.length - 1]
-        const targetDelta = isVertical
-          ? currentStepDef.snakeTarget[1] - head[1]
-          : currentStepDef.snakeTarget[0] - head[0]
-        const draggedCells = Math.round(currentOffset / cellSize)
-        if (draggedCells === targetDelta && targetDelta !== 0) {
-          const newPositions = snake.positions.map(([col, row]) => isVertical ? [col, row + targetDelta] : [col + targetDelta, row])
-          setGameState(prev => ({
-            ...prev,
-            snakes: prev.snakes.map((s, i) => i === snakeIndex ? { ...s, positions: newPositions } : s)
-          }))
-          setStep(s => s + 1)
-          setSelectedSnakeIndex(null)
-        }
-        if (hasDragged) justFinishedSnakeDragRef.current = true
-        setDraggingSnakeIndex(null)
-        setSnakeDragOffset(0)
-        return
-      }
-
       const posDelta = Math.round(currentOffset / cellSize)
       if (posDelta !== 0) {
         const newPositions = snake.positions.map(([col, row]) => isVertical ? [col, row + posDelta] : [col + posDelta, row])
@@ -373,9 +279,6 @@ function Learn() {
           ...prev,
           snakes: prev.snakes.map((s, i) => i === snakeIndex ? { ...s, positions: newPositions } : s)
         }))
-        if (currentStepDef?.type === 'snake') {
-          setStep(s => s + 1)
-        }
         setSelectedSnakeIndex(null)
       }
 
@@ -392,67 +295,33 @@ function Learn() {
   const handleFrogClick = (frogIndex) => {
     if (isGameWon) return
     if (justFinishedDragRef.current) { justFinishedDragRef.current = false; return }
-    // Only allow selecting the hinted frog during frog steps
-    if (currentStepDef?.type === 'frog' && currentHint && frogIndex !== currentHint.frogIdx) return
     setSelectedSnakeIndex(null)
     setSelectedFrogIndex(selectedFrogIndex === frogIndex ? null : frogIndex)
-  }
-
-  const advanceAfterMove = (type, from, to) => {
-    if (!currentStepDef || currentStepDef.type !== type) return
-    if (type === 'frog') {
-      if (!currentHint || (to[0] === currentHint.to[0] && to[1] === currentHint.to[1])) {
-        setStep(s => s + 1)
-        setSelectedFrogIndex(null)
-      }
-    }
   }
 
   const handleCellClick = (col, row) => {
     if (isGameWon) return
 
     // Handle frog moves
-    if (currentStepDef?.type === 'frog') {
-      // Only allow moving to the hinted destination
-      if (currentHint && (col !== currentHint.to[0] || row !== currentHint.to[1])) {
-        setSelectedFrogIndex(null)
-        return
-      }
-      if (selectedFrogIndex !== null && isValidFrogDestination(col, row)) {
-        const oldPos = frogs[selectedFrogIndex].position
-        setGameState(prev => {
-          let direction = prev.frogs[selectedFrogIndex].direction
-          const dx = col - oldPos[0], dy = row - oldPos[1]
-          if (Math.abs(dx) > Math.abs(dy)) { direction = dx > 0 ? 'right' : 'left' }
-          else { direction = dy > 0 ? 'down' : 'up' }
-          return { ...prev, frogs: prev.frogs.map((f, idx) => idx === selectedFrogIndex ? { ...f, position: [col, row], direction } : f) }
-        })
-        advanceAfterMove('frog', oldPos, [col, row])
-        setSelectedFrogIndex(null)
-        return
-      }
+    if (selectedFrogIndex !== null && isValidFrogDestination(col, row)) {
+      const oldPos = frogs[selectedFrogIndex].position
+      setGameState(prev => {
+        let direction = prev.frogs[selectedFrogIndex].direction
+        const dx = col - oldPos[0], dy = row - oldPos[1]
+        if (Math.abs(dx) > Math.abs(dy)) { direction = dx > 0 ? 'right' : 'left' }
+        else { direction = dy > 0 ? 'down' : 'up' }
+        return { ...prev, frogs: prev.frogs.map((f, idx) => idx === selectedFrogIndex ? { ...f, position: [col, row], direction } : f) }
+      })
       setSelectedFrogIndex(null)
       return
     }
 
     // Handle snake moves via tap-to-select
-    if (currentStepDef?.type === 'snake' && selectedSnakeIndex !== null && isValidSnakeDestination(col, row)) {
+    if (selectedSnakeIndex !== null && isValidSnakeDestination(col, row)) {
       const snakeIdx = selectedSnakeIndex
       const delta = getSnakeDeltaForDestination(col, row)
       const snake = snakes[snakeIdx]
       const isVertical = snake.orientation === 'vertical'
-
-      // Check if move matches the hint target (if any)
-      if (currentStepDef.snakeTarget) {
-        const head = snake.positions[snake.positions.length - 1]
-        const expectedDelta = isVertical
-          ? currentStepDef.snakeTarget[1] - head[1]
-          : currentStepDef.snakeTarget[0] - head[0]
-        if (delta !== expectedDelta) {
-          setSelectedSnakeIndex(null)
-          return
-        }
-      }
 
       setGameState(prev => ({
         ...prev,
@@ -462,7 +331,6 @@ function Learn() {
             : s
         )
       }))
-      setStep(s => s + 1)
       setSelectedSnakeIndex(null)
       return
     }
@@ -473,8 +341,6 @@ function Learn() {
 
   const handleFrogPointerDown = (e, frogIndex) => {
     if (isGameWon) return
-    if (currentStepDef?.type === 'snake' || currentStepDef?.type === 'info') return
-    if (currentStepDef?.type === 'frog' && currentHint && frogIndex !== currentHint.frogIdx) return
     e.preventDefault()
     setDraggingFrogIndex(frogIndex)
     frogDragStartRef.current = { x: e.clientX, y: e.clientY }
@@ -498,7 +364,7 @@ function Learn() {
           const dropCol = Math.floor((upEvent.clientX - gridRect.left) / cellSize)
           const dropRow = Math.floor((upEvent.clientY - gridRect.top) / cellSize)
           const currentValidMoves = calcValidFrogMoves(frogIndex)
-          if (currentValidMoves.some(m => m[0] === dropCol && m[1] === dropRow) && (!currentHint || (dropCol === currentHint.to[0] && dropRow === currentHint.to[1]))) {
+          if (currentValidMoves.some(m => m[0] === dropCol && m[1] === dropRow)) {
             const oldPos = frogs[frogIndex].position
             setGameState(prev => {
               let direction = prev.frogs[frogIndex].direction
@@ -507,7 +373,6 @@ function Learn() {
               else { direction = dy > 0 ? 'down' : 'up' }
               return { ...prev, frogs: prev.frogs.map((f, idx) => idx === frogIndex ? { ...f, position: [dropCol, dropRow], direction } : f) }
             })
-            advanceAfterMove('frog', oldPos, [dropCol, dropRow])
           }
         }
         justFinishedDragRef.current = true
@@ -522,23 +387,39 @@ function Learn() {
 
   const handleReset = () => {
     setGameState(getInitialState())
-    setStep(0)
     setSelectedFrogIndex(null)
     setDraggingFrogIndex(null)
+    setSelectedSnakeIndex(null)
   }
 
-  if (loading) {
-    return (
-      <div className="app learn-page">
-        <header className="app-header">
-          <h1 className="title">Learn to Play</h1>
-          <AccountMenu onShowStats={() => setShowStats(true)} />
-        </header>
-        <div className="loading-message">Loading...</div>
-        {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate="2026-01-22" />}
-      </div>
-    )
+  const handleNextLevel = () => {
+    setCurrentLevelIndex(i => i + 1)
+    setGameState(() => {
+      const nextLevel = TUTORIAL_LEVELS[currentLevelIndex + 1]
+      return {
+        frogs: nextLevel.frogs.map(f => ({
+          position: [...f.position],
+          color: f.color,
+          direction: 'up',
+        })),
+        snakes: nextLevel.snakes.map(s => ({
+          positions: s.positions.map(p => [...p]),
+          orientation: s.orientation,
+        })),
+        logs: nextLevel.logs.map(l => ({
+          positions: l.positions.map(p => [...p]),
+        })),
+        lilyPads: nextLevel.lilyPads.map(lp => ({
+          position: [...lp.position],
+        })),
+      }
+    })
+    setSelectedFrogIndex(null)
+    setDraggingFrogIndex(null)
+    setSelectedSnakeIndex(null)
   }
+
+  const isLastLevel = currentLevelIndex >= TUTORIAL_LEVELS.length - 1
 
   return (
     <div className="app learn-page">
@@ -558,21 +439,13 @@ function Learn() {
               const isFrogCell = content?.type === 'frog'
               const isThisFrogSelected = isFrogCell && selectedFrogIndex === content.frogIndex
               const isThisFrogDragging = isFrogCell && draggingFrogIndex === content.frogIndex
-              const isValidDest = isValidFrogDestination(colIndex, rowIndex) && (!currentHint || (colIndex === currentHint.to[0] && rowIndex === currentHint.to[1]))
-              // For tutorial snake steps with a specific target, only highlight that target
-              const isValidSnakeDest = currentStepDef?.snakeTarget
-                ? (colIndex === currentStepDef.snakeTarget[0] && rowIndex === currentStepDef.snakeTarget[1])
-                : isValidSnakeDestination(colIndex, rowIndex)
-
-              const isHintSource = currentHint?.type === 'frog' && selectedFrogIndex === null && currentHint.from[0] === colIndex && currentHint.from[1] === rowIndex
-              const isSnakeHeadDest = currentStepDef?.snakeTarget && currentStepDef.snakeTarget[0] === colIndex && currentStepDef.snakeTarget[1] === rowIndex
-              const isHintDest = (currentHint?.type === 'frog' && selectedFrogIndex === currentHint.frogIdx && currentHint.to[0] === colIndex && currentHint.to[1] === rowIndex)
-                || isSnakeHeadDest
+              const isValidDest = isValidFrogDestination(colIndex, rowIndex)
+              const isValidSnakeDest = isValidSnakeDestination(colIndex, rowIndex)
 
               return (
                 <div
                   key={`${colIndex}-${rowIndex}`}
-                  className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidDest ? 'cell-valid-dest' : ''} ${validSelectedSnakeIndex !== null && isValidSnakeDest ? 'cell-valid-snake-dest' : ''} ${isHintSource ? 'cell-hint-source' : ''} ${isHintDest ? 'cell-hint-dest' : ''}`}
+                  className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidDest ? 'cell-valid-dest' : ''} ${validSelectedSnakeIndex !== null && isValidSnakeDest ? 'cell-valid-snake-dest' : ''}`}
                   onClick={() => handleCellClick(colIndex, rowIndex)}
                 >
                   {content && content.type === 'frog' && content.hasLilyPad ? (
@@ -609,7 +482,7 @@ function Learn() {
           {snakes.map((snake, index) => (
             <div
               key={`snake-${index}`}
-              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${validSelectedSnakeIndex === index ? 'snake-selected' : ''} ${currentHint?.type === 'snake' && currentHint.snakeIdx === index ? 'snake-hint' : ''}`}
+              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${validSelectedSnakeIndex === index ? 'snake-selected' : ''}`}
               style={getSnakeStyle(snake, index)}
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
               onClick={(e) => { e.stopPropagation(); handleSnakeClick(index); }}
@@ -621,20 +494,22 @@ function Learn() {
       </div>
 
       <div className="learn-instructions">
-        {step < TUTORIAL_STEPS.length ? (
+        {isGameWon ? (
           <>
-            <p>{TUTORIAL_STEPS[step].text}</p>
-            {TUTORIAL_STEPS[step].type === 'info' && (
-              <button className="learn-next-btn" onClick={() => setStep(s => s + 1)}>
-                Next &rarr;
+            <p className="learn-complete">You did it!</p>
+            {isLastLevel ? (
+              <>
+                <p>You're ready to play.</p>
+                <a className="learn-play-btn" href="/">Play Now &rarr;</a>
+              </>
+            ) : (
+              <button className="learn-next-btn" onClick={handleNextLevel}>
+                Next Level &rarr;
               </button>
             )}
           </>
         ) : (
-          <>
-            <p className="learn-complete">You did it! You're ready to play.</p>
-            <a className="learn-play-btn" href="/">Play Now &rarr;</a>
-          </>
+          <p>{currentLevel.instruction}</p>
         )}
       </div>
     </div>
