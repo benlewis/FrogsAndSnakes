@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import AccountMenu from './components/AccountMenu.jsx'
 import StatsModal from './components/StatsModal.jsx'
 import DailyStreakModal from './components/DailyStreakModal.jsx'
+import WelcomeModal from './components/WelcomeModal.jsx'
 import { solveLevel } from './solver.js'
 import {
   FrogSVG,
@@ -151,6 +152,7 @@ function App() {
   const { user, isAuthenticated } = useAuth0()
   const [showStats, setShowStats] = useState(false)
   const [showStreakModal, setShowStreakModal] = useState(false)
+  const [showWelcome, setShowWelcome] = useState(() => !getCookie('has_seen_welcome'))
   const [visitorId] = useState(() => getOrCreateVisitorId())
   const [currentDate, setCurrentDate] = useState(getTodayDate())
 
@@ -159,8 +161,8 @@ function App() {
     const lastVisitDate = getCookie('last_visit_date')
     const today = getTodayDate()
 
-    if (lastVisitDate !== today) {
-      // First visit today - show the streak modal
+    if (lastVisitDate !== today && getCookie('has_seen_welcome')) {
+      // First visit today - show the streak modal (but not on very first visit)
       setShowStreakModal(true)
       setCookie('last_visit_date', today, 7)
     }
@@ -894,6 +896,7 @@ function App() {
         <div className="loading-message">Loading puzzles...</div>
         {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
         {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
+        {showWelcome && <WelcomeModal onClose={() => { setShowWelcome(false); setCookie('has_seen_welcome', true, 365); setCookie('last_visit_date', getTodayDate(), 7) }} />}
       </div>
     )
   }
@@ -920,6 +923,7 @@ function App() {
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
       {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
+      {showWelcome && <WelcomeModal onClose={() => { setShowWelcome(false); setCookie('has_seen_welcome', true, 365); setCookie('last_visit_date', getTodayDate(), 7) }} />}
 
       {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">
@@ -993,7 +997,7 @@ function App() {
             }
           </div>
         )}
-        <a className="learn-btn" href="/learn">Learn</a>
+        <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
       </div>
 
       {!currentLevel ? (

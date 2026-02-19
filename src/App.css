@@ -1621,3 +1621,144 @@
     margin-left: 4px;
   }
 }
+
+/* Welcome Modal */
+.welcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.welcome-modal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  max-width: 400px;
+  width: 100%;
+  padding: 32px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  text-align: center;
+  position: relative;
+}
+
+.welcome-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.welcome-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.welcome-title {
+  margin: 0 0 24px 0;
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.welcome-rule {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.welcome-rule-icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.welcome-rule p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.welcome-rule strong {
+  color: white;
+}
+
+.welcome-learn-tip {
+  margin: 0 0 24px 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+}
+
+.welcome-learn-tip strong {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.welcome-play-btn {
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  color: #1a1a2e;
+  border: none;
+  padding: 14px 32px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.welcome-play-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(74, 222, 128, 0.3);
+}
+
+.welcome-play-btn:active {
+  transform: translateY(0);
+}
+
+.welcome-tutorial-btn {
+  display: block;
+  margin-top: 10px;
+  padding: 10px 32px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.welcome-tutorial-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-color: rgba(255, 255, 255, 0.35);
+}
