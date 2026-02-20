@@ -29,7 +29,7 @@ function AccountMenu({ onShowStats, isAdmin }) {
     return (
       <div className="account-menu">
         <button className="account-login-btn" onClick={() => loginWithRedirect()}>
-          Login for Stats
+          Account
         </button>
       </div>
     )
