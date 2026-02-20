@@ -6,6 +6,7 @@ import AccountMenu from './components/AccountMenu.jsx'
 import StatsModal from './components/StatsModal.jsx'
 import DailyStreakModal from './components/DailyStreakModal.jsx'
 import WelcomeModal from './components/WelcomeModal.jsx'
+import CalendarModal from './components/CalendarModal.jsx'
 import { solveLevel } from './solver.js'
 import {
   FrogSVG,
@@ -153,6 +154,7 @@ function App() {
   const [showStats, setShowStats] = useState(false)
   const [showStreakModal, setShowStreakModal] = useState(false)
   const [showWelcome, setShowWelcome] = useState(() => !getCookie('has_seen_welcome'))
+  const [showCalendar, setShowCalendar] = useState(false)
   const [visitorId] = useState(() => getOrCreateVisitorId())
   const [currentDate, setCurrentDate] = useState(getTodayDate())
 
@@ -885,18 +887,26 @@ function App() {
   }
 
 
+  const isAdmin = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
+
   // Show loading or no level message
   if (loading) {
     return (
       <div className="app">
         <header className="app-header">
           <h1 className="title">Frogs And Snakes</h1>
-          <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)} />
+          <div className="header-right">
+            <button className="calendar-btn" onClick={() => setShowCalendar(true)} aria-label="Select date">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+            </button>
+            <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} />
+          </div>
         </header>
         <div className="loading-message">Loading puzzles...</div>
         {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
         {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
         {showWelcome && <WelcomeModal onClose={() => { setShowWelcome(false); setCookie('has_seen_welcome', true, 365); setCookie('last_visit_date', getTodayDate(), 7) }} />}
+        {showCalendar && <CalendarModal currentDate={currentDate} onSelectDate={(d) => { setCurrentDate(d); setShowCalendar(false) }} onClose={() => setShowCalendar(false)} isAdmin={isAdmin} />}
       </div>
     )
   }
@@ -918,12 +928,18 @@ function App() {
     <div className="app">
       <header className="app-header">
         <h1 className="title">Frogs And Snakes</h1>
-        <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)} />
+        <div className="header-right">
+          <button className="calendar-btn" onClick={() => setShowCalendar(true)} aria-label="Select date">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+          </button>
+          <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} />
+        </div>
       </header>
 
       {showStats && <StatsModal onClose={() => setShowStats(false)} currentDate={currentDate} />}
       {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
       {showWelcome && <WelcomeModal onClose={() => { setShowWelcome(false); setCookie('has_seen_welcome', true, 365); setCookie('last_visit_date', getTodayDate(), 7) }} />}
+      {showCalendar && <CalendarModal currentDate={currentDate} onSelectDate={(d) => { setCurrentDate(d); setShowCalendar(false) }} onClose={() => setShowCalendar(false)} isAdmin={isAdmin} />}
 
       {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">
@@ -960,43 +976,12 @@ function App() {
         </div>
       </div>
       <div className="date-row">
-        {import.meta.env.DEV ? (
-          <div className="date-picker-row">
-            <button
-              className="date-nav-btn"
-              onClick={() => {
-                const d = new Date(currentDate + 'T00:00:00')
-                d.setDate(d.getDate() - 1)
-                setCurrentDate(getLocalDateString(d))
-              }}
-            >
-              &lt;
-            </button>
-            <input
-              type="date"
-              className="date-picker"
-              value={currentDate}
-              onChange={(e) => setCurrentDate(e.target.value)}
-            />
-            <button
-              className="date-nav-btn"
-              onClick={() => {
-                const d = new Date(currentDate + 'T00:00:00')
-                d.setDate(d.getDate() + 1)
-                setCurrentDate(getLocalDateString(d))
-              }}
-            >
-              &gt;
-            </button>
-          </div>
-        ) : (
-          <div className="date-display">
-            {difficulty === 'expert'
-              ? `Weekly: ${formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))}`
-              : formattedDate
-            }
-          </div>
-        )}
+        <div className="date-display">
+          {difficulty === 'expert'
+            ? `Weekly Challenge \u2014 ${formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))}`
+            : `Daily Puzzle \u2014 ${formattedDate}`
+          }
+        </div>
         <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
       </div>
 

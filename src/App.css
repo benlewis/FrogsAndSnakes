@@ -338,6 +338,127 @@
   gap: 12px;
 }
 
+/* Calendar button in header */
+.calendar-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  padding: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.05);
+}
+
+.calendar-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Calendar Modal */
+.calendar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.calendar-modal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  max-width: 360px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.calendar-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.calendar-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.calendar-title {
+  margin: 0 0 16px 0;
+  color: white;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+.calendar-date-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.calendar-date-btn {
+  width: 100%;
+  padding: 12px 14px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.calendar-date-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.calendar-date-btn.active {
+  background: rgba(74, 222, 128, 0.12);
+  border-color: rgba(74, 222, 128, 0.5);
+  color: white;
+  font-weight: 600;
+}
+
+.calendar-today-badge {
+  font-size: 0.8rem;
+  color: #22d3ee;
+  font-weight: 600;
+}
+
 /* Weekly Challenge button in header */
 .weekly-challenge-btn {
   display: flex;
@@ -1027,6 +1148,12 @@
   .account-icon-btn {
     width: 36px;
     height: 36px;
+  }
+
+  .calendar-btn {
+    width: 36px;
+    height: 36px;
+    padding: 7px;
   }
 
   .account-dropdown {
