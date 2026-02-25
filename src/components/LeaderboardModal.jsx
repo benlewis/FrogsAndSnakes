@@ -47,43 +47,35 @@ function LeaderboardModal({ currentDate, completedLevels, onClose }) {
         ) : !leaderboard || Object.keys(leaderboard).length === 0 ? (
           <div className="leaderboard-empty">No completions yet today. Be the first!</div>
         ) : (
-          <div className="leaderboard-cards">
-            {difficulties.map(diff => {
-              const data = leaderboard[diff]
-              if (!data) return null
-              const hasCompleted = data.userMoves !== null
-              return (
-                <div key={diff} className={`leaderboard-card ${diff === 'expert' ? 'leaderboard-card-expert' : ''}`}>
-                  <h3 className="leaderboard-card-title">{diff.charAt(0).toUpperCase() + diff.slice(1)}</h3>
-                  <div className="leaderboard-stat">
-                    <span className="leaderboard-stat-label">Players</span>
-                    <span className="leaderboard-stat-value">{data.totalCompletions}</span>
-                  </div>
-                  <div className="leaderboard-stat">
-                    <span className="leaderboard-stat-label">Avg Moves</span>
-                    <span className="leaderboard-stat-value">{data.avgMoves}</span>
-                  </div>
-                  <div className="leaderboard-stat">
-                    <span className="leaderboard-stat-label">Best</span>
-                    <span className="leaderboard-stat-value">{data.minMoves}</span>
-                  </div>
-                  {hasCompleted ? (
-                    <div className="leaderboard-user-row">
-                      <div className="leaderboard-stat">
-                        <span className="leaderboard-stat-label">Your Moves</span>
-                        <span className="leaderboard-stat-value">{data.userMoves}</span>
-                      </div>
-                      <div className="leaderboard-rank">
-                        #{data.userRank} <span className="leaderboard-rank-of">of {data.totalCompletions}</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="leaderboard-not-completed">Not completed yet</div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+          <table className="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Players</th>
+                <th>Best</th>
+                <th>Avg</th>
+                <th>You</th>
+                <th>Rank</th>
+              </tr>
+            </thead>
+            <tbody>
+              {difficulties.map(diff => {
+                const data = leaderboard[diff]
+                if (!data) return null
+                const hasCompleted = data.userMoves !== null
+                return (
+                  <tr key={diff} className={diff === 'expert' ? 'leaderboard-row-expert' : ''}>
+                    <td>{diff.charAt(0).toUpperCase() + diff.slice(1)}</td>
+                    <td>{data.totalCompletions}</td>
+                    <td>{data.minMoves}</td>
+                    <td>{data.avgMoves}</td>
+                    <td>{hasCompleted ? <span className="leaderboard-you">{data.userMoves}</span> : '—'}</td>
+                    <td>{hasCompleted ? <span className="leaderboard-you">#{data.userRank}/{data.totalCompletions}</span> : '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

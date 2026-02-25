@@ -1983,82 +1983,39 @@
   padding: 40px 20px;
 }
 
-.leaderboard-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.leaderboard-card {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.leaderboard-table th {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: left;
 }
 
-.leaderboard-card-expert {
-  background: rgba(168, 85, 247, 0.1);
-  border-color: rgba(168, 85, 247, 0.3);
+.leaderboard-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
 }
 
-.leaderboard-card-expert .leaderboard-card-title {
+.leaderboard-table td:first-child {
+  font-weight: 600;
+  color: white;
+}
+
+.leaderboard-row-expert td:first-child {
   color: #c084fc;
 }
 
-.leaderboard-card-title {
-  margin: 0 0 12px 0;
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.8);
+.leaderboard-you {
+  color: #4ade80;
   font-weight: 600;
-}
-
-.leaderboard-stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-}
-
-.leaderboard-stat-label {
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.leaderboard-stat-value {
-  font-size: 0.95rem;
-  color: white;
-  font-weight: 600;
-}
-
-.leaderboard-user-row {
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  border-radius: 8px;
-}
-
-.leaderboard-rank {
-  text-align: center;
-  font-size: 1.2rem;
-  font-weight: 700;
-  margin-top: 4px;
-  background: linear-gradient(90deg, #4ade80, #22d3ee);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.leaderboard-rank-of {
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.leaderboard-not-completed {
-  margin-top: 8px;
-  padding: 8px 0;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.85rem;
-  font-style: italic;
 }
