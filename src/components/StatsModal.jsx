@@ -6,7 +6,6 @@ const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
 function StatsModal({ onClose, currentDate }) {
   const { user } = useAuth0()
   const [stats, setStats] = useState(null)
-  const [aggregates, setAggregates] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -14,19 +13,11 @@ function StatsModal({ onClose, currentDate }) {
       if (!user?.sub) return
 
       try {
-        const [statsRes, aggRes] = await Promise.all([
-          fetch(`${API_BASE}/api/user-stats?userId=${encodeURIComponent(user.sub)}`),
-          fetch(`${API_BASE}/api/aggregates?date=${currentDate}`)
-        ])
+        const statsRes = await fetch(`${API_BASE}/api/user-stats?userId=${encodeURIComponent(user.sub)}`)
 
         if (statsRes.ok) {
           const data = await statsRes.json()
           setStats(data.stats)
-        }
-
-        if (aggRes.ok) {
-          const data = await aggRes.json()
-          setAggregates(data)
         }
       } catch (error) {
         console.error('Error fetching stats:', error)
@@ -48,58 +39,31 @@ function StatsModal({ onClose, currentDate }) {
         ) : !stats ? (
           <div className="stats-empty">No stats yet. Complete some puzzles!</div>
         ) : (
-          <>
-            <div className="stats-grid">
-              {['easy', 'medium', 'hard', 'expert'].map(difficulty => {
-                const isExpert = difficulty === 'expert'
-                const streakUnit = isExpert ? 'weeks' : 'days'
-                return (
-                  <div key={difficulty} className={`stats-card ${isExpert ? 'stats-card-expert' : ''}`}>
-                    <h3 className="stats-card-title">{difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h3>
-                    <div className="stats-card-content">
-                      <div className="stats-row">
-                        <span className="stats-label">Completed</span>
-                        <span className="stats-value">{stats[difficulty]?.total || 0}</span>
-                      </div>
-                      <div className="stats-row">
-                        <span className="stats-label">Current Streak</span>
-                        <span className="stats-value">{stats[difficulty]?.currentStreak || 0} {streakUnit}</span>
-                      </div>
-                      <div className="stats-row">
-                        <span className="stats-label">Best Streak</span>
-                        <span className="stats-value">{stats[difficulty]?.bestStreak || 0} {streakUnit}</span>
-                      </div>
+          <div className="stats-grid">
+            {['easy', 'medium', 'hard', 'expert'].map(difficulty => {
+              const isExpert = difficulty === 'expert'
+              const streakUnit = isExpert ? 'weeks' : 'days'
+              return (
+                <div key={difficulty} className={`stats-card ${isExpert ? 'stats-card-expert' : ''}`}>
+                  <h3 className="stats-card-title">{difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}</h3>
+                  <div className="stats-card-content">
+                    <div className="stats-row">
+                      <span className="stats-label">Completed</span>
+                      <span className="stats-value">{stats[difficulty]?.total || 0}</span>
+                    </div>
+                    <div className="stats-row">
+                      <span className="stats-label">Current Streak</span>
+                      <span className="stats-value">{stats[difficulty]?.currentStreak || 0} {streakUnit}</span>
+                    </div>
+                    <div className="stats-row">
+                      <span className="stats-label">Best Streak</span>
+                      <span className="stats-value">{stats[difficulty]?.bestStreak || 0} {streakUnit}</span>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-
-            {aggregates && Object.keys(aggregates).length > 0 && (
-              <>
-                <h3 className="stats-section-title">Today's Puzzle Comparison</h3>
-                <div className="stats-comparison">
-                  {['easy', 'medium', 'hard', 'expert'].map(difficulty => {
-                    const agg = aggregates[difficulty]
-                    if (!agg) return null
-                    return (
-                      <div key={difficulty} className={`stats-comparison-row ${difficulty === 'expert' ? 'stats-comparison-expert' : ''}`}>
-                        <span className="stats-comparison-label">
-                          {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
-                        </span>
-                        <span className="stats-comparison-value">
-                          Avg: {agg.avgMoves} moves | Best: {agg.minMoves} moves
-                        </span>
-                        <span className="stats-comparison-count">
-                          ({agg.totalCompletions} players)
-                        </span>
-                      </div>
-                    )
-                  })}
                 </div>
-              </>
-            )}
-          </>
+              )
+            })}
+          </div>
         )}
       </div>
     </div>

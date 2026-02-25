@@ -365,6 +365,33 @@
   height: 22px;
 }
 
+/* Trophy / Leaderboard button in header */
+.trophy-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  padding: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.trophy-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.05);
+}
+
+.trophy-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
 /* Calendar Modal */
 .calendar-overlay {
   position: fixed;
@@ -1150,7 +1177,8 @@
     height: 36px;
   }
 
-  .calendar-btn {
+  .calendar-btn,
+  .trophy-btn {
     width: 36px;
     height: 36px;
     padding: 7px;
@@ -1888,4 +1916,149 @@
   background: rgba(255, 255, 255, 0.1);
   color: white;
   border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Leaderboard Modal */
+.leaderboard-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.leaderboard-modal {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 20px;
+  max-width: 420px;
+  width: 100%;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.leaderboard-close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.leaderboard-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.leaderboard-title {
+  margin: 0 0 20px 0;
+  color: white;
+  font-size: 1.5rem;
+  text-align: center;
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.leaderboard-loading,
+.leaderboard-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 40px 20px;
+}
+
+.leaderboard-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.leaderboard-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.leaderboard-card-expert {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+
+.leaderboard-card-expert .leaderboard-card-title {
+  color: #c084fc;
+}
+
+.leaderboard-card-title {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+}
+
+.leaderboard-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.leaderboard-stat-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.leaderboard-stat-value {
+  font-size: 0.95rem;
+  color: white;
+  font-weight: 600;
+}
+
+.leaderboard-user-row {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 8px;
+}
+
+.leaderboard-rank {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-top: 4px;
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.leaderboard-rank-of {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.leaderboard-not-completed {
+  margin-top: 8px;
+  padding: 8px 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.85rem;
+  font-style: italic;
 }

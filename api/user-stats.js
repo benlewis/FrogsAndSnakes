@@ -32,9 +32,10 @@ export default async function handler(req, res) {
       easy: { total: 0, currentStreak: 0, bestStreak: 0 },
       medium: { total: 0, currentStreak: 0, bestStreak: 0 },
       hard: { total: 0, currentStreak: 0, bestStreak: 0 },
+      expert: { total: 0, currentStreak: 0, bestStreak: 0 },
     };
 
-    const byDifficulty = { easy: [], medium: [], hard: [] };
+    const byDifficulty = { easy: [], medium: [], hard: [], expert: [] };
     for (const row of completions.rows) {
       const diff = row.difficulty.toLowerCase();
       if (byDifficulty[diff]) {
@@ -47,6 +48,9 @@ export default async function handler(req, res) {
 
       if (dates.length === 0) continue;
 
+      const isExpert = difficulty === 'expert';
+      const streakInterval = isExpert ? 7 : 1;
+
       const sortedDates = dates.map(d => new Date(d)).sort((a, b) => a - b);
 
       let bestStreak = 1;
@@ -57,7 +61,7 @@ export default async function handler(req, res) {
         const currDate = sortedDates[i];
         const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 1) {
+        if (diffDays === streakInterval) {
           tempStreak++;
           bestStreak = Math.max(bestStreak, tempStreak);
         } else {
@@ -67,13 +71,13 @@ export default async function handler(req, res) {
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
       const lastPlayed = sortedDates[sortedDates.length - 1];
       lastPlayed.setHours(0, 0, 0, 0);
 
+      const daysSinceLast = Math.round((today - lastPlayed) / (1000 * 60 * 60 * 24));
+
       let currentStreak = 0;
-      if (lastPlayed.getTime() === today.getTime() || lastPlayed.getTime() === yesterday.getTime()) {
+      if (daysSinceLast <= streakInterval) {
         currentStreak = tempStreak;
       }
 

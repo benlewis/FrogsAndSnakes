@@ -185,10 +185,11 @@ app.get('/api/user-stats', async (req, res) => {
       easy: { total: 0, currentStreak: 0, bestStreak: 0 },
       medium: { total: 0, currentStreak: 0, bestStreak: 0 },
       hard: { total: 0, currentStreak: 0, bestStreak: 0 },
+      expert: { total: 0, currentStreak: 0, bestStreak: 0 },
     };
 
     // Group completions by difficulty
-    const byDifficulty = { easy: [], medium: [], hard: [] };
+    const byDifficulty = { easy: [], medium: [], hard: [], expert: [] };
     for (const row of completions.rows) {
       const diff = row.difficulty.toLowerCase();
       if (byDifficulty[diff]) {
@@ -202,10 +203,12 @@ app.get('/api/user-stats', async (req, res) => {
 
       if (dates.length === 0) continue;
 
+      const isExpert = difficulty === 'expert';
+      const streakInterval = isExpert ? 7 : 1;
+
       // Sort dates ascending for streak calculation
       const sortedDates = dates.map(d => new Date(d)).sort((a, b) => a - b);
 
-      let currentStreak = 1;
       let bestStreak = 1;
       let tempStreak = 1;
 
@@ -214,7 +217,7 @@ app.get('/api/user-stats', async (req, res) => {
         const currDate = sortedDates[i];
         const diffDays = Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24));
 
-        if (diffDays === 1) {
+        if (diffDays === streakInterval) {
           tempStreak++;
           bestStreak = Math.max(bestStreak, tempStreak);
         } else {
@@ -222,18 +225,16 @@ app.get('/api/user-stats', async (req, res) => {
         }
       }
 
-      // Check if current streak includes today or yesterday
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
       const lastPlayed = sortedDates[sortedDates.length - 1];
       lastPlayed.setHours(0, 0, 0, 0);
 
-      if (lastPlayed.getTime() === today.getTime() || lastPlayed.getTime() === yesterday.getTime()) {
+      const daysSinceLast = Math.round((today - lastPlayed) / (1000 * 60 * 60 * 24));
+
+      let currentStreak = 0;
+      if (daysSinceLast <= streakInterval) {
         currentStreak = tempStreak;
-      } else {
-        currentStreak = 0;
       }
 
       stats[difficulty].currentStreak = currentStreak;
@@ -276,6 +277,75 @@ app.get('/api/aggregates', async (req, res) => {
   } catch (error) {
     console.error('Error fetching aggregates:', error);
     res.status(500).json({ error: 'Failed to fetch aggregates' });
+  }
+});
+
+// GET /api/leaderboard?date=xxx&userId=xxx - Get leaderboard with optional user rank
+app.get('/api/leaderboard', async (req, res) => {
+  const { date: puzzleDate, userId } = req.query;
+
+  if (!puzzleDate) {
+    return res.status(400).json({ error: 'date query parameter required' });
+  }
+
+  try {
+    // Get aggregates per difficulty
+    const aggResult = await query(
+      `SELECT difficulty,
+              COUNT(*) as total_completions,
+              AVG(moves)::numeric(10,1) as avg_moves,
+              MIN(moves) as min_moves
+       FROM completions
+       WHERE puzzle_date = $1
+       GROUP BY difficulty`,
+      [puzzleDate]
+    );
+
+    const leaderboard = {};
+    for (const row of aggResult.rows) {
+      leaderboard[row.difficulty.toLowerCase()] = {
+        totalCompletions: parseInt(row.total_completions),
+        avgMoves: parseFloat(row.avg_moves),
+        minMoves: parseInt(row.min_moves),
+        userMoves: null,
+        userRank: null,
+      };
+    }
+
+    // If userId provided, get user's moves and rank per difficulty
+    if (userId) {
+      const userResult = await query(
+        `SELECT difficulty, moves
+         FROM completions
+         WHERE puzzle_date = $1 AND user_id = $2`,
+        [puzzleDate, userId]
+      );
+
+      for (const row of userResult.rows) {
+        const diff = row.difficulty.toLowerCase();
+        if (leaderboard[diff]) {
+          leaderboard[diff].userMoves = parseInt(row.moves);
+        }
+      }
+
+      // Compute rank for each difficulty the user completed
+      for (const diff of Object.keys(leaderboard)) {
+        if (leaderboard[diff].userMoves !== null) {
+          const rankResult = await query(
+            `SELECT COUNT(*) + 1 as rank
+             FROM completions
+             WHERE puzzle_date = $1 AND LOWER(difficulty) = $2 AND moves < $3`,
+            [puzzleDate, diff, leaderboard[diff].userMoves]
+          );
+          leaderboard[diff].userRank = parseInt(rankResult.rows[0].rank);
+        }
+      }
+    }
+
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    res.status(500).json({ error: 'Failed to fetch leaderboard' });
   }
 });
 
