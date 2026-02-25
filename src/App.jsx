@@ -301,6 +301,8 @@ function App() {
     setFrogDragPos({ x: 0, y: 0 })
     justFinishedDragRef.current = false
 
+    setGameHistory([])
+
     if (currentLevel) {
       // Try to restore saved game state
       const saved = getCookie(gameStateKey)
@@ -395,6 +397,7 @@ function App() {
   const [hintMove, setHintMove] = useState(null)
   const [hintLoading, setHintLoading] = useState(false)
   const [hintsUsed, setHintsUsed] = useState(0)
+  const [gameHistory, setGameHistory] = useState([])
   const hintTimerRef = useRef(null)
 
   // Save game state to cookie whenever it changes (but not when game is won)
@@ -436,8 +439,21 @@ function App() {
     setGameState(getInitialState())
     setMoves(0)
     setHintsUsed(0)
+    setGameHistory([])
     setSelectedFrogIndex(null)
     setDraggingFrogIndex(null)
+    clearHint()
+  }
+
+  const handleUndo = () => {
+    if (gameHistory.length === 0 || isGameWon) return
+    const prev = gameHistory[gameHistory.length - 1]
+    setGameHistory(h => h.slice(0, -1))
+    setGameState(prev.gameState)
+    setMoves(prev.moves)
+    setHintsUsed(prev.hintsUsed)
+    setSelectedFrogIndex(null)
+    setSelectedSnakeIndex(null)
     clearHint()
   }
 
@@ -709,6 +725,7 @@ function App() {
       const posDelta = Math.round(currentOffset / cellSize)
 
       if (posDelta !== 0) {
+        setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
         setGameState(prev => ({
           ...prev,
           snakes: prev.snakes.map((s, i) =>
@@ -764,6 +781,7 @@ function App() {
     // If a frog is selected and clicking a valid destination, move the frog
     if (selectedFrogIndex !== null && isValidFrogDestination(col, row)) {
       const frogIdx = selectedFrogIndex
+      setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
       setGameState(prev => {
         const oldPos = prev.frogs[frogIdx].position
         let direction = prev.frogs[frogIdx].direction
@@ -794,6 +812,7 @@ function App() {
       const snake = snakes[snakeIdx]
       const isVertical = snake.orientation === 'vertical'
 
+      setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
       setGameState(prev => ({
         ...prev,
         snakes: prev.snakes.map((s, i) =>
@@ -855,6 +874,7 @@ function App() {
 
           const currentValidMoves = calcValidFrogMoves(frogIndex)
           if (currentValidMoves.some(move => move[0] === dropCol && move[1] === dropRow)) {
+            setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
             setGameState(prev => {
               const oldPos = prev.frogs[frogIndex].position
               let direction = prev.frogs[frogIndex].direction
@@ -1093,6 +1113,14 @@ function App() {
         <div className="stats-bar-actions">
           <Button variant="secondary" size="xs" onClick={handleReset}>
             Reset
+          </Button>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={handleUndo}
+            disabled={gameHistory.length === 0 || isGameWon}
+          >
+            Undo
           </Button>
           {difficulty === 'expert' ? (
             <span className="no-hints-label">No Hints</span>
