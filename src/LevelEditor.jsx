@@ -372,6 +372,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [checkResult, setCheckResult] = useState(null)
   const [checking, setChecking] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [autoFilling, setAutoFilling] = useState(false)
+  const [autoFillDays, setAutoFillDays] = useState(7)
+  const [autoFillProgress, setAutoFillProgress] = useState(null) // { current, total, currentSlot }
   const [tryItMode, setTryItMode] = useState(false)
   const [tryItHints, setTryItHints] = useState(0)
   const gameBoardRef = useRef(null)
@@ -933,6 +936,228 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setSaving(false)
   }
 
+  // Generate a level for a specific difficulty without using React state
+  const generateLevelForDifficulty = (diff, size) => {
+    const defaults = difficultyDefaults[diff]
+    const minMoves = defaults.moves.min
+    const maxMoves = defaults.moves.max
+    const range = { min: minMoves, max: maxMoves }
+
+    const maxAttempts = 1000
+    let attempts = 0
+
+    while (attempts < maxAttempts) {
+      attempts++
+
+      const numFrogs = defaults.frogs[0] + Math.floor(Math.random() * (defaults.frogs[1] - defaults.frogs[0] + 1))
+      const numSnakes = defaults.snakes[0] + Math.floor(Math.random() * (defaults.snakes[1] - defaults.snakes[0] + 1))
+      const numLogs = defaults.logs[0] + Math.floor(Math.random() * (defaults.logs[1] - defaults.logs[0] + 1))
+      const extraLilyPads = defaults.extraLilyPads[0] + Math.floor(Math.random() * (defaults.extraLilyPads[1] - defaults.extraLilyPads[0] + 1))
+      const maxSnakeSize = defaults.maxSnakeSize
+      const numLilyPads = numFrogs + extraLilyPads
+
+      const occupied = new Set()
+      const isOccupied = (col, row) => occupied.has(`${col},${row}`)
+      const markOccupied = (col, row) => occupied.add(`${col},${row}`)
+
+      const newFrogs = []
+      for (let i = 0; i < numFrogs; i++) {
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * size)
+          const row = Math.floor(Math.random() * size)
+          if (!isOccupied(col, row)) {
+            newFrogs.push({ position: [col, row], color: FROG_COLORS[i] })
+            markOccupied(col, row)
+            placed = true
+          }
+        }
+      }
+      if (newFrogs.length !== numFrogs) continue
+
+      const newSnakes = []
+      for (let i = 0; i < numSnakes; i++) {
+        const orientation = Math.random() < 0.5 ? 'vertical' : 'horizontal'
+        const length = Math.floor(Math.random() * (maxSnakeSize - 1)) + 2
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * (orientation === 'horizontal' ? size - length + 1 : size))
+          const row = Math.floor(Math.random() * (orientation === 'vertical' ? size - length + 1 : size))
+          const positions = []
+          let valid = true
+          for (let j = 0; j < length && valid; j++) {
+            const c = orientation === 'horizontal' ? col + j : col
+            const r = orientation === 'vertical' ? row + j : row
+            if (isOccupied(c, r)) valid = false
+            else positions.push([c, r])
+          }
+          if (valid && positions.length === length) {
+            newSnakes.push({ positions, orientation })
+            positions.forEach(([c, r]) => markOccupied(c, r))
+            placed = true
+          }
+        }
+      }
+
+      const newLogs = []
+      for (let i = 0; i < numLogs; i++) {
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * size)
+          const row = Math.floor(Math.random() * size)
+          if (!isOccupied(col, row)) {
+            newLogs.push({ positions: [[col, row]] })
+            markOccupied(col, row)
+            placed = true
+          }
+        }
+      }
+
+      const newLilyPads = []
+      for (let i = 0; i < numLilyPads; i++) {
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * size)
+          const row = Math.floor(Math.random() * size)
+          const onFrog = newFrogs.some(f => f.position[0] === col && f.position[1] === row)
+          const onSnake = newSnakes.some(s => s.positions.some(p => p[0] === col && p[1] === row))
+          const onLog = newLogs.some(l => l.positions.some(p => p[0] === col && p[1] === row))
+          const onLilyPad = newLilyPads.some(lp => lp.position[0] === col && lp.position[1] === row)
+          if (!onFrog && !onSnake && !onLog && !onLilyPad) {
+            newLilyPads.push({ position: [col, row] })
+            placed = true
+          }
+        }
+      }
+      if (newLilyPads.length !== numLilyPads) continue
+
+      const result = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads)
+      if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+        return {
+          gridSize: size,
+          frogs: newFrogs,
+          snakes: newSnakes,
+          logs: newLogs,
+          lilyPads: newLilyPads,
+          par: result.moves
+        }
+      }
+    }
+    return null
+  }
+
+  // Auto-fill: generate and save E, M, H levels for the next X days
+  const autoFillLevels = async () => {
+    const days = autoFillDays
+    if (days < 1 || days > 30) {
+      alert('Please enter a number of days between 1 and 30.')
+      return
+    }
+
+    // Find the first unfilled date, then fill X days from there
+    const today = new Date()
+    let startDate = null
+    for (let d = 0; d < 365; d++) {
+      const date = new Date(today)
+      date.setDate(today.getDate() + d)
+      const dateStr = getLocalDateString(date)
+      const isSunday = date.getDay() === 0
+      const diffs = isSunday ? ['easy', 'medium', 'hard', 'expert'] : ['easy', 'medium', 'hard']
+      if (diffs.some(diff => !getLevel(dateStr, diff))) {
+        startDate = date
+        break
+      }
+    }
+
+    if (!startDate) {
+      alert('All slots are filled for the foreseeable future!')
+      return
+    }
+
+    // Build list of slots to fill starting from the first unfilled date
+    const slots = []
+    let daysCollected = 0
+    let d = 0
+    while (daysCollected < days) {
+      const date = new Date(startDate)
+      date.setDate(startDate.getDate() + d)
+      d++
+      const dateStr = getLocalDateString(date)
+      const isSunday = date.getDay() === 0
+      const diffs = isSunday ? ['easy', 'medium', 'hard', 'expert'] : ['easy', 'medium', 'hard']
+      for (const diff of diffs) {
+        if (!getLevel(dateStr, diff)) {
+          slots.push({ date: dateStr, difficulty: diff })
+        }
+      }
+      daysCollected++
+    }
+
+    if (slots.length === 0) {
+      alert('All slots are already filled!')
+      return
+    }
+
+    const startStr = getLocalDateString(startDate)
+    const endDate = new Date(startDate)
+    endDate.setDate(startDate.getDate() + days - 1)
+    const endStr = getLocalDateString(endDate)
+    if (!confirm(`Generate and save ${slots.length} levels from ${startStr} to ${endStr}? This may take a while.`)) {
+      return
+    }
+
+    setAutoFilling(true)
+    setAutoFillProgress({ current: 0, total: slots.length, currentSlot: '' })
+
+    let filled = 0
+    let failed = 0
+
+    for (let i = 0; i < slots.length; i++) {
+      const slot = slots[i]
+      const diffLabel = slot.difficulty === 'expert' ? 'X' : slot.difficulty.charAt(0).toUpperCase()
+      setAutoFillProgress({ current: i + 1, total: slots.length, currentSlot: `${slot.date} ${diffLabel}` })
+
+      // Yield to UI
+      await new Promise(r => setTimeout(r, 10))
+
+      const level = generateLevelForDifficulty(slot.difficulty, gridSize)
+      if (!level) {
+        failed++
+        continue
+      }
+
+      const levelData = {
+        ...level,
+        difficulty: slot.difficulty,
+        date: slot.date
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/levels`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: slot.date,
+            difficulty: slot.difficulty,
+            level: levelData
+          })
+        })
+        if (response.ok) {
+          filled++
+        } else {
+          failed++
+        }
+      } catch {
+        failed++
+      }
+    }
+
+    await fetchAllLevels()
+    setAutoFilling(false)
+    setAutoFillProgress(null)
+    alert(`Auto-fill complete! ${filled} levels saved${failed > 0 ? `, ${failed} failed` : ''}.`)
+  }
+
   // Format date for display
   const formatDate = (dateStr) => {
     const date = new Date(dateStr + 'T00:00:00')
@@ -1318,6 +1543,43 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           {/* Right side - Level Schedule */}
           <div className="level-schedule">
             <h3>Level Schedule</h3>
+
+            <div className="auto-fill-section">
+              <div className="auto-fill-row">
+                <label>Next</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={autoFillDays}
+                  onChange={(e) => setAutoFillDays(parseInt(e.target.value) || 7)}
+                  className="auto-fill-days"
+                  disabled={autoFilling}
+                />
+                <label>days</label>
+                <button
+                  className="action-btn auto-fill"
+                  onClick={autoFillLevels}
+                  disabled={autoFilling || loadingLevels}
+                >
+                  {autoFilling ? 'Filling...' : 'Auto-Fill'}
+                </button>
+              </div>
+              {autoFillProgress && (
+                <div className="auto-fill-progress">
+                  <div className="auto-fill-progress-bar">
+                    <div
+                      className="auto-fill-progress-fill"
+                      style={{ width: `${(autoFillProgress.current / autoFillProgress.total) * 100}%` }}
+                    />
+                  </div>
+                  <span className="auto-fill-progress-text">
+                    {autoFillProgress.current}/{autoFillProgress.total} — {autoFillProgress.currentSlot}
+                  </span>
+                </div>
+              )}
+            </div>
+
             {loadingLevels ? (
               <div className="schedule-loading">Loading...</div>
             ) : (
