@@ -24,18 +24,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// GET /api/levels?date=2025-01-20 or GET /api/levels?all=true
+// Get blob prefix based on game type
+const getPrefix = (game) => game === 'cj' ? 'cj-level-' : 'level-';
+
+// Simple regex patterns (no lookbehinds for max compatibility)
+const LEVEL_PATTERN = /level-(\d{4}-\d{2}-\d{2})-(\w+)\.json/;
+const DIFF_PATTERN = /level-\d{4}-\d{2}-\d{2}-(\w+)\.json/;
+
+// Check if a blob pathname belongs to the requested game type
+const matchesGame = (pathname, game) => {
+  const isCJ = pathname.startsWith('cj-level-') || pathname.includes('/cj-level-');
+  return game === 'cj' ? isCJ : !isCJ;
+};
+
+// GET /api/levels?date=2025-01-20 or GET /api/levels?all=true or GET /api/levels?date=X&game=cj
 app.get('/api/levels', async (req, res) => {
-  const { date, all } = req.query;
+  const { date, all, game } = req.query;
+  const prefix = getPrefix(game);
 
   // If "all" param is set, return all levels
   if (all === 'true') {
     try {
-      const { blobs } = await list({ prefix: 'level-' });
+      const { blobs } = await list({ prefix });
       const levels = [];
 
       for (const blob of blobs) {
-        const match = blob.pathname.match(/level-(\d{4}-\d{2}-\d{2})-(\w+)\.json/);
+        if (!matchesGame(blob.pathname, game)) continue;
+        const match = blob.pathname.match(LEVEL_PATTERN);
         if (match) {
           const response = await fetch(blob.url);
           const levelData = await response.json();
@@ -61,11 +76,12 @@ app.get('/api/levels', async (req, res) => {
   }
 
   try {
-    const { blobs } = await list({ prefix: `level-${date}-` });
+    const { blobs } = await list({ prefix: `${prefix}${date}-` });
     const levels = {};
 
     for (const blob of blobs) {
-      const match = blob.pathname.match(/level-\d{4}-\d{2}-\d{2}-(\w+)\.json/);
+      if (!matchesGame(blob.pathname, game)) continue;
+      const match = blob.pathname.match(DIFF_PATTERN);
       if (match) {
         const difficulty = match[1];
         const response = await fetch(blob.url);
@@ -83,14 +99,15 @@ app.get('/api/levels', async (req, res) => {
 
 // POST /api/levels
 app.post('/api/levels', async (req, res) => {
-  const { date, difficulty, level } = req.body;
+  const { date, difficulty, level, game } = req.body;
 
   if (!date || !difficulty || !level) {
     return res.status(400).json({ error: 'Date, difficulty, and level data required' });
   }
 
   try {
-    const filename = `level-${date}-${difficulty}.json`;
+    const prefix = getPrefix(game);
+    const filename = `${prefix}${date}-${difficulty}.json`;
 
     // Delete any existing blobs with this name to avoid caching issues
     const { blobs } = await list({ prefix: filename.replace('.json', '') });

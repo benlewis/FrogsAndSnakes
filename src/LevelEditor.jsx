@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import './LevelEditor.css'
 import { solveLevel } from './solver.js'
+import { solveGreedy, NUM_COLORS } from './colorJumpSolver.js'
 import GameBoard from './GameBoard.jsx'
 
 // API base URL - use relative path for production, localhost for dev
@@ -363,6 +364,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   // Check authorization
   const isAuthorized = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
 
+  const [editorGame, setEditorGame] = useState('jf') // 'jf' or 'cj'
   const [gridSize, setGridSize] = useState(existingLevel?.gridSize || 5)
   const [difficulty, setDifficulty] = useState(existingLevel?.difficulty || 'easy')
   const [par, setPar] = useState(existingLevel?.par || 3)
@@ -375,6 +377,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [autoFilling, setAutoFilling] = useState(false)
   const [autoFillDays, setAutoFillDays] = useState(7)
   const [autoFillProgress, setAutoFillProgress] = useState(null) // { current, total, currentSlot }
+  // Color Jump editor state
+  const [cjGrid, setCjGrid] = useState(null)
+  const [cjPar, setCjPar] = useState(null)
+  const [cjGenerating, setCjGenerating] = useState(false)
   const [tryItMode, setTryItMode] = useState(false)
   const [tryItHints, setTryItHints] = useState(0)
   const gameBoardRef = useRef(null)
@@ -397,8 +403,12 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   // Level list state
   const [allLevels, setAllLevels] = useState([])
+  const [allCJLevels, setAllCJLevels] = useState([])
   const [loadingLevels, setLoadingLevels] = useState(true)
   const dateRange = generateDateRange()
+
+  // CJ difficulty grid sizes
+  const CJ_GRID_SIZES = { easy: 5, medium: 8, hard: 15, expert: 20 }
 
   // Fetch all levels on mount
   useEffect(() => {
@@ -408,10 +418,17 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const fetchAllLevels = async () => {
     setLoadingLevels(true)
     try {
-      const response = await fetch(`${API_BASE}/api/levels?all=true`)
-      if (response.ok) {
-        const levels = await response.json()
-        setAllLevels(levels)
+      const [jfRes, cjRes] = await Promise.all([
+        fetch(`${API_BASE}/api/levels?all=true`),
+        fetch(`${API_BASE}/api/levels?all=true&game=cj`),
+      ])
+      if (jfRes.ok) {
+        const all = await jfRes.json()
+        setAllLevels(all.filter(l => !l.grid)) // Exclude CJ levels by structure
+      }
+      if (cjRes.ok) {
+        const all = await cjRes.json()
+        setAllCJLevels(all.filter(l => Array.isArray(l.grid))) // Only CJ levels
       }
     } catch (err) {
       console.error('Error fetching levels:', err)
@@ -419,9 +436,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setLoadingLevels(false)
   }
 
-  // Get level for a specific date and difficulty
-  const getLevel = (date, diff) => {
-    return allLevels.find(l => l.date === date && l.difficulty === diff)
+  // Get level for a specific date and difficulty (respects current game mode)
+  const getLevel = (date, diff, game) => {
+    const levels = (game || editorGame) === 'cj' ? allCJLevels : allLevels
+    return levels.find(l => l.date === date && l.difficulty === diff)
   }
 
   const loadLevel = (level) => {
@@ -456,7 +474,17 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const selectSlot = (date, diff) => {
     const existing = getLevel(date, diff)
     resetGenOptionsToDefault()
-    if (existing) {
+    if (editorGame === 'cj') {
+      setLevelDate(date)
+      setDifficulty(diff)
+      if (existing) {
+        setCjGrid(existing.grid)
+        setCjPar(existing.par)
+      } else {
+        setCjGrid(null)
+        setCjPar(null)
+      }
+    } else if (existing) {
       loadLevel(existing)
     } else {
       // Start fresh for this slot
@@ -882,41 +910,47 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   }
 
   const saveLevel = async () => {
-    if (frogs.length === 0) {
-      alert('Please place at least one frog!')
-      return
-    }
-    if (lilyPads.length < frogs.length) {
-      alert(`Please place at least ${frogs.length} lily pad${frogs.length > 1 ? 's' : ''} (one per frog)!`)
-      return
+    if (editorGame === 'jf') {
+      if (frogs.length === 0) {
+        alert('Please place at least one frog!')
+        return
+      }
+      if (lilyPads.length < frogs.length) {
+        alert(`Please place at least ${frogs.length} lily pad${frogs.length > 1 ? 's' : ''} (one per frog)!`)
+        return
+      }
     }
 
     setSaving(true)
     setSaveError(null)
 
-    const levelData = {
-      difficulty,
-      date: levelDate,
-      gridSize,
-      frogs: frogs.map(f => ({ position: f.position, color: f.color })),
-      snakes: snakes.map(s => ({
-        positions: s.positions,
-        orientation: s.orientation
-      })),
-      logs: logs.map(l => ({ positions: l.positions })),
-      lilyPads: lilyPads.map(lp => ({ position: lp.position })),
-      par
-    }
+    const levelData = editorGame === 'cj'
+      ? { difficulty, date: levelDate, grid: cjGrid, gridSize: CJ_GRID_SIZES[difficulty], par: cjPar }
+      : {
+          difficulty,
+          date: levelDate,
+          gridSize,
+          frogs: frogs.map(f => ({ position: f.position, color: f.color })),
+          snakes: snakes.map(s => ({
+            positions: s.positions,
+            orientation: s.orientation
+          })),
+          logs: logs.map(l => ({ positions: l.positions })),
+          lilyPads: lilyPads.map(lp => ({ position: lp.position })),
+          par
+        }
 
     try {
+      const body = {
+        date: levelDate,
+        difficulty,
+        level: levelData
+      }
+      if (editorGame === 'cj') body.game = 'cj'
       const response = await fetch(`${API_BASE}/api/levels`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: levelDate,
-          difficulty,
-          level: levelData
-        })
+        body: JSON.stringify(body)
       })
 
       if (response.ok) {
@@ -1046,12 +1080,34 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     return null
   }
 
+  // Generate a Color Jump level for a specific difficulty
+  const generateCJLevel = (diff) => {
+    const gs = CJ_GRID_SIZES[diff]
+    const totalCells = gs * gs
+    const maxAttempts = 50
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const grid = Array.from({ length: totalCells }, () => Math.floor(Math.random() * NUM_COLORS))
+      const par = solveGreedy(grid, gs)
+      if (par !== null && par >= 3) {
+        return { grid, gridSize: gs, par }
+      }
+    }
+    return null
+  }
+
   // Auto-fill: generate and save E, M, H levels for the next X days
   const autoFillLevels = async () => {
     const days = autoFillDays
     if (days < 1 || days > 30) {
       alert('Please enter a number of days between 1 and 30.')
       return
+    }
+
+    const isCJ = editorGame === 'cj'
+    const getDiffsForDate = (date) => {
+      const isSunday = date.getDay() === 0
+      return isSunday ? ['easy', 'medium', 'hard', 'expert'] : ['easy', 'medium', 'hard']
     }
 
     // Find the first unfilled date, then fill X days from there
@@ -1061,8 +1117,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       const date = new Date(today)
       date.setDate(today.getDate() + d)
       const dateStr = getLocalDateString(date)
-      const isSunday = date.getDay() === 0
-      const diffs = isSunday ? ['easy', 'medium', 'hard', 'expert'] : ['easy', 'medium', 'hard']
+      const diffs = getDiffsForDate(date)
       if (diffs.some(diff => !getLevel(dateStr, diff))) {
         startDate = date
         break
@@ -1083,8 +1138,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       date.setDate(startDate.getDate() + d)
       d++
       const dateStr = getLocalDateString(date)
-      const isSunday = date.getDay() === 0
-      const diffs = isSunday ? ['easy', 'medium', 'hard', 'expert'] : ['easy', 'medium', 'hard']
+      const diffs = getDiffsForDate(date)
       for (const diff of diffs) {
         if (!getLevel(dateStr, diff)) {
           slots.push({ date: dateStr, difficulty: diff })
@@ -1102,7 +1156,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     const endDate = new Date(startDate)
     endDate.setDate(startDate.getDate() + days - 1)
     const endStr = getLocalDateString(endDate)
-    if (!confirm(`Generate and save ${slots.length} levels from ${startStr} to ${endStr}? This may take a while.`)) {
+    const gameLabel = isCJ ? 'Color Jump' : 'Jumping Frogs'
+    if (!confirm(`Generate and save ${slots.length} ${gameLabel} levels from ${startStr} to ${endStr}? This may take a while.`)) {
       return
     }
 
@@ -1120,7 +1175,12 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       // Yield to UI
       await new Promise(r => setTimeout(r, 10))
 
-      const level = generateLevelForDifficulty(slot.difficulty, gridSize)
+      let level
+      if (isCJ) {
+        level = generateCJLevel(slot.difficulty)
+      } else {
+        level = generateLevelForDifficulty(slot.difficulty, gridSize)
+      }
       if (!level) {
         failed++
         continue
@@ -1133,14 +1193,16 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       }
 
       try {
+        const body = {
+          date: slot.date,
+          difficulty: slot.difficulty,
+          level: levelData
+        }
+        if (isCJ) body.game = 'cj'
         const response = await fetch(`${API_BASE}/api/levels`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: slot.date,
-            difficulty: slot.difficulty,
-            level: levelData
-          })
+          body: JSON.stringify(body)
         })
         if (response.ok) {
           filled++
@@ -1221,6 +1283,21 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           <button className="close-btn" onClick={onClose || (() => window.location.href = '/')}>X</button>
         </div>
 
+        <div className="game-toggle" style={{ display: 'flex', gap: '8px', marginBottom: '12px', padding: '0 12px' }}>
+          <button
+            className={`tool-btn ${editorGame === 'jf' ? 'active' : ''}`}
+            onClick={() => setEditorGame('jf')}
+          >
+            Jumping Frogs
+          </button>
+          <button
+            className={`tool-btn ${editorGame === 'cj' ? 'active' : ''}`}
+            onClick={() => setEditorGame('cj')}
+          >
+            Color Jump
+          </button>
+        </div>
+
         <div className="editor-layout">
           {/* Left side - Editor */}
           <div className="editor-main">
@@ -1228,8 +1305,53 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
               <div className="editor-sidebar">
                 <div className="current-editing">
                   Editing: <strong>{formatDate(levelDate)}</strong> - <span className={`difficulty-tag ${difficulty}`}>{difficulty}</span>
+                  {editorGame === 'cj' && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Color Jump {CJ_GRID_SIZES[difficulty]}x{CJ_GRID_SIZES[difficulty]})</span>}
                 </div>
 
+                {editorGame === 'cj' ? (
+                  <>
+                    <div className="editor-section">
+                      <label>Grid Size: {CJ_GRID_SIZES[difficulty]}x{CJ_GRID_SIZES[difficulty]} (fixed per difficulty)</label>
+                    </div>
+                    {cjGrid && (
+                      <div className="editor-section">
+                        <label>Par: {cjPar}</label>
+                      </div>
+                    )}
+                    <div className="action-btn-row">
+                      <button
+                        className="action-btn generate"
+                        onClick={() => {
+                          setCjGenerating(true)
+                          setTimeout(() => {
+                            const level = generateCJLevel(difficulty)
+                            if (level) {
+                              setCjGrid(level.grid)
+                              setCjPar(level.par)
+                            } else {
+                              alert('Could not generate a valid Color Jump level. Try again.')
+                            }
+                            setCjGenerating(false)
+                          }, 10)
+                        }}
+                        disabled={cjGenerating}
+                      >
+                        {cjGenerating ? '...' : 'Generate'}
+                      </button>
+                      <button
+                        className="action-btn export"
+                        onClick={saveLevel}
+                        disabled={saving || !cjGrid}
+                      >
+                        {saving ? '...' : 'Save'}
+                      </button>
+                    </div>
+                    {saveError && (
+                      <div className="save-error">{saveError}</div>
+                    )}
+                  </>
+                ) : (
+                <>
                 <div className="editor-section">
                   <label>Grid Size</label>
                   <input
@@ -1463,10 +1585,41 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     <div className="save-error">{saveError}</div>
                   )}
                 </div>
+                </>
+                )}
               </div>
 
               <div className="editor-grid-area">
-                {tryItMode ? (
+                {editorGame === 'cj' ? (
+                  cjGrid ? (
+                    <div className="cj-preview-grid" style={{
+                      display: 'grid',
+                      gridTemplateColumns: `repeat(${CJ_GRID_SIZES[difficulty]}, 1fr)`,
+                      gridTemplateRows: `repeat(${CJ_GRID_SIZES[difficulty]}, 1fr)`,
+                      gap: CJ_GRID_SIZES[difficulty] <= 5 ? '3px' : CJ_GRID_SIZES[difficulty] <= 8 ? '2px' : '1px',
+                      width: '100%',
+                      maxWidth: '400px',
+                      aspectRatio: '1',
+                    }}>
+                      {cjGrid.map((colorIdx, i) => {
+                        const CJ_COLORS = ['#ef4444', '#3b82f6', '#eab308', '#22c55e', '#a855f7', '#f97316']
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              backgroundColor: CJ_COLORS[colorIdx],
+                              borderRadius: CJ_GRID_SIZES[difficulty] <= 5 ? '4px' : '2px',
+                            }}
+                          />
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>
+                      Click Generate to create a Color Jump level
+                    </div>
+                  )
+                ) : tryItMode ? (
                   <div className="try-it-container">
                     <div className="try-it-header">
                       <button

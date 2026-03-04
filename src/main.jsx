@@ -8,7 +8,9 @@ import LevelEditor from './LevelEditor.jsx'
 import './index.css'
 
 const path = window.location.pathname
+const isGamePath = path === '/' || path === '/color-jump'
 const Page = path === '/learn' ? Learn : path === '/level-editor' ? LevelEditor : App
+const initialGame = path === '/color-jump' ? 'color-jump' : 'jumping-frogs'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -20,7 +22,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       }}
       cacheLocation="localstorage"
     >
-      <Page />
+      <Page initialGame={isGamePath ? initialGame : undefined} />
       <Analytics />
     </Auth0Provider>
   </React.StrictMode>,

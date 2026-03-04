@@ -8,6 +8,7 @@ import DailyStreakModal from './components/DailyStreakModal.jsx'
 import WelcomeModal from './components/WelcomeModal.jsx'
 import CalendarModal from './components/CalendarModal.jsx'
 import LeaderboardModal from './components/LeaderboardModal.jsx'
+import ColorJump from './ColorJump.jsx'
 import { solveLevel } from './solver.js'
 import {
   FrogSVG,
@@ -150,13 +151,16 @@ const updateStreakCookie = (difficulty, puzzleDate) => {
 }
 
 
-function App() {
+function App({ initialGame = 'jumping-frogs' }) {
   const { user, isAuthenticated } = useAuth0()
   const [showStats, setShowStats] = useState(false)
   const [showStreakModal, setShowStreakModal] = useState(false)
   const [showWelcome, setShowWelcome] = useState(() => !getCookie('has_seen_welcome'))
   const [showCalendar, setShowCalendar] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [currentGame, setCurrentGame] = useState(initialGame)
+  const [showGamePicker, setShowGamePicker] = useState(false)
+  const gamePickerRef = useRef(null)
   const [visitorId] = useState(() => getOrCreateVisitorId())
   const [currentDate, setCurrentDate] = useState(getTodayDate())
 
@@ -178,6 +182,23 @@ function App() {
     return () => { delete window.showStreakModal }
   }, [])
 
+  // Close game picker when clicking outside
+  useEffect(() => {
+    if (!showGamePicker) return
+    const handleClick = (e) => {
+      if (gamePickerRef.current && !gamePickerRef.current.contains(e.target)) {
+        setShowGamePicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showGamePicker])
+
+  // Update page title based on current game
+  useEffect(() => {
+    document.title = currentGame === 'color-jump' ? 'Color Jump' : 'Jumping Frogs'
+  }, [currentGame])
+
   // Sync user info to database on login
   useEffect(() => {
     if (isAuthenticated && user?.sub) {
@@ -197,6 +218,7 @@ function App() {
     return getCookie(`difficulty_${getTodayDate()}`) || 'easy'
   })
   const [levels, setLevels] = useState({})
+  const [cjLevels, setCjLevels] = useState({})
   const [loading, setLoading] = useState(true)
   const gridRef = useRef(null)
 
@@ -239,6 +261,31 @@ function App() {
         }
 
         setLevels(levelMap)
+
+        // Also fetch Color Jump levels for difficulty buttons
+        const cjResponse = await fetch(`${API_BASE}/api/levels?date=${currentDate}&game=cj`, {
+          cache: 'no-store'
+        })
+        let cjMap = {}
+        if (cjResponse.ok) {
+          cjMap = await cjResponse.json()
+        }
+        // Fetch CJ Expert from most recent Sunday if not on current date
+        if (!cjMap.expert) {
+          const sundayDate = getMostRecentSunday(new Date(currentDate + 'T12:00:00'))
+          if (sundayDate !== currentDate) {
+            const cjExpertResponse = await fetch(`${API_BASE}/api/levels?date=${sundayDate}&game=cj`, {
+              cache: 'no-store'
+            })
+            if (cjExpertResponse.ok) {
+              const sundayCjLevels = await cjExpertResponse.json()
+              if (sundayCjLevels.expert) {
+                cjMap.expert = sundayCjLevels.expert
+              }
+            }
+          }
+        }
+        setCjLevels(cjMap)
       } catch (error) {
         console.error('Error fetching levels:', error)
       }
@@ -939,11 +986,11 @@ function App() {
 
   // Format current date for display
   const formattedDate = new Date(currentDate + 'T12:00:00').toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric'
   })
+
+  const gameTitle = currentGame === 'color-jump' ? 'Color Jump' : 'Jumping Frogs'
 
   return (
     <>
@@ -974,48 +1021,84 @@ function App() {
       {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">
         <div className="difficulty-selector">
-          <button
-            className={`difficulty-btn ${difficulty === 'easy' ? 'active' : ''} ${!levels.easy ? 'disabled' : ''}`}
-            onClick={() => levels.easy && setDifficulty('easy')}
-            disabled={!levels.easy}
-          >
-            Easy
-          </button>
-          <button
-            className={`difficulty-btn ${difficulty === 'medium' ? 'active' : ''} ${!levels.medium ? 'disabled' : ''}`}
-            onClick={() => levels.medium && setDifficulty('medium')}
-            disabled={!levels.medium}
-          >
-            Medium
-          </button>
-          <button
-            className={`difficulty-btn ${difficulty === 'hard' ? 'active' : ''} ${!levels.hard ? 'disabled' : ''}`}
-            onClick={() => levels.hard && setDifficulty('hard')}
-            disabled={!levels.hard}
-          >
-            Hard
-          </button>
-          {isAuthenticated && levels.expert && (
-            <button
-              className={`difficulty-btn expert ${difficulty === 'expert' ? 'active' : ''}`}
-              onClick={() => setDifficulty('expert')}
-            >
-              Expert
-            </button>
-          )}
+          {(() => {
+            const activeLevels = currentGame === 'color-jump' ? cjLevels : levels
+            return (
+              <>
+                <button
+                  className={`difficulty-btn ${difficulty === 'easy' ? 'active' : ''} ${!activeLevels.easy ? 'disabled' : ''}`}
+                  onClick={() => activeLevels.easy && setDifficulty('easy')}
+                  disabled={!activeLevels.easy}
+                >
+                  Easy
+                </button>
+                <button
+                  className={`difficulty-btn ${difficulty === 'medium' ? 'active' : ''} ${!activeLevels.medium ? 'disabled' : ''}`}
+                  onClick={() => activeLevels.medium && setDifficulty('medium')}
+                  disabled={!activeLevels.medium}
+                >
+                  Medium
+                </button>
+                <button
+                  className={`difficulty-btn ${difficulty === 'hard' ? 'active' : ''} ${!activeLevels.hard ? 'disabled' : ''}`}
+                  onClick={() => activeLevels.hard && setDifficulty('hard')}
+                  disabled={!activeLevels.hard}
+                >
+                  Hard
+                </button>
+                {isAuthenticated && activeLevels.expert && (
+                  <button
+                    className={`difficulty-btn expert ${difficulty === 'expert' ? 'active' : ''}`}
+                    onClick={() => setDifficulty('expert')}
+                  >
+                    Expert
+                  </button>
+                )}
+              </>
+            )
+          })()}
         </div>
       </div>
       <div className="date-row">
-        <div className="date-display">
-          {difficulty === 'expert'
-            ? `Weekly Challenge \u2014 ${formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))}`
-            : `Daily Puzzle \u2014 ${formattedDate}`
-          }
+        <div className="date-row-left">
+          <span className="game-title">{gameTitle}</span>
+          <span className="date-separator">&middot;</span>
+          <span className="date-display">
+            {difficulty === 'expert'
+              ? formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))
+              : formattedDate
+            }
+          </span>
         </div>
-        <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
+        <div className="date-row-buttons">
+          <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
+          <div className="game-picker-wrapper" ref={gamePickerRef}>
+            <button className="learn-btn" onClick={() => setShowGamePicker(!showGamePicker)}>
+              Switch Game
+            </button>
+            {showGamePicker && (
+              <div className="game-picker-dropdown">
+                <button
+                  className={`game-picker-option ${currentGame === 'jumping-frogs' ? 'active' : ''}`}
+                  onClick={() => { window.location.href = '/' }}
+                >
+                  Jumping Frogs
+                </button>
+                <button
+                  className={`game-picker-option ${currentGame === 'color-jump' ? 'active' : ''}`}
+                  onClick={() => { window.location.href = '/color-jump' }}
+                >
+                  Color Jump
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {!currentLevel ? (
+      {currentGame === 'color-jump' ? (
+        <ColorJump difficulty={difficulty} currentDate={currentDate} onChangeDifficulty={setDifficulty} />
+      ) : !currentLevel ? (
         <div className="no-level-message">
           No {difficulty} puzzle available for today.
           <br />
