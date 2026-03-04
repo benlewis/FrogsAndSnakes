@@ -122,6 +122,8 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
   const saved = useMemo(() => loadState(currentDate, difficulty), [currentDate, difficulty])
   const [grid, setGrid] = useState(() => saved?.grid?.length === gridSize * gridSize ? saved.grid : initialGrid)
   const [moves, setMoves] = useState(() => saved?.moves || 0)
+  const [moveHistory, setMoveHistory] = useState(() => saved?.moveHistory || [])
+  const [replayFrame, setReplayFrame] = useState(0)
   const [jumping, setJumping] = useState(false)
   const buttonsRef = useRef(null)
   const padRefs = useRef({})
@@ -139,18 +141,20 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
     if (s?.grid?.length === gridSize * gridSize) {
       setGrid(s.grid)
       setMoves(s.moves || 0)
+      setMoveHistory(s.moveHistory || [])
       initialGridRef.current = s.initialGrid || s.grid
     } else {
       setGrid(initialGrid)
       setMoves(0)
+      setMoveHistory([])
       initialGridRef.current = initialGrid
     }
   }, [currentDate, difficulty, gridSize, initialGrid])
 
   // Persist state on changes
   useEffect(() => {
-    saveState(currentDate, difficulty, { grid, moves, initialGrid: initialGridRef.current })
-  }, [grid, moves, currentDate, difficulty])
+    saveState(currentDate, difficulty, { grid, moves, moveHistory, initialGrid: initialGridRef.current })
+  }, [grid, moves, moveHistory, currentDate, difficulty])
 
   const connected = useMemo(() => getConnectedCells(grid, gridSize), [grid, gridSize])
 
@@ -162,6 +166,23 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
     }
     return true
   }, [grid])
+
+  // Replay animation: cycle through initial grid + each move when won
+  const replayFrames = useMemo(() => {
+    if (!isWon || moveHistory.length === 0) return []
+    return [initialGridRef.current, ...moveHistory]
+  }, [isWon, moveHistory])
+
+  useEffect(() => {
+    if (!isWon || replayFrames.length === 0) return
+    setReplayFrame(0)
+    const interval = setInterval(() => {
+      setReplayFrame(f => (f + 1) % replayFrames.length)
+    }, 800)
+    return () => clearInterval(interval)
+  }, [isWon, replayFrames.length])
+
+  const displayGrid = isWon && replayFrames.length > 0 ? replayFrames[replayFrame] || grid : grid
 
   // Update frog position when grid changes (frog lands on current color's pad)
   useEffect(() => {
@@ -207,6 +228,7 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
       }
       setGrid(newGrid)
       setMoves(m => m + 1)
+      setMoveHistory(prev => [...prev, newGrid])
       setFrogPos(target)
       setFrogTarget(null)
       setJumping(false)
@@ -218,9 +240,14 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
   const halfGap = gap / 2
 
   // Compute per-cell styles: connected cells expand into the gap toward connected neighbors
+  const displayConnected = useMemo(() => {
+    if (!isWon || replayFrames.length === 0) return connected
+    return getConnectedCells(displayGrid, gridSize)
+  }, [isWon, replayFrames, displayGrid, gridSize, connected])
+
   const getCellStyle = (i) => {
-    const colorIdx = grid[i]
-    const isConn = connected.has(i)
+    const colorIdx = displayGrid[i]
+    const isConn = displayConnected.has(i)
     const col = i % gridSize
     const row = Math.floor(i / gridSize)
 
@@ -233,10 +260,10 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
     }
 
     // Check which neighbors are also connected
-    const up = row > 0 && connected.has(i - gridSize)
-    const down = row < gridSize - 1 && connected.has(i + gridSize)
-    const left = col > 0 && connected.has(i - 1)
-    const right = col < gridSize - 1 && connected.has(i + 1)
+    const up = row > 0 && displayConnected.has(i - gridSize)
+    const down = row < gridSize - 1 && displayConnected.has(i + gridSize)
+    const left = col > 0 && displayConnected.has(i - 1)
+    const right = col < gridSize - 1 && displayConnected.has(i + 1)
 
     // Expand into gap toward connected neighbors
     const marginTop = up ? 0 : halfGap
@@ -279,15 +306,15 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
 
   return (
     <div className="color-jump-game">
-      <div className="cj-grid-container">
+      <div className="cj-grid-container" style={{ position: 'relative' }}>
         <div
-          className="cj-grid"
+          className={`cj-grid${isWon && replayFrames.length > 0 ? ' replaying' : ''}`}
           style={{
             gridTemplateColumns: `repeat(${gridSize}, 1fr)`,
             gridTemplateRows: `repeat(${gridSize}, 1fr)`,
           }}
         >
-          {grid.map((colorIdx, i) => (
+          {displayGrid.map((colorIdx, i) => (
             <div
               key={i}
               className="cj-cell"
@@ -295,10 +322,15 @@ const ColorJump = ({ difficulty, currentDate, onChangeDifficulty }) => {
             />
           ))}
         </div>
+        {isWon && replayFrames.length > 0 && (
+          <div className="cj-replay-indicator">
+            {replayFrame === 0 ? 'Start' : `Move ${replayFrame}/${replayFrames.length - 1}`}
+          </div>
+        )}
       </div>
 
       <div className="cj-stats">
-        <button className="cj-reset-btn" onClick={() => { setGrid(initialGridRef.current); setMoves(0) }}>
+        <button className="cj-reset-btn" onClick={() => { setGrid(initialGridRef.current); setMoves(0); setMoveHistory([]) }}>
           Reset
         </button>
         <div className="cj-stats-right">
