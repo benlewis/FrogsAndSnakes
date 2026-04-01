@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 
-function AccountMenu({ onShowStats, isAdmin }) {
+function AccountMenu({ onShowStats, isAdmin, currentGame }) {
   const { isAuthenticated, isLoading, user, loginWithRedirect, logout } = useAuth0()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -25,12 +25,44 @@ function AccountMenu({ onShowStats, isAdmin }) {
     return <div className="account-menu"><div className="account-loading" /></div>
   }
 
+  const gameLinks = (
+    <>
+      <div className="account-dropdown-section-label">Games</div>
+      <a
+        className={`account-dropdown-item${currentGame === 'jumping-frogs' ? ' active' : ''}`}
+        href="/"
+        onClick={() => setDropdownOpen(false)}
+      >
+        Jumping Frogs
+      </a>
+      <a
+        className={`account-dropdown-item${currentGame === 'color-jump' ? ' active' : ''}`}
+        href="/color-jump"
+        onClick={() => setDropdownOpen(false)}
+      >
+        Color Jump
+      </a>
+    </>
+  )
+
   if (!isAuthenticated) {
     return (
-      <div className="account-menu">
-        <button className="account-login-btn" onClick={() => loginWithRedirect()}>
-          Account
+      <div className="account-menu" ref={dropdownRef}>
+        <button className="account-login-btn" onClick={() => setDropdownOpen(!dropdownOpen)}>
+          Menu
         </button>
+        {dropdownOpen && (
+          <div className="account-dropdown">
+            {gameLinks}
+            <div className="account-dropdown-divider" />
+            <button
+              className="account-dropdown-item"
+              onClick={() => { setDropdownOpen(false); loginWithRedirect(); }}
+            >
+              Log In
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -63,6 +95,8 @@ function AccountMenu({ onShowStats, isAdmin }) {
             {user?.name && <div className="account-dropdown-name">{user.name}</div>}
             {user?.email && <div className="account-dropdown-email">{user.email}</div>}
           </div>
+          <div className="account-dropdown-divider" />
+          {gameLinks}
           <div className="account-dropdown-divider" />
           {isAdmin && (
             <a

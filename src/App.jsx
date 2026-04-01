@@ -158,9 +158,8 @@ function App({ initialGame = 'jumping-frogs' }) {
   const [showWelcome, setShowWelcome] = useState(() => !getCookie('has_seen_welcome'))
   const [showCalendar, setShowCalendar] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [levelCoverage, setLevelCoverage] = useState(null)
   const [currentGame, setCurrentGame] = useState(initialGame)
-  const [showGamePicker, setShowGamePicker] = useState(false)
-  const gamePickerRef = useRef(null)
   const [visitorId] = useState(() => getOrCreateVisitorId())
   const [currentDate, setCurrentDate] = useState(getTodayDate())
 
@@ -182,18 +181,6 @@ function App({ initialGame = 'jumping-frogs' }) {
     return () => { delete window.showStreakModal }
   }, [])
 
-  // Close game picker when clicking outside
-  useEffect(() => {
-    if (!showGamePicker) return
-    const handleClick = (e) => {
-      if (gamePickerRef.current && !gamePickerRef.current.contains(e.target)) {
-        setShowGamePicker(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [showGamePicker])
-
   // Update page title based on current game
   useEffect(() => {
     document.title = currentGame === 'color-jump' ? 'Color Jump' : 'Jumping Frogs'
@@ -214,6 +201,17 @@ function App({ initialGame = 'jumping-frogs' }) {
       }).catch(err => console.error('Failed to sync user:', err))
     }
   }, [isAuthenticated, user?.sub])
+
+  // Fetch level coverage for admin users
+  const isAdmin = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
+  useEffect(() => {
+    if (!isAdmin) return
+    fetch(`${API_BASE}/api/level-coverage`)
+      .then(r => r.json())
+      .then(data => setLevelCoverage(data.consecutiveDays))
+      .catch(err => console.error('Failed to fetch level coverage:', err))
+  }, [isAdmin])
+
   const [difficulty, setDifficulty] = useState(() => {
     return getCookie(`difficulty_${getTodayDate()}`) || 'easy'
   })
@@ -956,8 +954,6 @@ function App({ initialGame = 'jumping-frogs' }) {
   }
 
 
-  const isAdmin = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
-
   // Show loading or no level message
   if (loading) {
     return (
@@ -965,13 +961,18 @@ function App({ initialGame = 'jumping-frogs' }) {
         <header className="app-header">
           <h1 className="title">Frogs And Snakes</h1>
           <div className="header-right">
+            {isAdmin && levelCoverage !== null && (
+              <a href="/level-editor" className="level-coverage-badge" style={{ color: levelCoverage < 3 ? '#ef4444' : levelCoverage < 7 ? '#eab308' : '#4ade80' }} title={`${levelCoverage} day${levelCoverage !== 1 ? 's' : ''} of levels ahead`}>
+                {levelCoverage}d
+              </a>
+            )}
             <button className="trophy-btn" onClick={() => setShowLeaderboard(true)} aria-label="Leaderboard">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
             </button>
             <button className="calendar-btn" onClick={() => setShowCalendar(true)} aria-label="Select date">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
             </button>
-            <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} />
+            <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} currentGame={currentGame} />
           </div>
         </header>
         <div className="loading-message">Loading puzzles...</div>
@@ -1002,13 +1003,18 @@ function App({ initialGame = 'jumping-frogs' }) {
       <header className="app-header">
         <h1 className="title">Frogs And Snakes</h1>
         <div className="header-right">
+          {isAdmin && levelCoverage !== null && (
+            <a href="/level-editor" className="level-coverage-badge" style={{ color: levelCoverage < 3 ? '#ef4444' : levelCoverage < 7 ? '#eab308' : '#4ade80' }} title={`${levelCoverage} day${levelCoverage !== 1 ? 's' : ''} of levels ahead`}>
+              {levelCoverage}d
+            </a>
+          )}
           <button className="trophy-btn" onClick={() => setShowLeaderboard(true)} aria-label="Leaderboard">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
           </button>
           <button className="calendar-btn" onClick={() => setShowCalendar(true)} aria-label="Select date">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
           </button>
-          <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} />
+          <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} currentGame={currentGame} />
         </div>
       </header>
 
@@ -1072,27 +1078,6 @@ function App({ initialGame = 'jumping-frogs' }) {
         </div>
         <div className="date-row-buttons">
           <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
-          <div className="game-picker-wrapper" ref={gamePickerRef}>
-            <button className="learn-btn" onClick={() => setShowGamePicker(!showGamePicker)}>
-              Switch Game
-            </button>
-            {showGamePicker && (
-              <div className="game-picker-dropdown">
-                <button
-                  className={`game-picker-option ${currentGame === 'jumping-frogs' ? 'active' : ''}`}
-                  onClick={() => { window.location.href = '/' }}
-                >
-                  Jumping Frogs
-                </button>
-                <button
-                  className={`game-picker-option ${currentGame === 'color-jump' ? 'active' : ''}`}
-                  onClick={() => { window.location.href = '/color-jump' }}
-                >
-                  Color Jump
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

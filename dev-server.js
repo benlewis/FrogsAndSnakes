@@ -366,6 +366,47 @@ app.get('/api/leaderboard', async (req, res) => {
   }
 });
 
+// GET /api/level-coverage - Count consecutive future days with levels
+app.get('/api/level-coverage', async (req, res) => {
+  try {
+    const [jfResult, cjResult] = await Promise.all([
+      list({ prefix: 'level-' }),
+      list({ prefix: 'cj-level-' }),
+    ]);
+
+    const allBlobs = [...jfResult.blobs, ...cjResult.blobs];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().slice(0, 10);
+
+    const datesWithLevels = new Set();
+    for (const blob of allBlobs) {
+      const match = blob.pathname.match(LEVEL_PATTERN);
+      if (match && match[1] > todayStr) {
+        datesWithLevels.add(match[1]);
+      }
+    }
+
+    let consecutiveDays = 0;
+    const checkDate = new Date(today);
+    while (true) {
+      checkDate.setDate(checkDate.getDate() + 1);
+      const dateStr = checkDate.toISOString().slice(0, 10);
+      if (datesWithLevels.has(dateStr)) {
+        consecutiveDays++;
+      } else {
+        break;
+      }
+    }
+
+    res.json({ consecutiveDays });
+  } catch (error) {
+    console.error('Error checking level coverage:', error);
+    res.status(500).json({ error: 'Failed to check level coverage' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Dev API server running at http://localhost:${PORT}`);
   console.log('Using Vercel Blob storage and local Postgres');
