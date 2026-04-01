@@ -505,7 +505,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     easy: { frogs: [1, 1], snakes: [1, 2], maxSnakeSize: 3, logs: [0, 2], extraLilyPads: [0, 1], moves: { min: 4, max: 7 } },
     medium: { frogs: [1, 2], snakes: [2, 4], maxSnakeSize: 3, logs: [1, 3], extraLilyPads: [0, 2], moves: { min: 8, max: 13 } },
     hard: { frogs: [1, 3], snakes: [3, 6], maxSnakeSize: 4, logs: [2, 5], extraLilyPads: [0, 3], moves: { min: 14, max: 20 } },
-    expert: { frogs: [2, 3], snakes: [5, 8], maxSnakeSize: 4, logs: [3, 6], extraLilyPads: [1, 3], moves: { min: 45, max: 60 } }
+    expert: { frogs: [2, 3], snakes: [3, 5], maxSnakeSize: 3, logs: [2, 5], extraLilyPads: [1, 3], moves: { min: 40, max: 60 } }
   }
 
   // "default" means use difficulty-based range, otherwise it's a specific number
@@ -782,7 +782,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
     // Run in setTimeout to allow UI to update
     setTimeout(() => {
-      const maxAttempts = 1000
+      const isExpertGen = difficulty === 'expert'
+      const maxAttempts = isExpertGen ? 2000 : 1000
       let attempts = 0
       let found = false
 
@@ -886,18 +887,36 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         }
         if (newLilyPads.length !== numLilyPads) continue
 
-        // Test the level
-        const result = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads)
-
-        if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
-          // Found a valid level!
-          setFrogs(newFrogs)
-          setSnakes(newSnakes)
-          setLogs(newLogs)
-          setLilyPads(newLilyPads)
-          setPar(result.moves)
-          setCheckResult(result)
-          found = true
+        // For expert: quick reject boards solvable in too few moves, then full solve promising ones
+        const isExpert = difficulty === 'expert'
+        if (isExpert) {
+          // Quick check: can it be solved in fewer than minMoves? If so, skip.
+          const quickResult = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 100000 })
+          if (quickResult.solvable && quickResult.moves < range.min) continue
+          // If quick check found no easy solution, do full solve with higher limit
+          const result = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 2000000 })
+          if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+            const fullResult = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads, { maxIterations: 2000000 })
+            setFrogs(newFrogs)
+            setSnakes(newSnakes)
+            setLogs(newLogs)
+            setLilyPads(newLilyPads)
+            setPar(fullResult.moves)
+            setCheckResult(fullResult)
+            found = true
+          }
+        } else {
+          const result = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false })
+          if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+            const fullResult = solveLevel(gridSize, newFrogs, newSnakes, newLogs, newLilyPads)
+            setFrogs(newFrogs)
+            setSnakes(newSnakes)
+            setLogs(newLogs)
+            setLilyPads(newLilyPads)
+            setPar(fullResult.moves)
+            setCheckResult(fullResult)
+            found = true
+          }
         }
       }
 
@@ -1065,15 +1084,34 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       }
       if (newLilyPads.length !== numLilyPads) continue
 
-      const result = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads)
-      if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
-        return {
-          gridSize: size,
-          frogs: newFrogs,
-          snakes: newSnakes,
-          logs: newLogs,
-          lilyPads: newLilyPads,
-          par: result.moves
+      const isExpert = diff === 'expert'
+      if (isExpert) {
+        // Quick reject boards solvable in too few moves
+        const quickResult = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 100000 })
+        if (quickResult.solvable && quickResult.moves < range.min) continue
+        // Full solve with higher limit for promising boards
+        const result = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 2000000 })
+        if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+          return {
+            gridSize: size,
+            frogs: newFrogs,
+            snakes: newSnakes,
+            logs: newLogs,
+            lilyPads: newLilyPads,
+            par: result.moves
+          }
+        }
+      } else {
+        const result = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false })
+        if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+          return {
+            gridSize: size,
+            frogs: newFrogs,
+            snakes: newSnakes,
+            logs: newLogs,
+            lilyPads: newLilyPads,
+            par: result.moves
+          }
         }
       }
     }

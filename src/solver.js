@@ -4,16 +4,27 @@ import {
   checkWinCondition
 } from './gameRules.js'
 
+// Compact state key using string concatenation instead of JSON.stringify
+const compactStateKey = (frogPositions, snakePositions) => {
+  let key = ''
+  for (const f of frogPositions) key += f[0] + ',' + f[1] + ';'
+  key += '|'
+  for (const s of snakePositions) {
+    for (const p of s.positions) key += p[0] + ',' + p[1] + '.'
+    key += ';'
+  }
+  return key
+}
+
 // Solver using BFS to find minimum moves (supports multiple frogs)
-// Returns { solvable, moves, path } where path is an array of move descriptors
-export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
+// Options:
+//   trackPath: if false, skips path tracking for faster generation (default: true)
+//   maxIterations: override iteration limit (default: 500000)
+export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}) => {
+  const { trackPath = true, maxIterations = 500000 } = options
+
   if (!frogs || frogs.length === 0 || lilyPads.length < frogs.length) {
     return { solvable: false, moves: -1, path: [], reason: 'Not enough lily pads for frogs' }
-  }
-
-  // Create a state key for memoization
-  const stateKey = (frogPositions, snakePositions) => {
-    return JSON.stringify({ frogs: frogPositions, snakes: snakePositions })
   }
 
   // Build game state object for shared rules
@@ -49,16 +60,19 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
     return { solvable: true, moves: 0, path: [] }
   }
 
-  const queue = [{ frogs: initialFrogs, snakes: initialSnakes, moves: 0, path: [] }]
+  // Use ring buffer for BFS queue to avoid O(n) shift()
+  let queue = [{ frogs: initialFrogs, snakes: initialSnakes, moves: 0, parent: -1, move: null }]
+  let queueHead = 0
+
   const visited = new Set()
-  visited.add(stateKey(initialFrogs, initialSnakes))
+  visited.add(compactStateKey(initialFrogs, initialSnakes))
 
   let iterations = 0
-  const maxIterations = 500000
 
-  while (queue.length > 0 && iterations < maxIterations) {
+  while (queueHead < queue.length && iterations < maxIterations) {
     iterations++
-    const { frogs: currentFrogs, snakes: currentSnakes, moves, path } = queue.shift()
+    const entry = queue[queueHead++]
+    const { frogs: currentFrogs, snakes: currentSnakes, moves } = entry
 
     // Try moves for each frog
     for (let frogIdx = 0; frogIdx < currentFrogs.length; frogIdx++) {
@@ -68,22 +82,30 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
           idx === move.frogIdx ? move.newPos : [...f]
         )
 
-        const moveEntry = {
-          type: 'frog',
-          frogIdx: move.frogIdx,
-          from: [...currentFrogs[move.frogIdx]],
-          to: [...move.newPos]
-        }
-
         // Check win immediately after move
         if (checkWinCondition(newFrogs, lilyPads)) {
-          return { solvable: true, moves: moves + 1, path: [...path, moveEntry] }
+          if (trackPath) {
+            const moveEntry = {
+              type: 'frog',
+              frogIdx: move.frogIdx,
+              from: [...currentFrogs[move.frogIdx]],
+              to: [...move.newPos]
+            }
+            return { solvable: true, moves: moves + 1, path: reconstructPath(queue, queueHead - 1, moveEntry) }
+          }
+          return { solvable: true, moves: moves + 1, path: [] }
         }
 
-        const key = stateKey(newFrogs, currentSnakes)
+        const key = compactStateKey(newFrogs, currentSnakes)
         if (!visited.has(key)) {
           visited.add(key)
-          queue.push({ frogs: newFrogs, snakes: currentSnakes, moves: moves + 1, path: [...path, moveEntry] })
+          const moveEntry = trackPath ? {
+            type: 'frog',
+            frogIdx: move.frogIdx,
+            from: [...currentFrogs[move.frogIdx]],
+            to: [...move.newPos]
+          } : null
+          queue.push({ frogs: newFrogs, snakes: currentSnakes, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
         }
       }
     }
@@ -98,21 +120,32 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads) => {
             : { positions: s.positions.map(p => [...p]), orientation: s.orientation }
         )
 
-        const moveEntry = {
-          type: 'snake',
-          snakeIdx: move.snakeIdx,
-          from: currentSnakes[move.snakeIdx].positions.map(p => [...p]),
-          to: move.positions.map(p => [...p])
-        }
-
-        const key = stateKey(currentFrogs, newSnakes)
+        const key = compactStateKey(currentFrogs, newSnakes)
         if (!visited.has(key)) {
           visited.add(key)
-          queue.push({ frogs: currentFrogs, snakes: newSnakes, moves: moves + 1, path: [...path, moveEntry] })
+          const moveEntry = trackPath ? {
+            type: 'snake',
+            snakeIdx: move.snakeIdx,
+            from: currentSnakes[move.snakeIdx].positions.map(p => [...p]),
+            to: move.positions.map(p => [...p])
+          } : null
+          queue.push({ frogs: currentFrogs, snakes: newSnakes, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
         }
       }
     }
   }
 
   return { solvable: false, moves: -1, path: [], reason: iterations >= maxIterations ? 'Hit iteration limit' : 'No solution found' }
+}
+
+// Reconstruct path by walking parent pointers back to root
+function reconstructPath(queue, parentIdx, finalMove) {
+  const path = [finalMove]
+  let idx = parentIdx
+  while (idx > 0 && queue[idx].move) {
+    path.push(queue[idx].move)
+    idx = queue[idx].parent
+  }
+  path.reverse()
+  return path
 }
