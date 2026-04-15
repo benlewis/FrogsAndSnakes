@@ -107,24 +107,40 @@ export const FrogSVG = ({ color = 'green' }) => {
       {/* Eye bump shine */}
       <ellipse cx="62" cy="16" rx="5" ry="3" fill="white" opacity="0.7" />
 
-      {/* Eyes - left */}
-      <ellipse cx="35" cy="24" rx="9" ry="10" fill={colors.outline} />
-      <ellipse cx="35" cy="24" rx="8" ry="9" fill={`url(#${id}-eye)`} />
-      <ellipse cx="36" cy="25" rx="4" ry="5" fill="#1a1a1a" />
-      <circle cx="34" cy="22" r="2.5" fill="white" />
+      {/* Eyes - open (animated via CSS for idle blink) */}
+      <g className="frog-eyes-open">
+        <ellipse cx="35" cy="24" rx="9" ry="10" fill={colors.outline} />
+        <ellipse cx="35" cy="24" rx="8" ry="9" fill={`url(#${id}-eye)`} />
+        <ellipse cx="36" cy="25" rx="4" ry="5" fill="#1a1a1a" />
+        <circle cx="34" cy="22" r="2.5" fill="white" />
+        <ellipse cx="65" cy="24" rx="9" ry="10" fill={colors.outline} />
+        <ellipse cx="65" cy="24" rx="8" ry="9" fill={`url(#${id}-eye)`} />
+        <ellipse cx="66" cy="25" rx="4" ry="5" fill="#1a1a1a" />
+        <circle cx="64" cy="22" r="2.5" fill="white" />
+      </g>
 
-      {/* Eyes - right */}
-      <ellipse cx="65" cy="24" rx="9" ry="10" fill={colors.outline} />
-      <ellipse cx="65" cy="24" rx="8" ry="9" fill={`url(#${id}-eye)`} />
-      <ellipse cx="66" cy="25" rx="4" ry="5" fill="#1a1a1a" />
-      <circle cx="64" cy="22" r="2.5" fill="white" />
+      {/* Eyes - closed (eyelid arcs, hidden by default; shown during blink) */}
+      <g className="frog-eyes-closed">
+        <path d="M27 24 Q35 30 43 24" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M57 24 Q65 30 73 24" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      </g>
 
       {/* Nostrils */}
       <circle cx="44" cy="38" r="2" fill={colors.outline} />
       <circle cx="56" cy="38" r="2" fill={colors.outline} />
 
-      {/* Mouth - happy smile */}
-      <path d="M38 45 Q50 52 62 45" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      {/* Mouth - closed smile (default) */}
+      <path className="frog-mouth-closed" d="M38 45 Q50 52 62 45" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      {/* Idle tongue flick — periodically pokes out past the smile. */}
+      <g className="frog-tongue">
+        <ellipse cx="50" cy="54" rx="3" ry="5" fill="#ef4444" />
+        <ellipse cx="50" cy="55" rx="1.2" ry="3.5" fill="#f87171" opacity="0.7" />
+      </g>
+      {/* Mouth - open (shown while dragging or jumping) */}
+      <g className="frog-mouth-open">
+        <ellipse cx="50" cy="47" rx="9" ry="6" fill="#4a0e0e" stroke={colors.outline} strokeWidth="2" />
+        <path d="M44 48 Q50 52 56 48" stroke="#ff6b6b" strokeWidth="1.5" fill="none" strokeLinecap="round" opacity="0.7" />
+      </g>
 
       {/* Body shine highlights */}
       <ellipse cx="40" cy="50" rx="10" ry="6" fill="white" opacity="0.3" />
@@ -357,7 +373,7 @@ export const LogSVG = () => (
 )
 
 // Cartoony glossy Vertical Snake SVG component
-export const VerticalSnakeSVG = ({ length = 2 }) => {
+export const VerticalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
   const cellHeight = 50
   const viewHeight = length * cellHeight
   const bodyEnd = viewHeight - 5
@@ -424,16 +440,21 @@ export const VerticalSnakeSVG = ({ length = 2 }) => {
       {/* Head shine */}
       <ellipse cx="16" cy="5" rx="5" ry="3" fill="white" opacity="0.5" />
 
-      {/* Eyes */}
-      <ellipse cx="13" cy="8" rx="5" ry="6" fill="#14532d" />
-      <ellipse cx="13" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
-      <ellipse cx="14" cy="9" rx="2" ry="3" fill="#1a1a1a" />
-      <circle cx="12" cy="7" r="1.5" fill="white" />
-
-      <ellipse cx="27" cy="8" rx="5" ry="6" fill="#14532d" />
-      <ellipse cx="27" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
-      <ellipse cx="28" cy="9" rx="2" ry="3" fill="#1a1a1a" />
-      <circle cx="26" cy="7" r="1.5" fill="white" />
+      {/* Eyes - open (CSS blink animation cross-fades to closed) */}
+      <g className="snake-eyes-open" style={{ animationDelay: `${blinkDelay}s` }}>
+        <ellipse cx="13" cy="8" rx="5" ry="6" fill="#14532d" />
+        <ellipse cx="13" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
+        <ellipse cx="14" cy="9" rx="2" ry="3" fill="#1a1a1a" />
+        <circle cx="12" cy="7" r="1.5" fill="white" />
+        <ellipse cx="27" cy="8" rx="5" ry="6" fill="#14532d" />
+        <ellipse cx="27" cy="8" rx="4" ry="5" fill="url(#snakeEyeV)" />
+        <ellipse cx="28" cy="9" rx="2" ry="3" fill="#1a1a1a" />
+        <circle cx="26" cy="7" r="1.5" fill="white" />
+      </g>
+      <g className="snake-eyes-closed" style={{ animationDelay: `${blinkDelay}s` }}>
+        <path d="M8 8 Q13 11 18 8" stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        <path d="M22 8 Q27 11 32 8" stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      </g>
 
       {/* Nostrils */}
       <circle cx="16" cy="14" r="1.5" fill="#14532d" />
@@ -452,7 +473,7 @@ export const VerticalSnakeSVG = ({ length = 2 }) => {
 }
 
 // Cartoony glossy Horizontal Snake SVG component
-export const HorizontalSnakeSVG = ({ length = 2 }) => {
+export const HorizontalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
   const cellWidth = 50
   const viewWidth = length * cellWidth
   const bodyEnd = viewWidth - 18
@@ -519,16 +540,21 @@ export const HorizontalSnakeSVG = ({ length = 2 }) => {
       {/* Head shine */}
       <ellipse cx={headX + 5} cy="15" rx="3" ry="5" fill="white" opacity="0.5" />
 
-      {/* Eyes */}
-      <ellipse cx={headX + 2} cy="13" rx="6" ry="5" fill="#14532d" />
-      <ellipse cx={headX + 2} cy="13" rx="5" ry="4" fill="url(#snakeEyeH)" />
-      <ellipse cx={headX + 3} cy="14" rx="3" ry="2" fill="#1a1a1a" />
-      <circle cx={headX + 1} cy="12" r="1.5" fill="white" />
-
-      <ellipse cx={headX + 2} cy="27" rx="6" ry="5" fill="#14532d" />
-      <ellipse cx={headX + 2} cy="27" rx="5" ry="4" fill="url(#snakeEyeH)" />
-      <ellipse cx={headX + 3} cy="28" rx="3" ry="2" fill="#1a1a1a" />
-      <circle cx={headX + 1} cy="26" r="1.5" fill="white" />
+      {/* Eyes - open (CSS blink animation cross-fades to closed) */}
+      <g className="snake-eyes-open" style={{ animationDelay: `${blinkDelay}s` }}>
+        <ellipse cx={headX + 2} cy="13" rx="6" ry="5" fill="#14532d" />
+        <ellipse cx={headX + 2} cy="13" rx="5" ry="4" fill="url(#snakeEyeH)" />
+        <ellipse cx={headX + 3} cy="14" rx="3" ry="2" fill="#1a1a1a" />
+        <circle cx={headX + 1} cy="12" r="1.5" fill="white" />
+        <ellipse cx={headX + 2} cy="27" rx="6" ry="5" fill="#14532d" />
+        <ellipse cx={headX + 2} cy="27" rx="5" ry="4" fill="url(#snakeEyeH)" />
+        <ellipse cx={headX + 3} cy="28" rx="3" ry="2" fill="#1a1a1a" />
+        <circle cx={headX + 1} cy="26" r="1.5" fill="white" />
+      </g>
+      <g className="snake-eyes-closed" style={{ animationDelay: `${blinkDelay}s` }}>
+        <path d={`M${headX - 3} 13 Q${headX + 2} 16 ${headX + 7} 13`} stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+        <path d={`M${headX - 3} 27 Q${headX + 2} 30 ${headX + 7} 27`} stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      </g>
 
       {/* Nostrils */}
       <circle cx={headX + 8} cy="17" r="1.5" fill="#14532d" />

@@ -703,9 +703,9 @@ const GameBoard = forwardRef(({
                 }}
               >
                 {snake.orientation === 'vertical' ? (
-                  <VerticalSnakeSVG length={snake.positions.length} />
+                  <VerticalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} />
                 ) : (
-                  <HorizontalSnakeSVG length={snake.positions.length} />
+                  <HorizontalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} />
                 )}
               </div>
             )

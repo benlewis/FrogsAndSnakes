@@ -371,6 +371,7 @@ function App({ initialGame = 'jumping-frogs' }) {
         setMoves(0)
         setHintsUsed(0)
       }
+      setPreviousBest(null)
       clearHint()
     }
 
@@ -397,6 +398,10 @@ function App({ initialGame = 'jumping-frogs' }) {
     return getCookie(`progress_${currentDate}`) || {}
   })
 
+  // Snapshot of the stored best-moves BEFORE this attempt, so on win we can
+  // show "your previous best" alongside the current attempt.
+  const [previousBest, setPreviousBest] = useState(null)
+
   // Save completedLevels to cookie whenever it changes
   useEffect(() => {
     if (Object.keys(completedLevels).length > 0) {
@@ -407,8 +412,12 @@ function App({ initialGame = 'jumping-frogs' }) {
   // Save stats when a level is won
   useEffect(() => {
     if (isGameWon) {
-      // Update local state (only first time for cookie storage)
-      if (!completedLevels[difficulty]) {
+      // Snapshot stored best BEFORE updating so UI can show "previous best"
+      const existing = completedLevels[difficulty]
+      setPreviousBest(existing?.moves ?? null)
+
+      // Keep the best (fewest moves) across attempts on this level
+      if (!existing || moves < existing.moves) {
         setCompletedLevels(prev => ({
           ...prev,
           [difficulty]: { moves, hints: hintsUsed }
@@ -444,6 +453,30 @@ function App({ initialGame = 'jumping-frogs' }) {
   const [hintsUsed, setHintsUsed] = useState(0)
   const [gameHistory, setGameHistory] = useState([])
   const hintTimerRef = useRef(null)
+
+  // Transient "frog just jumped" state so we can briefly open the frog's mouth
+  // on a click/tap move. Drag moves already use the .dragging class.
+  const [jumpingFrogIndex, setJumpingFrogIndex] = useState(null)
+  const jumpTimerRef = useRef(null)
+  const triggerFrogJump = (frogIdx) => {
+    if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current)
+    setJumpingFrogIndex(frogIdx)
+    jumpTimerRef.current = setTimeout(() => setJumpingFrogIndex(null), 350)
+  }
+
+  // Big celebration fires only as the result of a real frog move that wins the
+  // level. Loading/switching levels never triggers it.
+  const [showBigCelebration, setShowBigCelebration] = useState(false)
+
+  useEffect(() => {
+    setShowBigCelebration(false)
+  }, [currentDate, difficulty])
+
+  const celebrateIfWon = (nextFrogs, nextLilyPads) => {
+    if (!checkWinCondition(nextFrogs, nextLilyPads)) return
+    setShowBigCelebration(true)
+    setTimeout(() => setShowBigCelebration(false), 2800)
+  }
 
   // Save game state to cookie whenever it changes (but not when game is won)
   // Save game state to cookie whenever it changes (including won state)
@@ -827,26 +860,21 @@ function App({ initialGame = 'jumping-frogs' }) {
     if (selectedFrogIndex !== null && isValidFrogDestination(col, row)) {
       const frogIdx = selectedFrogIndex
       setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
-      setGameState(prev => {
-        const oldPos = prev.frogs[frogIdx].position
-        let direction = prev.frogs[frogIdx].direction
-        const dx = col - oldPos[0]
-        const dy = row - oldPos[1]
-        if (Math.abs(dx) > Math.abs(dy)) {
-          direction = dx > 0 ? 'right' : 'left'
-        } else {
-          direction = dy > 0 ? 'down' : 'up'
-        }
-        return {
-          ...prev,
-          frogs: prev.frogs.map((f, idx) =>
-            idx === frogIdx ? { ...f, position: [col, row], direction } : f
-          )
-        }
-      })
+      const oldPos = gameState.frogs[frogIdx].position
+      const dx = col - oldPos[0]
+      const dy = row - oldPos[1]
+      const direction = Math.abs(dx) > Math.abs(dy)
+        ? (dx > 0 ? 'right' : 'left')
+        : (dy > 0 ? 'down' : 'up')
+      const nextFrogs = gameState.frogs.map((f, idx) =>
+        idx === frogIdx ? { ...f, position: [col, row], direction } : f
+      )
+      setGameState(prev => ({ ...prev, frogs: nextFrogs }))
       setMoves(m => m + 1)
       setSelectedFrogIndex(null)
+      triggerFrogJump(frogIdx)
       clearHint()
+      celebrateIfWon(nextFrogs, gameState.lilyPads)
       return
     }
 
@@ -920,23 +948,17 @@ function App({ initialGame = 'jumping-frogs' }) {
           const currentValidMoves = calcValidFrogMoves(frogIndex)
           if (currentValidMoves.some(move => move[0] === dropCol && move[1] === dropRow)) {
             setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
-            setGameState(prev => {
-              const oldPos = prev.frogs[frogIndex].position
-              let direction = prev.frogs[frogIndex].direction
-              const dx = dropCol - oldPos[0]
-              const dy = dropRow - oldPos[1]
-              if (Math.abs(dx) > Math.abs(dy)) {
-                direction = dx > 0 ? 'right' : 'left'
-              } else {
-                direction = dy > 0 ? 'down' : 'up'
-              }
-              return {
-                ...prev,
-                frogs: prev.frogs.map((f, idx) =>
-                  idx === frogIndex ? { ...f, position: [dropCol, dropRow], direction } : f
-                )
-              }
-            })
+            const oldPos = gameState.frogs[frogIndex].position
+            const ddx = dropCol - oldPos[0]
+            const ddy = dropRow - oldPos[1]
+            const direction = Math.abs(ddx) > Math.abs(ddy)
+              ? (ddx > 0 ? 'right' : 'left')
+              : (ddy > 0 ? 'down' : 'up')
+            const nextFrogs = gameState.frogs.map((f, idx) =>
+              idx === frogIndex ? { ...f, position: [dropCol, dropRow], direction } : f
+            )
+            setGameState(prev => ({ ...prev, frogs: nextFrogs }))
+            celebrateIfWon(nextFrogs, gameState.lilyPads)
             setMoves(m => m + 1)
             clearHint()
           }
@@ -1091,7 +1113,24 @@ function App({ initialGame = 'jumping-frogs' }) {
         </div>
       ) : (
       <>
-      <div className="grid-container">
+      <div className={`grid-container ${showBigCelebration ? 'celebrating-big' : ''}`}>
+        {showBigCelebration && (
+          <div className="celebration-confetti" aria-hidden="true">
+            {Array.from({ length: 28 }).map((_, i) => (
+              <span
+                key={i}
+                className="confetti-piece"
+                style={{
+                  left: `${(i * 97) % 100}%`,
+                  animationDelay: `${(i % 7) * 0.09}s`,
+                  animationDuration: `${1.8 + ((i * 13) % 10) * 0.1}s`,
+                  background: ['#fde047', '#22c55e', '#ef4444', '#3b82f6', '#f97316', '#ec4899'][i % 6],
+                  transform: `rotate(${(i * 37) % 360}deg)`,
+                }}
+              />
+            ))}
+          </div>
+        )}
         <div key={`${currentDate}-${difficulty}`} className="grid" ref={gridRef} style={{ gridTemplateColumns: `repeat(${gridSize}, 1fr)`, gridTemplateRows: `repeat(${gridSize}, 1fr)` }}>
           {Array(gridSize).fill(null).map((_, rowIndex) => (
             Array(gridSize).fill(null).map((_, colIndex) => {
@@ -1119,7 +1158,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                         <LilyPadSVG />
                       </span>
                       <span
-                        className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''}`}
+                        className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''}`}
                         onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
                         onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                         style={{
@@ -1135,7 +1174,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                   ) : content && content.type === 'frog' ? (
                     /* Frog not on lily pad */
                     <span
-                      className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''}`}
+                      className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''}`}
                       onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
                       onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                       style={{
@@ -1170,7 +1209,7 @@ function App({ initialGame = 'jumping-frogs' }) {
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
               onClick={(e) => { e.stopPropagation(); handleSnakeClick(index); }}
             >
-              {snake.orientation === 'vertical' ? <VerticalSnakeSVG length={snake.positions.length} /> : <HorizontalSnakeSVG length={snake.positions.length} />}
+              {snake.orientation === 'vertical' ? <VerticalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} /> : <HorizontalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} />}
             </div>
           ))}
         </div>
@@ -1210,6 +1249,14 @@ function App({ initialGame = 'jumping-frogs' }) {
           {currentLevel?.par && (
             <span className="stat stat-min">
               <span className="stat-label">Min:</span> {currentLevel.par}
+            </span>
+          )}
+          {isGameWon && previousBest != null && (
+            <span className={`stat stat-best ${moves < previousBest ? 'stat-best-new' : ''}`}>
+              <span className="stat-label">
+                {moves < previousBest ? 'New best!' : 'Best:'}
+              </span>{' '}
+              {Math.min(moves, previousBest)}
             </span>
           )}
         </div>

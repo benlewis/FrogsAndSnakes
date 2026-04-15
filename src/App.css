@@ -756,6 +756,28 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
+.stat-best {
+  color: rgba(134, 239, 172, 0.95);
+}
+
+.stat-best .stat-label {
+  color: rgba(134, 239, 172, 0.7);
+}
+
+.stat-best-new {
+  color: #fde047;
+  animation: best-pulse 1.2s ease-in-out;
+}
+
+.stat-best-new .stat-label {
+  color: #fde047;
+}
+
+@keyframes best-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
 .par {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.9rem;
@@ -1035,6 +1057,113 @@
   cursor: grabbing;
   filter: drop-shadow(3px 6px 6px rgba(0, 0, 0, 0.5));
 }
+
+/* Open-mouth state: hidden by default, shown while dragging or mid-jump */
+.frog-mouth-open { opacity: 0; }
+.frog-piece.dragging .frog-mouth-open,
+.frog-piece.jumping .frog-mouth-open { opacity: 1; }
+.frog-piece.dragging .frog-mouth-closed,
+.frog-piece.jumping .frog-mouth-closed { opacity: 0; }
+
+/* Big celebration: whole board pulses and confetti rains. Triggered on full win. */
+.grid-container { position: relative; }
+.grid-container.celebrating-big .grid {
+  animation: celebrate-board 0.6s ease-in-out 2;
+}
+@keyframes celebrate-board {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+
+.celebration-confetti {
+  position: absolute;
+  inset: -40px 0 -20px 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 200;
+}
+.confetti-piece {
+  position: absolute;
+  top: 0;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.3, 0.7, 0.4, 1);
+  animation-fill-mode: forwards;
+  opacity: 0.95;
+}
+/* Fall distance in px so it actually traverses the board (% would be relative to the
+   piece's own height, not the board). 560px covers the largest grid on mobile+desktop. */
+@keyframes confetti-fall {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translate3d(0, 560px, 0) rotate(720deg); opacity: 0; }
+}
+
+/* Idle blink: briefly swap open eyes for closed eyelids every few seconds. */
+.frog-eyes-closed {
+  opacity: 0;
+  animation: frog-blink-closed 5.3s ease-in-out infinite;
+}
+.frog-eyes-open {
+  animation: frog-blink-open 5.3s ease-in-out infinite;
+}
+@keyframes frog-blink-closed {
+  0%, 94%, 100% { opacity: 0; }
+  96%, 98% { opacity: 1; }
+}
+@keyframes frog-blink-open {
+  0%, 94%, 100% { opacity: 1; }
+  96%, 98% { opacity: 0; }
+}
+
+/* Idle tongue flick: pokes out from the smile briefly, then retracts. Period
+   is out-of-phase with the blink so the two don't always land together. */
+.frog-tongue {
+  transform-box: fill-box;
+  transform-origin: center top;
+  transform: scaleY(0);
+  animation: frog-tongue-flick 7.2s ease-in-out infinite;
+}
+@keyframes frog-tongue-flick {
+  0%, 90%, 100% { transform: scaleY(0); }
+  93%           { transform: scaleY(1.0) translateY(2px); }
+  95%           { transform: scaleY(1.25) translateY(3px); }
+  97%           { transform: scaleY(0.5) translateY(1px); }
+}
+/* Hide the tongue whenever the mouth is open (dragging/jumping) so it doesn't
+   fight with the open-mouth graphic. */
+.frog-piece.dragging .frog-tongue,
+.frog-piece.jumping .frog-tongue,
+.frog-wrapper.dragging .frog-tongue {
+  animation: none;
+  transform: scaleY(0);
+}
+
+/* Snake idle blink — each snake gets a staggered animationDelay via inline style
+   so they don't blink in unison. Period chosen to be non-harmonic with the frog. */
+.snake-eyes-closed {
+  opacity: 0;
+  animation: snake-blink-closed 6.7s ease-in-out infinite;
+}
+.snake-eyes-open {
+  animation: snake-blink-open 6.7s ease-in-out infinite;
+}
+@keyframes snake-blink-closed {
+  0%, 95%, 100% { opacity: 0; }
+  97%, 98.5% { opacity: 1; }
+}
+@keyframes snake-blink-open {
+  0%, 95%, 100% { opacity: 1; }
+  97%, 98.5% { opacity: 0; }
+}
+.frog-wrapper.dragging .frog-eyes-closed,
+.frog-wrapper.dragging .frog-eyes-open {
+  animation: none;
+}
+.frog-wrapper.dragging .frog-eyes-closed { opacity: 0; }
+.frog-wrapper.dragging .frog-eyes-open { opacity: 1; }
 
 /* Lily pad stays in place when frog is on it */
 .lilypad-under-frog {
