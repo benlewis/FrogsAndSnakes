@@ -371,7 +371,6 @@ function App({ initialGame = 'jumping-frogs' }) {
         setMoves(0)
         setHintsUsed(0)
       }
-      setPreviousBest(null)
       clearHint()
     }
 
@@ -398,9 +397,12 @@ function App({ initialGame = 'jumping-frogs' }) {
     return getCookie(`progress_${currentDate}`) || {}
   })
 
-  // Snapshot of the stored best-moves BEFORE this attempt, so on win we can
-  // show "your previous best" alongside the current attempt.
-  const [previousBest, setPreviousBest] = useState(null)
+  // Best-moves for the current (date, difficulty) level. Source of truth is the
+  // completions table on the server; we fetch on level change and optimistically
+  // update on a new-best win so the "Best: N" chip can persist across resets.
+  const [levelBest, setLevelBest] = useState(null)
+  // Brief flash of "New best!" styling immediately after beating a prior best.
+  const [newBestFlash, setNewBestFlash] = useState(false)
 
   // Save completedLevels to cookie whenever it changes
   useEffect(() => {
@@ -409,14 +411,34 @@ function App({ initialGame = 'jumping-frogs' }) {
     }
   }, [completedLevels, currentDate])
 
+  // Fetch the server-stored best for this level whenever the level identity
+  // changes. Clears the displayed best while the request is in flight so the
+  // previous level's value doesn't linger.
+  useEffect(() => {
+    const statsUserId = (isAuthenticated && user?.sub) ? user.sub : visitorId
+    if (!statsUserId || !currentDate || !difficulty) return
+    setLevelBest(null)
+    setNewBestFlash(false)
+    let cancelled = false
+    fetch(`${API_BASE}/api/user-stats?userId=${encodeURIComponent(statsUserId)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (cancelled || !data?.completions) return
+        const match = data.completions.find(c => {
+          const d = new Date(c.puzzle_date).toISOString().slice(0, 10)
+          return d === currentDate && c.difficulty === difficulty
+        })
+        if (match) setLevelBest(match.moves)
+      })
+      .catch(err => console.error('Failed to fetch level best:', err))
+    return () => { cancelled = true }
+  }, [currentDate, difficulty, isAuthenticated, user?.sub, visitorId])
+
   // Save stats when a level is won
   useEffect(() => {
     if (isGameWon) {
-      // Snapshot stored best BEFORE updating so UI can show "previous best"
+      // Keep the best (fewest moves) across attempts on this level in the cookie
       const existing = completedLevels[difficulty]
-      setPreviousBest(existing?.moves ?? null)
-
-      // Keep the best (fewest moves) across attempts on this level
       if (!existing || moves < existing.moves) {
         setCompletedLevels(prev => ({
           ...prev,
@@ -424,20 +446,32 @@ function App({ initialGame = 'jumping-frogs' }) {
         }))
       }
 
+      // Update levelBest optimistically; the server is authoritative but the
+      // next fetch may be a page load away. Flash "New best!" if we improved.
+      setLevelBest(prev => {
+        if (prev == null) return moves
+        if (moves < prev) {
+          setNewBestFlash(true)
+          setTimeout(() => setNewBestFlash(false), 2500)
+          return moves
+        }
+        return prev
+      })
+
       // Update streak in cookies (for all users, enables offline tracking)
       updateStreakCookie(difficulty, currentDate)
 
       // Always save to database (DB handles duplicates with ON CONFLICT)
       // Use userId if logged in, otherwise use visitorId for anonymous tracking
       const userId = isAuthenticated && user?.sub ? user.sub : null
-      const visitorId = !userId ? getOrCreateVisitorId() : null
+      const anonVisitorId = !userId ? getOrCreateVisitorId() : null
 
       fetch(`${API_BASE}/api/stats`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          visitorId,
+          visitorId: anonVisitorId,
           puzzleDate: currentDate,
           difficulty,
           moves,
@@ -1251,12 +1285,12 @@ function App({ initialGame = 'jumping-frogs' }) {
               <span className="stat-label">Min:</span> {currentLevel.par}
             </span>
           )}
-          {isGameWon && previousBest != null && (
-            <span className={`stat stat-best ${moves < previousBest ? 'stat-best-new' : ''}`}>
+          {levelBest != null && (
+            <span className={`stat stat-best ${newBestFlash ? 'stat-best-new' : ''}`}>
               <span className="stat-label">
-                {moves < previousBest ? 'New best!' : 'Best:'}
+                {newBestFlash ? 'New best!' : 'Best:'}
               </span>{' '}
-              {Math.min(moves, previousBest)}
+              {levelBest}
             </span>
           )}
         </div>
