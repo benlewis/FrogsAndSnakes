@@ -1158,6 +1158,35 @@
   0%, 95%, 100% { opacity: 1; }
   97%, 98.5% { opacity: 0; }
 }
+
+/* Snake tongue flick while the snake is being slid (drag or click move).
+   Origin differs per orientation so scale collapses back toward the head. */
+.snake-svg .snake-tongue {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.snake-svg-horizontal .snake-tongue {
+  transform-box: fill-box;
+  transform-origin: left center;
+}
+.snake-overlay.dragging .snake-svg .snake-tongue,
+.snake-overlay.moving .snake-svg .snake-tongue {
+  animation: snake-tongue-flick-v 0.35s ease-in-out infinite;
+}
+.snake-overlay.dragging .snake-svg-horizontal .snake-tongue,
+.snake-overlay.moving .snake-svg-horizontal .snake-tongue {
+  animation: snake-tongue-flick-h 0.35s ease-in-out infinite;
+}
+@keyframes snake-tongue-flick-v {
+  0%, 100% { transform: scaleY(1); }
+  25%      { transform: scaleY(0.2); }
+  60%      { transform: scaleY(1.35); }
+}
+@keyframes snake-tongue-flick-h {
+  0%, 100% { transform: scaleX(1); }
+  25%      { transform: scaleX(0.2); }
+  60%      { transform: scaleX(1.35); }
+}
 .frog-wrapper.dragging .frog-eyes-closed,
 .frog-wrapper.dragging .frog-eyes-open {
   animation: none;

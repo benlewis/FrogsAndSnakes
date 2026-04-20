@@ -461,7 +461,7 @@ export const VerticalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
       <circle cx="24" cy="14" r="1.5" fill="#14532d" />
 
       {/* Tongue */}
-      <path d="M20 -2 L20 -6 L17 -10 M20 -6 L23 -10" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path className="snake-tongue" d="M20 -2 L20 -6 L17 -10 M20 -6 L23 -10" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
 
       {/* Smile */}
       <path d="M15 16 Q20 19 25 16" stroke="#14532d" strokeWidth="1.5" fill="none" strokeLinecap="round" />
@@ -561,7 +561,7 @@ export const HorizontalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
       <circle cx={headX + 8} cy="23" r="1.5" fill="#14532d" />
 
       {/* Tongue */}
-      <path d={`M${headX + 12} 20 L${headX + 16} 20 L${headX + 20} 17 M${headX + 16} 20 L${headX + 20} 23`} stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path className="snake-tongue" d={`M${headX + 12} 20 L${headX + 16} 20 L${headX + 20} 17 M${headX + 16} 20 L${headX + 20} 23`} stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none" />
 
       {/* Tail */}
       <path d="M6 20 Q3 22 1 21 Q-1 20 1 19 Q3 18 6 20" stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />

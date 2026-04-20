@@ -358,6 +358,126 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
 }
 
 
+// Campaign editor sidebar: chapter/level tree, reorder, rename, export/import.
+function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampaignLevelId, setSelectedChapterId, actions }) {
+  const fileInputRef = useRef(null)
+  const selectedChapter = campaign.chapters.find(c => c.id === selectedChapterId) || null
+  const levelCount = campaign.chapters.reduce((n, c) => n + c.levels.length, 0)
+  return (
+    <div className="campaign-panel">
+      <div className="editor-section">
+        <label>Campaign name</label>
+        <input
+          type="text"
+          value={campaign.name}
+          onChange={e => setCampaign(c => ({ ...c, name: e.target.value }))}
+          style={{ width: '100%', padding: '6px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, color: 'white' }}
+        />
+        <div style={{ marginTop: 6, fontSize: '0.85em', opacity: 0.7 }}>
+          {campaign.chapters.length} chapters, {levelCount} levels
+        </div>
+      </div>
+
+      <div className="editor-section">
+        <div className="action-btn-row">
+          <button className="action-btn" onClick={actions.exportJSON} disabled={levelCount === 0}>Export JSON</button>
+          <button className="action-btn" onClick={() => fileInputRef.current?.click()}>Import JSON</button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (f) actions.importJSON(f)
+              e.target.value = ''
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="editor-section">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <label style={{ margin: 0 }}>Chapters</label>
+          <button className="tool-btn" onClick={actions.addChapter}>+ Chapter</button>
+        </div>
+        {campaign.chapters.length === 0 && (
+          <div style={{ opacity: 0.6, fontSize: '0.9em', padding: '8px 0' }}>No chapters yet. Add one to get started.</div>
+        )}
+        {campaign.chapters.map((chapter, chIdx) => {
+          const isSelected = chapter.id === selectedChapterId
+          return (
+            <div key={chapter.id} className={`campaign-chapter ${isSelected ? 'selected' : ''}`} style={{
+              border: '1px solid rgba(255,255,255,0.15)',
+              borderRadius: 4,
+              marginBottom: 8,
+              padding: 6,
+              background: isSelected ? 'rgba(253,224,71,0.08)' : 'transparent',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  className="tool-btn"
+                  style={{ flex: 1, textAlign: 'left' }}
+                  onClick={() => setSelectedChapterId(chapter.id)}
+                >
+                  {chapter.name} <span style={{ opacity: 0.6 }}>({chapter.levels.length})</span>
+                </button>
+                <button className="tool-btn" title="Rename" onClick={() => actions.renameChapter(chapter.id)}>✎</button>
+                <button className="tool-btn" title="Move up" disabled={chIdx === 0} onClick={() => actions.moveChapter(chapter.id, -1)}>↑</button>
+                <button className="tool-btn" title="Move down" disabled={chIdx === campaign.chapters.length - 1} onClick={() => actions.moveChapter(chapter.id, 1)}>↓</button>
+                <button className="tool-btn" title="Delete" onClick={() => actions.deleteChapter(chapter.id)}>✕</button>
+              </div>
+
+              {isSelected && (
+                <div style={{ marginTop: 8, paddingLeft: 8, borderLeft: '2px solid rgba(253,224,71,0.3)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: '0.85em', opacity: 0.7 }}>Levels</span>
+                    <button className="tool-btn" onClick={() => actions.addLevel(chapter.id)} title="Add current canvas as new level">
+                      + From Canvas
+                    </button>
+                  </div>
+                  {chapter.levels.length === 0 && (
+                    <div style={{ opacity: 0.6, fontSize: '0.85em' }}>No levels. Build a puzzle on the canvas and click “+ From Canvas”.</div>
+                  )}
+                  {chapter.levels.map((level, lvIdx) => {
+                    const isLevelSelected = level.id === selectedCampaignLevelId
+                    return (
+                      <div key={level.id} style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: 2 }}>
+                        <button
+                          className={`tool-btn ${isLevelSelected ? 'active' : ''}`}
+                          style={{ flex: 1, textAlign: 'left', fontSize: '0.9em' }}
+                          onClick={() => actions.selectLevel(chapter.id, level.id)}
+                        >
+                          {lvIdx + 1}. {level.name} <span style={{ opacity: 0.6 }}>par {level.par}</span>
+                        </button>
+                        <button className="tool-btn" title="Rename" onClick={() => actions.renameLevel(chapter.id, level.id)}>✎</button>
+                        <button className="tool-btn" title="Move up" disabled={lvIdx === 0} onClick={() => actions.moveLevel(chapter.id, level.id, -1)}>↑</button>
+                        <button className="tool-btn" title="Move down" disabled={lvIdx === chapter.levels.length - 1} onClick={() => actions.moveLevel(chapter.id, level.id, 1)}>↓</button>
+                        <button className="tool-btn" title="Delete" onClick={() => actions.deleteLevel(chapter.id, level.id)}>✕</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {selectedCampaignLevelId && (
+        <div className="editor-section">
+          <button className="action-btn generate" onClick={actions.saveSelected} style={{ width: '100%' }}>
+            Save canvas to selected level
+          </button>
+          <div style={{ marginTop: 4, fontSize: '0.8em', opacity: 0.6 }}>
+            Edits on the canvas are kept separate until you save.
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0()
 
@@ -406,6 +526,179 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [allCJLevels, setAllCJLevels] = useState([])
   const [loadingLevels, setLoadingLevels] = useState(true)
   const dateRange = generateDateRange()
+
+  // ---------- Campaign editor state ----------
+  // Campaign data lives in localStorage while editing. Shape:
+  //   { name, chapters: [{ id, name, levels: [{ id, name, gridSize, frogs, snakes, logs, lilyPads, par }] }] }
+  const CAMPAIGN_KEY = 'jf_campaign_v1'
+  const [campaign, setCampaign] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CAMPAIGN_KEY)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return { name: 'Untitled Campaign', chapters: [] }
+  })
+  const [selectedChapterId, setSelectedChapterId] = useState(null)
+  const [selectedCampaignLevelId, setSelectedCampaignLevelId] = useState(null)
+  useEffect(() => {
+    try { localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(campaign)) } catch {}
+  }, [campaign])
+
+  const uid = () => Math.random().toString(36).slice(2, 10)
+  const currentPuzzleData = () => ({ gridSize, frogs, snakes, logs, lilyPads, par })
+  const loadPuzzleIntoCanvas = (p) => {
+    setGridSize(p.gridSize || 5)
+    setFrogs(p.frogs || [])
+    setSnakes(p.snakes || [])
+    setLogs(p.logs || [])
+    setLilyPads(p.lilyPads || [])
+    setPar(p.par || 0)
+  }
+
+  const campaignAddChapter = () => {
+    const name = prompt('Chapter name?', `Chapter ${campaign.chapters.length + 1}`)
+    if (!name) return
+    const chapter = { id: uid(), name, levels: [] }
+    setCampaign(c => ({ ...c, chapters: [...c.chapters, chapter] }))
+    setSelectedChapterId(chapter.id)
+  }
+  const campaignRenameChapter = (id) => {
+    const chapter = campaign.chapters.find(ch => ch.id === id)
+    const name = prompt('New name?', chapter?.name || '')
+    if (!name) return
+    setCampaign(c => ({ ...c, chapters: c.chapters.map(ch => ch.id === id ? { ...ch, name } : ch) }))
+  }
+  const campaignDeleteChapter = (id) => {
+    if (!confirm('Delete this chapter and all its levels?')) return
+    setCampaign(c => ({ ...c, chapters: c.chapters.filter(ch => ch.id !== id) }))
+    if (selectedChapterId === id) { setSelectedChapterId(null); setSelectedCampaignLevelId(null) }
+  }
+  const campaignMoveChapter = (id, dir) => {
+    setCampaign(c => {
+      const chs = [...c.chapters]
+      const i = chs.findIndex(ch => ch.id === id)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= chs.length) return c
+      ;[chs[i], chs[j]] = [chs[j], chs[i]]
+      return { ...c, chapters: chs }
+    })
+  }
+  const campaignAddLevel = (chapterId) => {
+    const chapter = campaign.chapters.find(ch => ch.id === chapterId)
+    if (!chapter) return
+    const level = {
+      id: uid(),
+      name: `Level ${chapter.levels.length + 1}`,
+      ...currentPuzzleData(),
+    }
+    setCampaign(c => ({
+      ...c,
+      chapters: c.chapters.map(ch => ch.id === chapterId ? { ...ch, levels: [...ch.levels, level] } : ch),
+    }))
+    setSelectedChapterId(chapterId)
+    setSelectedCampaignLevelId(level.id)
+  }
+  const campaignSaveSelected = () => {
+    if (!selectedChapterId || !selectedCampaignLevelId) return
+    setCampaign(c => ({
+      ...c,
+      chapters: c.chapters.map(ch => ch.id !== selectedChapterId ? ch : {
+        ...ch,
+        levels: ch.levels.map(lv => lv.id !== selectedCampaignLevelId ? lv : { ...lv, ...currentPuzzleData() }),
+      }),
+    }))
+  }
+  const campaignSelectLevel = (chapterId, levelId) => {
+    const chapter = campaign.chapters.find(ch => ch.id === chapterId)
+    const level = chapter?.levels.find(lv => lv.id === levelId)
+    if (!level) return
+    setSelectedChapterId(chapterId)
+    setSelectedCampaignLevelId(levelId)
+    loadPuzzleIntoCanvas(level)
+  }
+  const campaignRenameLevel = (chapterId, levelId) => {
+    const chapter = campaign.chapters.find(ch => ch.id === chapterId)
+    const level = chapter?.levels.find(lv => lv.id === levelId)
+    const name = prompt('Level name?', level?.name || '')
+    if (!name) return
+    setCampaign(c => ({
+      ...c,
+      chapters: c.chapters.map(ch => ch.id !== chapterId ? ch : {
+        ...ch,
+        levels: ch.levels.map(lv => lv.id !== levelId ? lv : { ...lv, name }),
+      }),
+    }))
+  }
+  const campaignDeleteLevel = (chapterId, levelId) => {
+    if (!confirm('Delete this level?')) return
+    setCampaign(c => ({
+      ...c,
+      chapters: c.chapters.map(ch => ch.id !== chapterId ? ch : {
+        ...ch,
+        levels: ch.levels.filter(lv => lv.id !== levelId),
+      }),
+    }))
+    if (selectedCampaignLevelId === levelId) setSelectedCampaignLevelId(null)
+  }
+  const campaignMoveLevel = (chapterId, levelId, dir) => {
+    setCampaign(c => ({
+      ...c,
+      chapters: c.chapters.map(ch => {
+        if (ch.id !== chapterId) return ch
+        const lvls = [...ch.levels]
+        const i = lvls.findIndex(lv => lv.id === levelId)
+        const j = i + dir
+        if (i < 0 || j < 0 || j >= lvls.length) return ch
+        ;[lvls[i], lvls[j]] = [lvls[j], lvls[i]]
+        return { ...ch, levels: lvls }
+      }),
+    }))
+  }
+  const campaignExport = () => {
+    // Strip editor-only ids for shipping, keep stable ordering.
+    const shipped = {
+      name: campaign.name,
+      chapters: campaign.chapters.map(ch => ({
+        name: ch.name,
+        levels: ch.levels.map(lv => ({
+          name: lv.name,
+          gridSize: lv.gridSize,
+          frogs: lv.frogs,
+          snakes: lv.snakes,
+          logs: lv.logs,
+          lilyPads: lv.lilyPads,
+          par: lv.par,
+        })),
+      })),
+    }
+    const json = JSON.stringify(shipped, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${(campaign.name || 'campaign').replace(/\s+/g, '_')}.json`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  const campaignImport = async (file) => {
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      // Re-hydrate editor ids so we can select levels.
+      const rehydrated = {
+        name: parsed.name || 'Imported Campaign',
+        chapters: (parsed.chapters || []).map(ch => ({
+          id: uid(),
+          name: ch.name,
+          levels: (ch.levels || []).map(lv => ({ id: uid(), ...lv })),
+        })),
+      }
+      setCampaign(rehydrated)
+      setSelectedChapterId(null)
+      setSelectedCampaignLevelId(null)
+    } catch (err) {
+      alert('Failed to import: ' + err.message)
+    }
+  }
 
   // CJ difficulty grid sizes
   const CJ_GRID_SIZES = { easy: 5, medium: 8, hard: 15, expert: 20 }
@@ -780,6 +1073,18 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setGenerating(true)
     setCheckResult(null)
 
+    // Pre-flight sanity check: a frog needs something (another frog, a snake,
+    // or a log) adjacent to jump over. If the caller has forced every
+    // jumpable category to 0, generation is mathematically impossible.
+    const forcedNumFrogs = genNumFrogs === 'default' ? null : parseInt(genNumFrogs)
+    const forcedNumSnakes = genNumSnakes === 'default' ? null : parseInt(genNumSnakes)
+    const forcedNumLogs = genNumLogs === 'default' ? null : parseInt(genNumLogs)
+    if (forcedNumSnakes === 0 && forcedNumLogs === 0 && (forcedNumFrogs ?? 2) < 2) {
+      setGenerating(false)
+      alert('With 0 snakes and 0 stumps, you need at least 2 frogs so they can jump over each other. Increase one of them and try again.')
+      return
+    }
+
     // Run in setTimeout to allow UI to update
     setTimeout(() => {
       const isExpertGen = difficulty === 'expert'
@@ -792,10 +1097,20 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
         // Use generation options from state (resolve 'default' to difficulty-based values)
         const numFrogs = getGenValue(genNumFrogs, 'frogs', true)
-        const numSnakes = getGenValue(genNumSnakes, 'snakes', true)
-        const numLogs = getGenValue(genNumLogs, 'logs', true)
+        let numSnakes = getGenValue(genNumSnakes, 'snakes', true)
+        let numLogs = getGenValue(genNumLogs, 'logs', true)
         const extraLilyPads = getGenValue(genExtraLilyPads, 'extraLilyPads', true)
         const maxSnakeSize = getGenValue(genMaxSnakeSize, 'maxSnakeSize', false)
+
+        // If the player explicitly removed all snakes, make sure there are
+        // enough stumps for the frog to hop across — at least ceil(minMoves/2)
+        // stepping-stones, floored at 2 so there's real choice on the board.
+        // Only nudges the "default" range; an explicit user choice is respected.
+        if (forcedNumSnakes === 0 && forcedNumLogs === null && (numFrogs < 2)) {
+          const floor = Math.max(2, Math.ceil(range.min / 2))
+          if (numLogs < floor) numLogs = floor
+        }
+
         const numLilyPads = numFrogs + extraLilyPads
 
         // Track occupied cells
@@ -1334,6 +1649,12 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           >
             Color Jump
           </button>
+          <button
+            className={`tool-btn ${editorGame === 'campaign' ? 'active' : ''}`}
+            onClick={() => setEditorGame('campaign')}
+          >
+            Campaign
+          </button>
         </div>
 
         <div className="editor-layout">
@@ -1341,10 +1662,35 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           <div className="editor-main">
             <div className="editor-content">
               <div className="editor-sidebar">
+                {editorGame === 'campaign' && (
+                  <CampaignPanel
+                    campaign={campaign}
+                    setCampaign={setCampaign}
+                    selectedChapterId={selectedChapterId}
+                    selectedCampaignLevelId={selectedCampaignLevelId}
+                    setSelectedChapterId={setSelectedChapterId}
+                    actions={{
+                      addChapter: campaignAddChapter,
+                      renameChapter: campaignRenameChapter,
+                      deleteChapter: campaignDeleteChapter,
+                      moveChapter: campaignMoveChapter,
+                      addLevel: campaignAddLevel,
+                      selectLevel: campaignSelectLevel,
+                      renameLevel: campaignRenameLevel,
+                      deleteLevel: campaignDeleteLevel,
+                      moveLevel: campaignMoveLevel,
+                      saveSelected: campaignSaveSelected,
+                      exportJSON: campaignExport,
+                      importJSON: campaignImport,
+                    }}
+                  />
+                )}
+                {editorGame !== 'campaign' && (
                 <div className="current-editing">
                   Editing: <strong>{formatDate(levelDate)}</strong> - <span className={`difficulty-tag ${difficulty}`}>{difficulty}</span>
                   {editorGame === 'cj' && <span style={{ marginLeft: '8px', opacity: 0.6 }}>(Color Jump {CJ_GRID_SIZES[difficulty]}x{CJ_GRID_SIZES[difficulty]})</span>}
                 </div>
+                )}
 
                 {editorGame === 'cj' ? (
                   <>

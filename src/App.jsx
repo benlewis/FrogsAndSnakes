@@ -498,6 +498,16 @@ function App({ initialGame = 'jumping-frogs' }) {
     jumpTimerRef.current = setTimeout(() => setJumpingFrogIndex(null), 350)
   }
 
+  // Transient "snake is sliding" state so we can animate the tongue flicking
+  // in and out on a click/tap move. Drag moves already use the .dragging class.
+  const [movingSnakeIdx, setMovingSnakeIdx] = useState(null)
+  const snakeSlideTimerRef = useRef(null)
+  const triggerSnakeSlide = (snakeIdx) => {
+    if (snakeSlideTimerRef.current) clearTimeout(snakeSlideTimerRef.current)
+    setMovingSnakeIdx(snakeIdx)
+    snakeSlideTimerRef.current = setTimeout(() => setMovingSnakeIdx(null), 500)
+  }
+
   // Big celebration fires only as the result of a real frog move that wins the
   // level. Loading/switching levels never triggers it.
   const [showBigCelebration, setShowBigCelebration] = useState(false)
@@ -935,6 +945,7 @@ function App({ initialGame = 'jumping-frogs' }) {
       }))
       setMoves(m => m + 1)
       setSelectedSnakeIndex(null)
+      triggerSnakeSlide(snakeIdx)
       clearHint()
       return
     }
@@ -1238,7 +1249,7 @@ function App({ initialGame = 'jumping-frogs' }) {
           {snakes.map((snake, index) => (
             <div
               key={`snake-${index}`}
-              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${validSelectedSnakeIndex === index ? 'snake-selected' : ''} ${hintMove?.type === 'snake' && hintMove.snakeIdx === index ? 'snake-hint' : ''}`}
+              className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${movingSnakeIdx === index ? 'moving' : ''} ${validSelectedSnakeIndex === index ? 'snake-selected' : ''} ${hintMove?.type === 'snake' && hintMove.snakeIdx === index ? 'snake-hint' : ''}`}
               style={getSnakeStyle(snake, index)}
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
               onClick={(e) => { e.stopPropagation(); handleSnakeClick(index); }}
