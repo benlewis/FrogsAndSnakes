@@ -82,6 +82,14 @@
   gap: 16px;
 }
 
+.editor-sidebar.campaign-mode {
+  width: 360px;
+}
+
+.editor-layout.campaign-mode .editor-main {
+  border-right: none;
+}
+
 .current-editing {
   background: rgba(255, 255, 255, 0.1);
   padding: 12px;

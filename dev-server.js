@@ -407,6 +407,86 @@ app.get('/api/level-coverage', async (req, res) => {
   }
 });
 
+// ---------- Campaigns ----------
+const CAMPAIGN_PREFIX = 'campaign-';
+const CAMPAIGN_PATTERN = /campaign-([\w-]+)\.json/;
+
+app.get('/api/campaigns', async (req, res) => {
+  const { id } = req.query;
+  try {
+    if (id) {
+      const filename = `${CAMPAIGN_PREFIX}${id}.json`;
+      const { blobs } = await list({ prefix: filename.replace('.json', '') });
+      const match = blobs.find(b => b.pathname === filename || b.pathname.endsWith(`/${filename}`));
+      if (!match) return res.status(404).json({ error: 'Campaign not found' });
+      const response = await fetch(match.url);
+      const data = await response.json();
+      return res.json(data);
+    }
+
+    const { blobs } = await list({ prefix: CAMPAIGN_PREFIX });
+    const summaries = [];
+    for (const blob of blobs) {
+      const m = blob.pathname.match(CAMPAIGN_PATTERN);
+      if (!m) continue;
+      const response = await fetch(blob.url);
+      const data = await response.json();
+      const levelCount = (data.chapters || []).reduce((n, c) => n + (c.levels?.length || 0), 0);
+      summaries.push({
+        id: m[1],
+        name: data.name || 'Untitled',
+        chapterCount: (data.chapters || []).length,
+        levelCount,
+        updatedAt: blob.uploadedAt,
+      });
+    }
+    summaries.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    res.json(summaries);
+  } catch (error) {
+    console.error('Error fetching campaigns:', error);
+    res.status(500).json({ error: 'Failed to fetch campaigns' });
+  }
+});
+
+app.post('/api/campaigns', async (req, res) => {
+  const { id, campaign } = req.body || {};
+  if (!id || !campaign) return res.status(400).json({ error: 'id and campaign required' });
+  if (!/^[\w-]+$/.test(id)) return res.status(400).json({ error: 'id must match [\\w-]+' });
+  try {
+    const filename = `${CAMPAIGN_PREFIX}${id}.json`;
+    const { blobs } = await list({ prefix: filename.replace('.json', '') });
+    for (const existing of blobs) {
+      try { await del(existing.url); } catch (e) { /* ignore */ }
+    }
+    const blob = await put(filename, JSON.stringify(campaign), {
+      access: 'public',
+      addRandomSuffix: false,
+      cacheControlMaxAge: 0,
+    });
+    console.log(`Saved campaign to Vercel Blob: ${blob.url}`);
+    res.json({ success: true, url: blob.url, id });
+  } catch (error) {
+    console.error('Error saving campaign:', error);
+    res.status(500).json({ error: 'Failed to save campaign: ' + error.message });
+  }
+});
+
+app.delete('/api/campaigns', async (req, res) => {
+  const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'id required' });
+  try {
+    const filename = `${CAMPAIGN_PREFIX}${id}.json`;
+    const { blobs } = await list({ prefix: filename.replace('.json', '') });
+    for (const existing of blobs) {
+      try { await del(existing.url); } catch (e) { /* ignore */ }
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting campaign:', error);
+    res.status(500).json({ error: 'Failed to delete campaign' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Dev API server running at http://localhost:${PORT}`);
   console.log('Using Vercel Blob storage and local Postgres');

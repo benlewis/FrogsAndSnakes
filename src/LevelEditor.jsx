@@ -359,7 +359,7 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
 
 
 // Campaign editor sidebar: chapter/level tree, reorder, rename, export/import.
-function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampaignLevelId, setSelectedChapterId, actions }) {
+function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampaignLevelId, setSelectedChapterId, actions, serverStatus }) {
   const fileInputRef = useRef(null)
   const selectedChapter = campaign.chapters.find(c => c.id === selectedChapterId) || null
   const levelCount = campaign.chapters.reduce((n, c) => n + c.levels.length, 0)
@@ -380,6 +380,19 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
 
       <div className="editor-section">
         <div className="action-btn-row">
+          <button
+            className="action-btn export"
+            onClick={actions.saveToServer}
+            disabled={levelCount === 0 || serverStatus?.kind === 'saving'}
+          >
+            {serverStatus?.kind === 'saving' ? 'Saving...' : serverStatus?.kind === 'saved' ? 'Saved ✓' : 'Save to Server'}
+          </button>
+          <button className="action-btn" onClick={actions.loadFromServer}>Load from Server</button>
+        </div>
+        {serverStatus?.kind === 'error' && (
+          <div className="save-error" style={{ marginTop: 6 }}>{serverStatus.message}</div>
+        )}
+        <div className="action-btn-row" style={{ marginTop: 8 }}>
           <button className="action-btn" onClick={actions.exportJSON} disabled={levelCount === 0}>Export JSON</button>
           <button className="action-btn" onClick={() => fileInputRef.current?.click()}>Import JSON</button>
           <input
@@ -531,15 +544,21 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   // Campaign data lives in localStorage while editing. Shape:
   //   { name, chapters: [{ id, name, levels: [{ id, name, gridSize, frogs, snakes, logs, lilyPads, par }] }] }
   const CAMPAIGN_KEY = 'jf_campaign_v1'
+  const newCampaignId = () => `c_${Math.random().toString(36).slice(2, 10)}`
   const [campaign, setCampaign] = useState(() => {
     try {
       const raw = localStorage.getItem(CAMPAIGN_KEY)
-      if (raw) return JSON.parse(raw)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (!parsed.id) parsed.id = newCampaignId()
+        return parsed
+      }
     } catch {}
-    return { name: 'Untitled Campaign', chapters: [] }
+    return { id: newCampaignId(), name: 'Untitled Campaign', chapters: [] }
   })
   const [selectedChapterId, setSelectedChapterId] = useState(null)
   const [selectedCampaignLevelId, setSelectedCampaignLevelId] = useState(null)
+  const [campaignServerStatus, setCampaignServerStatus] = useState(null) // { kind: 'saving'|'saved'|'error', message?: string }
   useEffect(() => {
     try { localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(campaign)) } catch {}
   }, [campaign])
@@ -685,6 +704,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       const parsed = JSON.parse(text)
       // Re-hydrate editor ids so we can select levels.
       const rehydrated = {
+        id: parsed.id || newCampaignId(),
         name: parsed.name || 'Imported Campaign',
         chapters: (parsed.chapters || []).map(ch => ({
           id: uid(),
@@ -697,6 +717,75 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       setSelectedCampaignLevelId(null)
     } catch (err) {
       alert('Failed to import: ' + err.message)
+    }
+  }
+  const campaignSaveToServer = async () => {
+    const payload = {
+      name: campaign.name,
+      chapters: campaign.chapters.map(ch => ({
+        name: ch.name,
+        levels: ch.levels.map(lv => ({
+          name: lv.name,
+          gridSize: lv.gridSize,
+          frogs: lv.frogs,
+          snakes: lv.snakes,
+          logs: lv.logs,
+          lilyPads: lv.lilyPads,
+          par: lv.par,
+        })),
+      })),
+    }
+    setCampaignServerStatus({ kind: 'saving' })
+    try {
+      const res = await fetch(`${API_BASE}/api/campaigns`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: campaign.id, campaign: payload }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || `HTTP ${res.status}`)
+      }
+      setCampaignServerStatus({ kind: 'saved' })
+      setTimeout(() => setCampaignServerStatus(null), 2500)
+    } catch (err) {
+      setCampaignServerStatus({ kind: 'error', message: err.message })
+    }
+  }
+  const campaignLoadFromServer = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/campaigns`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const list = await res.json()
+      if (!list.length) {
+        alert('No campaigns on the server yet.')
+        return
+      }
+      const options = list.map((c, i) => `${i + 1}. ${c.name} (${c.chapterCount} ch, ${c.levelCount} lv)`).join('\n')
+      const pick = prompt(`Load which campaign?\n\n${options}\n\nEnter number:`)
+      if (!pick) return
+      const idx = parseInt(pick, 10) - 1
+      if (isNaN(idx) || idx < 0 || idx >= list.length) {
+        alert('Invalid selection.')
+        return
+      }
+      const chosen = list[idx]
+      const fullRes = await fetch(`${API_BASE}/api/campaigns?id=${encodeURIComponent(chosen.id)}`)
+      if (!fullRes.ok) throw new Error(`HTTP ${fullRes.status}`)
+      const data = await fullRes.json()
+      setCampaign({
+        id: chosen.id,
+        name: data.name || chosen.name,
+        chapters: (data.chapters || []).map(ch => ({
+          id: uid(),
+          name: ch.name,
+          levels: (ch.levels || []).map(lv => ({ id: uid(), ...lv })),
+        })),
+      })
+      setSelectedChapterId(null)
+      setSelectedCampaignLevelId(null)
+    } catch (err) {
+      alert('Failed to load: ' + err.message)
     }
   }
 
@@ -1657,11 +1746,11 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           </button>
         </div>
 
-        <div className="editor-layout">
+        <div className={`editor-layout ${editorGame === 'campaign' ? 'campaign-mode' : ''}`}>
           {/* Left side - Editor */}
           <div className="editor-main">
             <div className="editor-content">
-              <div className="editor-sidebar">
+              <div className={`editor-sidebar ${editorGame === 'campaign' ? 'campaign-mode' : ''}`}>
                 {editorGame === 'campaign' && (
                   <CampaignPanel
                     campaign={campaign}
@@ -1669,6 +1758,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     selectedChapterId={selectedChapterId}
                     selectedCampaignLevelId={selectedCampaignLevelId}
                     setSelectedChapterId={setSelectedChapterId}
+                    serverStatus={campaignServerStatus}
                     actions={{
                       addChapter: campaignAddChapter,
                       renameChapter: campaignRenameChapter,
@@ -1682,6 +1772,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       saveSelected: campaignSaveSelected,
                       exportJSON: campaignExport,
                       importJSON: campaignImport,
+                      saveToServer: campaignSaveToServer,
+                      loadFromServer: campaignLoadFromServer,
                     }}
                   />
                 )}
@@ -2077,7 +2169,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
             </div>
           </div>
 
-          {/* Right side - Level Schedule */}
+          {/* Right side - Level Schedule (hidden for campaign mode) */}
+          {editorGame !== 'campaign' && (
           <div className="level-schedule">
             <h3>Level Schedule</h3>
 
@@ -2152,6 +2245,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>
