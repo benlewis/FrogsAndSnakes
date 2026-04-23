@@ -358,11 +358,39 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
 }
 
 
-// Campaign editor sidebar: chapter/level tree, reorder, rename, export/import.
-function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampaignLevelId, setSelectedChapterId, actions, serverStatus }) {
+// Campaign editor sidebar: chapter/level tree, reorder, rename, export/import, bulk generate.
+function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampaignLevelId, setSelectedChapterId, actions, serverStatus, bulkProgress, instructions, setInstructions }) {
   const fileInputRef = useRef(null)
   const selectedChapter = campaign.chapters.find(c => c.id === selectedChapterId) || null
   const levelCount = campaign.chapters.reduce((n, c) => n + c.levels.length, 0)
+  const [bulk, setBulk] = useState({
+    count: 5,
+    gridSize: 5,
+    minMoves: 4,
+    maxMoves: 8,
+    numFrogs: 1,
+    snakesMin: 1,
+    snakesMax: 2,
+    maxSnakeSize: 3,
+    logsMin: 0,
+    logsMax: 2,
+    lilyPadsMin: 0,
+    lilyPadsMax: 1,
+  })
+  const bulkNum = (key, min, max) => (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      value={bulk[key]}
+      onChange={e => {
+        const v = parseInt(e.target.value, 10)
+        setBulk(b => ({ ...b, [key]: isNaN(v) ? b[key] : v }))
+      }}
+      style={{ width: 52, padding: '2px 4px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 3, color: 'white' }}
+    />
+  )
+  const isBulkRunning = bulkProgress && bulkProgress.current < bulkProgress.total
   return (
     <div className="campaign-panel">
       <div className="editor-section">
@@ -443,14 +471,19 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
 
               {isSelected && (
                 <div style={{ marginTop: 8, paddingLeft: 8, borderLeft: '2px solid rgba(253,224,71,0.3)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 4 }}>
                     <span style={{ fontSize: '0.85em', opacity: 0.7 }}>Levels</span>
-                    <button className="tool-btn" onClick={() => actions.addLevel(chapter.id)} title="Add current canvas as new level">
-                      + From Canvas
-                    </button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button className="tool-btn" onClick={() => actions.addBlankLevel(chapter.id)} title="Add a new empty level">
+                        + Blank
+                      </button>
+                      <button className="tool-btn" onClick={() => actions.addLevel(chapter.id)} title="Add current canvas as new level">
+                        + From Canvas
+                      </button>
+                    </div>
                   </div>
                   {chapter.levels.length === 0 && (
-                    <div style={{ opacity: 0.6, fontSize: '0.85em' }}>No levels. Build a puzzle on the canvas and click “+ From Canvas”.</div>
+                    <div style={{ opacity: 0.6, fontSize: '0.85em' }}>No levels. Click “+ Blank” for an empty level, or build a puzzle and use “+ From Canvas”.</div>
                   )}
                   {chapter.levels.map((level, lvIdx) => {
                     const isLevelSelected = level.id === selectedCampaignLevelId
@@ -479,12 +512,70 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
 
       {selectedCampaignLevelId && (
         <div className="editor-section">
-          <button className="action-btn generate" onClick={actions.saveSelected} style={{ width: '100%' }}>
+          <label style={{ display: 'block', marginBottom: 4 }}>Instructions (optional)</label>
+          <textarea
+            value={instructions}
+            onChange={e => setInstructions(e.target.value)}
+            rows={3}
+            placeholder="e.g. Tap a frog to select it, then tap a target to jump."
+            style={{ width: '100%', padding: '6px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, color: 'white', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.9em' }}
+          />
+          <button className="action-btn generate" onClick={actions.saveSelected} style={{ width: '100%', marginTop: 8 }}>
             Save canvas to selected level
           </button>
           <div style={{ marginTop: 4, fontSize: '0.8em', opacity: 0.6 }}>
             Edits on the canvas are kept separate until you save.
           </div>
+        </div>
+      )}
+
+      {selectedChapter && (
+        <div className="editor-section">
+          <label style={{ fontWeight: 'bold' }}>Bulk generate into “{selectedChapter.name}”</label>
+          <div style={{ marginTop: 6, display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 8, alignItems: 'center', fontSize: '0.9em' }}>
+            <span>Count</span>
+            <span>{bulkNum('count', 1, 50)}</span>
+
+            <span>Grid size</span>
+            <span>{bulkNum('gridSize', 4, 9)}</span>
+
+            <span>Moves</span>
+            <span>{bulkNum('minMoves', 1, 200)} – {bulkNum('maxMoves', 1, 200)}</span>
+
+            <span>Frogs</span>
+            <span>{bulkNum('numFrogs', 1, 3)}</span>
+
+            <span>Snakes</span>
+            <span>{bulkNum('snakesMin', 0, 20)} – {bulkNum('snakesMax', 0, 20)}</span>
+
+            <span>Max snake size</span>
+            <span>{bulkNum('maxSnakeSize', 2, 5)}</span>
+
+            <span>Stumps</span>
+            <span>{bulkNum('logsMin', 0, 20)} – {bulkNum('logsMax', 0, 20)}</span>
+
+            <span>Extra lilies</span>
+            <span>{bulkNum('lilyPadsMin', 0, 10)} – {bulkNum('lilyPadsMax', 0, 10)}</span>
+          </div>
+          <button
+            className="action-btn generate"
+            style={{ width: '100%', marginTop: 8 }}
+            disabled={isBulkRunning}
+            onClick={() => actions.bulkGenerate(selectedChapterId, bulk, bulk.count)}
+          >
+            {isBulkRunning ? `Generating ${bulkProgress.current}/${bulkProgress.total}...` : `Generate ${bulk.count} levels`}
+          </button>
+          {bulkProgress && !isBulkRunning && (
+            <div style={{ marginTop: 6, fontSize: '0.85em', opacity: 0.8 }}>
+              Done: {bulkProgress.total - bulkProgress.failed} added
+              {bulkProgress.failed > 0 && `, ${bulkProgress.failed} failed (try widening ranges or raising max moves)`}
+            </div>
+          )}
+          {isBulkRunning && bulkProgress.failed > 0 && (
+            <div style={{ marginTop: 6, fontSize: '0.85em', opacity: 0.7 }}>
+              {bulkProgress.failed} failed so far
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -559,12 +650,16 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [selectedChapterId, setSelectedChapterId] = useState(null)
   const [selectedCampaignLevelId, setSelectedCampaignLevelId] = useState(null)
   const [campaignServerStatus, setCampaignServerStatus] = useState(null) // { kind: 'saving'|'saved'|'error', message?: string }
+  const [campaignBulkProgress, setCampaignBulkProgress] = useState(null) // { current, total, failed } | null
+  // Instructions are optional per-level text shown alongside the puzzle.
+  // Edited as canvas state and committed via "Save canvas to selected level".
+  const [instructions, setInstructions] = useState('')
   useEffect(() => {
     try { localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(campaign)) } catch {}
   }, [campaign])
 
   const uid = () => Math.random().toString(36).slice(2, 10)
-  const currentPuzzleData = () => ({ gridSize, frogs, snakes, logs, lilyPads, par })
+  const currentPuzzleData = () => ({ gridSize, frogs, snakes, logs, lilyPads, par, instructions })
   const loadPuzzleIntoCanvas = (p) => {
     setGridSize(p.gridSize || 5)
     setFrogs(p.frogs || [])
@@ -572,6 +667,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setLogs(p.logs || [])
     setLilyPads(p.lilyPads || [])
     setPar(p.par || 0)
+    setInstructions(p.instructions || '')
   }
 
   const campaignAddChapter = () => {
@@ -616,6 +712,31 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     }))
     setSelectedChapterId(chapterId)
     setSelectedCampaignLevelId(level.id)
+  }
+  const campaignAddBlankLevel = (chapterId) => {
+    const chapter = campaign.chapters.find(ch => ch.id === chapterId)
+    if (!chapter) return
+    const blank = {
+      gridSize: 5,
+      frogs: [],
+      snakes: [],
+      logs: [],
+      lilyPads: [],
+      par: 0,
+      instructions: '',
+    }
+    const level = {
+      id: uid(),
+      name: `Level ${chapter.levels.length + 1}`,
+      ...blank,
+    }
+    setCampaign(c => ({
+      ...c,
+      chapters: c.chapters.map(ch => ch.id === chapterId ? { ...ch, levels: [...ch.levels, level] } : ch),
+    }))
+    setSelectedChapterId(chapterId)
+    setSelectedCampaignLevelId(level.id)
+    loadPuzzleIntoCanvas(blank)
   }
   const campaignSaveSelected = () => {
     if (!selectedChapterId || !selectedCampaignLevelId) return
@@ -681,6 +802,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         name: ch.name,
         levels: ch.levels.map(lv => ({
           name: lv.name,
+          ...(lv.instructions ? { instructions: lv.instructions } : {}),
           gridSize: lv.gridSize,
           frogs: lv.frogs,
           snakes: lv.snakes,
@@ -726,6 +848,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         name: ch.name,
         levels: ch.levels.map(lv => ({
           name: lv.name,
+          ...(lv.instructions ? { instructions: lv.instructions } : {}),
           gridSize: lv.gridSize,
           frogs: lv.frogs,
           snakes: lv.snakes,
@@ -787,6 +910,42 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     } catch (err) {
       alert('Failed to load: ' + err.message)
     }
+  }
+
+  // Bulk-generate `count` levels matching `criteria` and append to the chapter.
+  // Each attempted level may fail (no solvable board found) — we track failed count.
+  const campaignBulkGenerate = async (chapterId, criteria, count) => {
+    if (!chapterId || !count || count < 1) return
+    if (criteria.minMoves > criteria.maxMoves) {
+      alert('Min moves must be ≤ max moves.')
+      return
+    }
+    if (criteria.snakesMin > criteria.snakesMax || criteria.logsMin > criteria.logsMax || criteria.lilyPadsMin > criteria.lilyPadsMax) {
+      alert('Range min must be ≤ max for snakes, stumps, and lily pads.')
+      return
+    }
+    setCampaignBulkProgress({ current: 0, total: count, failed: 0 })
+    let failed = 0
+    for (let i = 0; i < count; i++) {
+      setCampaignBulkProgress({ current: i, total: count, failed })
+      // Yield so UI can paint progress between (potentially slow) solver runs.
+      await new Promise(r => setTimeout(r, 10))
+      const level = generateLevelWithCriteria(criteria)
+      if (!level) {
+        failed++
+        continue
+      }
+      setCampaign(c => ({
+        ...c,
+        chapters: c.chapters.map(ch => {
+          if (ch.id !== chapterId) return ch
+          const name = `Level ${ch.levels.length + 1}`
+          return { ...ch, levels: [...ch.levels, { id: uid(), name, ...level }] }
+        }),
+      }))
+    }
+    setCampaignBulkProgress({ current: count, total: count, failed })
+    setTimeout(() => setCampaignBulkProgress(null), 4000)
   }
 
   // CJ difficulty grid sizes
@@ -1522,6 +1681,121 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     return null
   }
 
+  // Generate one level from explicit criteria. Used by campaign bulk generate.
+  // Ranges are inclusive. Returns { gridSize, frogs, snakes, logs, lilyPads, par } or null.
+  const generateLevelWithCriteria = ({
+    gridSize: size,
+    minMoves,
+    maxMoves,
+    numFrogs,
+    snakesMin, snakesMax,
+    maxSnakeSize,
+    logsMin, logsMax,
+    lilyPadsMin, lilyPadsMax,
+  }) => {
+    const range = { min: minMoves, max: maxMoves }
+    const isHardSolve = maxMoves >= 20
+    const maxAttempts = isHardSolve ? 2000 : 1000
+    const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1))
+
+    for (let attempts = 0; attempts < maxAttempts; attempts++) {
+      const numSnakes = rand(snakesMin, snakesMax)
+      const numLogs = rand(logsMin, logsMax)
+      const extraLilyPads = rand(lilyPadsMin, lilyPadsMax)
+      const numLilyPads = numFrogs + extraLilyPads
+
+      const occupied = new Set()
+      const isOccupied = (col, row) => occupied.has(`${col},${row}`)
+      const markOccupied = (col, row) => occupied.add(`${col},${row}`)
+
+      const newFrogs = []
+      for (let i = 0; i < numFrogs; i++) {
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * size)
+          const row = Math.floor(Math.random() * size)
+          if (!isOccupied(col, row)) {
+            newFrogs.push({ position: [col, row], color: FROG_COLORS[i] })
+            markOccupied(col, row)
+            placed = true
+          }
+        }
+      }
+      if (newFrogs.length !== numFrogs) continue
+
+      const newSnakes = []
+      for (let i = 0; i < numSnakes; i++) {
+        const orientation = Math.random() < 0.5 ? 'vertical' : 'horizontal'
+        const length = Math.floor(Math.random() * (maxSnakeSize - 1)) + 2
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * (orientation === 'horizontal' ? size - length + 1 : size))
+          const row = Math.floor(Math.random() * (orientation === 'vertical' ? size - length + 1 : size))
+          const positions = []
+          let valid = true
+          for (let j = 0; j < length && valid; j++) {
+            const c = orientation === 'horizontal' ? col + j : col
+            const r = orientation === 'vertical' ? row + j : row
+            if (isOccupied(c, r)) valid = false
+            else positions.push([c, r])
+          }
+          if (valid && positions.length === length) {
+            newSnakes.push({ positions, orientation })
+            positions.forEach(([c, r]) => markOccupied(c, r))
+            placed = true
+          }
+        }
+      }
+
+      const newLogs = []
+      for (let i = 0; i < numLogs; i++) {
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * size)
+          const row = Math.floor(Math.random() * size)
+          if (!isOccupied(col, row)) {
+            newLogs.push({ positions: [[col, row]] })
+            markOccupied(col, row)
+            placed = true
+          }
+        }
+      }
+
+      const newLilyPads = []
+      for (let i = 0; i < numLilyPads; i++) {
+        let placed = false
+        for (let tries = 0; tries < 50 && !placed; tries++) {
+          const col = Math.floor(Math.random() * size)
+          const row = Math.floor(Math.random() * size)
+          const onFrog = newFrogs.some(f => f.position[0] === col && f.position[1] === row)
+          const onSnake = newSnakes.some(s => s.positions.some(p => p[0] === col && p[1] === row))
+          const onLog = newLogs.some(l => l.positions.some(p => p[0] === col && p[1] === row))
+          const onLilyPad = newLilyPads.some(lp => lp.position[0] === col && lp.position[1] === row)
+          if (!onFrog && !onSnake && !onLog && !onLilyPad) {
+            newLilyPads.push({ position: [col, row] })
+            placed = true
+          }
+        }
+      }
+      if (newLilyPads.length !== numLilyPads) continue
+
+      if (isHardSolve) {
+        const quick = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 100000 })
+        if (quick.solvable && quick.moves < range.min) continue
+        const result = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 2000000 })
+        if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+          return { gridSize: size, frogs: newFrogs, snakes: newSnakes, logs: newLogs, lilyPads: newLilyPads, par: result.moves }
+        }
+      } else {
+        const result = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false })
+        if (result.solvable && result.moves >= range.min && result.moves <= range.max) {
+          return { gridSize: size, frogs: newFrogs, snakes: newSnakes, logs: newLogs, lilyPads: newLilyPads, par: result.moves }
+        }
+      }
+    }
+    return null
+  }
+
   // Generate a Color Jump level for a specific difficulty
   const generateCJLevel = (diff) => {
     const gs = CJ_GRID_SIZES[diff]
@@ -1759,12 +2033,16 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                     selectedCampaignLevelId={selectedCampaignLevelId}
                     setSelectedChapterId={setSelectedChapterId}
                     serverStatus={campaignServerStatus}
+                    bulkProgress={campaignBulkProgress}
+                    instructions={instructions}
+                    setInstructions={setInstructions}
                     actions={{
                       addChapter: campaignAddChapter,
                       renameChapter: campaignRenameChapter,
                       deleteChapter: campaignDeleteChapter,
                       moveChapter: campaignMoveChapter,
                       addLevel: campaignAddLevel,
+                      addBlankLevel: campaignAddBlankLevel,
                       selectLevel: campaignSelectLevel,
                       renameLevel: campaignRenameLevel,
                       deleteLevel: campaignDeleteLevel,
@@ -1774,6 +2052,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       importJSON: campaignImport,
                       saveToServer: campaignSaveToServer,
                       loadFromServer: campaignLoadFromServer,
+                      bulkGenerate: campaignBulkGenerate,
                     }}
                   />
                 )}
