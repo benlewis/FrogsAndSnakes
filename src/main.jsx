@@ -5,7 +5,10 @@ import { Analytics } from '@vercel/analytics/react'
 import App from './App.jsx'
 import Learn from './Learn.jsx'
 import LevelEditor from './LevelEditor.jsx'
+import { startVersionCheck } from './lib/versionCheck.js'
 import './index.css'
+
+startVersionCheck()
 
 const path = window.location.pathname
 const isGamePath = path === '/' || path === '/color-jump'
