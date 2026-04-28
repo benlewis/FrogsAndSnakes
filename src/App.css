@@ -2173,6 +2173,104 @@
   border-color: rgba(255, 255, 255, 0.35);
 }
 
+/* Play Mode Dialog */
+.play-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.play-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+}
+
+.play-mode-card:hover {
+  border-color: rgba(74, 222, 128, 0.6);
+  background: rgba(74, 222, 128, 0.08);
+  transform: translateY(-1px);
+}
+
+.play-mode-card:active {
+  transform: translateY(0);
+}
+
+.play-mode-card-active {
+  border-color: rgba(74, 222, 128, 0.7);
+  background: rgba(74, 222, 128, 0.12);
+  box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.25);
+}
+
+.play-mode-card-icon {
+  font-size: 1.5rem;
+}
+
+.play-mode-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.play-mode-card-desc {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.4;
+}
+
+.play-mode-footnote {
+  margin: 6px 0 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Game timer chip (competitive mode) */
+.game-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #67e8f9;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.game-timer-paused {
+  opacity: 0.55;
+}
+
+.game-timer-penalty-flash {
+  animation: timer-penalty-flash 0.6s ease;
+}
+
+@keyframes timer-penalty-flash {
+  0%   { background: rgba(239, 68, 68, 0.3); border-color: rgba(239, 68, 68, 0.7); color: #fca5a5; }
+  100% { background: rgba(34, 211, 238, 0.12); border-color: rgba(34, 211, 238, 0.35); color: #67e8f9; }
+}
+
+.hint-penalty-note {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.85;
+  line-height: 1;
+  margin-top: 2px;
+}
+
 /* Leaderboard Modal */
 .leaderboard-overlay {
   position: fixed;
@@ -2229,6 +2327,38 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.leaderboard-mode-toggle {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 4px;
+  margin: 0 auto 16px auto;
+  width: fit-content;
+}
+
+.leaderboard-mode-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.leaderboard-mode-btn:hover {
+  color: white;
+}
+
+.leaderboard-mode-btn.active {
+  background: linear-gradient(90deg, #4ade80, #22d3ee);
+  color: #0f172a;
 }
 
 .leaderboard-loading,

@@ -158,28 +158,71 @@ app.post('/api/users', async (req, res) => {
 });
 
 // POST /api/stats - Save a completion
+const VALID_MODES = new Set(['casual', 'competitive']);
 app.post('/api/stats', async (req, res) => {
-  const { userId, visitorId, puzzleDate, difficulty, moves, hintsUsed } = req.body;
-
-  // visitorId is used for anonymous visitors, but we prefer userId if available
+  const { userId, visitorId, puzzleDate, difficulty, moves, hintsUsed, mode, timeMs } = req.body;
   const finalUserId = userId || visitorId;
+  const finalMode = VALID_MODES.has(mode) ? mode : 'casual';
+  const finalTimeMs = finalMode === 'competitive' && Number.isFinite(timeMs) ? Math.max(0, Math.round(timeMs)) : null;
 
   if (!finalUserId || !puzzleDate || !difficulty || moves === undefined) {
     return res.status(400).json({ error: 'userId/visitorId, puzzleDate, difficulty, and moves required' });
   }
 
   try {
-    await query(
-      `INSERT INTO completions (user_id, puzzle_date, difficulty, moves, hints_used)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (user_id, puzzle_date, difficulty)
-       DO UPDATE SET moves = LEAST(completions.moves, $4), hints_used = LEAST(completions.hints_used, $5)`,
-      [finalUserId, puzzleDate, difficulty, moves, hintsUsed || 0]
-    );
+    if (finalMode === 'competitive') {
+      await query(
+        `INSERT INTO completions (user_id, puzzle_date, difficulty, moves, hints_used, mode, time_ms)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (user_id, puzzle_date, difficulty, mode)
+         DO UPDATE SET
+           time_ms = LEAST(completions.time_ms, EXCLUDED.time_ms),
+           moves = CASE WHEN EXCLUDED.time_ms < completions.time_ms THEN EXCLUDED.moves ELSE completions.moves END,
+           hints_used = CASE WHEN EXCLUDED.time_ms < completions.time_ms THEN EXCLUDED.hints_used ELSE completions.hints_used END`,
+        [finalUserId, puzzleDate, difficulty, moves, hintsUsed || 0, finalMode, finalTimeMs]
+      );
+    } else {
+      await query(
+        `INSERT INTO completions (user_id, puzzle_date, difficulty, moves, hints_used, mode)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (user_id, puzzle_date, difficulty, mode)
+         DO UPDATE SET moves = LEAST(completions.moves, $4), hints_used = LEAST(completions.hints_used, $5)`,
+        [finalUserId, puzzleDate, difficulty, moves, hintsUsed || 0, finalMode]
+      );
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Error saving completion:', error);
     res.status(500).json({ error: 'Failed to save completion' });
+  }
+});
+
+// GET/POST /api/user-prefs
+app.get('/api/user-prefs', async (req, res) => {
+  const { userId } = req.query;
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+  try {
+    const result = await query(`SELECT play_mode FROM users WHERE user_id = $1`, [userId]);
+    res.json({ playMode: result.rows[0]?.play_mode || null });
+  } catch (error) {
+    console.error('Error fetching user prefs:', error);
+    res.status(500).json({ error: 'Failed to fetch user prefs' });
+  }
+});
+
+app.post('/api/user-prefs', async (req, res) => {
+  const { userId, playMode } = req.body || {};
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+  if (!VALID_MODES.has(playMode)) return res.status(400).json({ error: 'playMode must be casual or competitive' });
+  try {
+    await query(
+      `UPDATE users SET play_mode = $2, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1`,
+      [userId, playMode]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving user prefs:', error);
+    res.status(500).json({ error: 'Failed to save user prefs' });
   }
 });
 
@@ -190,7 +233,7 @@ app.get('/api/user-stats', async (req, res) => {
   try {
     // Get all completions for user
     const completions = await query(
-      `SELECT puzzle_date, difficulty, moves, hints_used, completed_at
+      `SELECT puzzle_date, difficulty, moves, hints_used, completed_at, mode, time_ms
        FROM completions
        WHERE user_id = $1
        ORDER BY puzzle_date DESC`,
@@ -297,23 +340,80 @@ app.get('/api/aggregates', async (req, res) => {
   }
 });
 
-// GET /api/leaderboard?date=xxx&userId=xxx - Get leaderboard with optional user rank
+// GET /api/leaderboard?date=xxx&userId=xxx&mode=casual|competitive
 app.get('/api/leaderboard', async (req, res) => {
   const { date: puzzleDate, userId } = req.query;
+  const mode = VALID_MODES.has(req.query.mode) ? req.query.mode : 'casual';
 
   if (!puzzleDate) {
     return res.status(400).json({ error: 'date query parameter required' });
   }
 
   try {
-    // Get aggregates per difficulty
+    if (mode === 'competitive') {
+      const aggResult = await query(
+        `SELECT difficulty,
+                COUNT(*) as total_completions,
+                AVG(time_ms)::numeric(12,1) as avg_time_ms,
+                MIN(time_ms) as min_time_ms
+         FROM completions
+         WHERE puzzle_date = $1 AND mode = 'competitive' AND time_ms IS NOT NULL
+         GROUP BY difficulty`,
+        [puzzleDate]
+      );
+
+      const leaderboard = {};
+      for (const row of aggResult.rows) {
+        leaderboard[row.difficulty.toLowerCase()] = {
+          mode: 'competitive',
+          totalCompletions: parseInt(row.total_completions),
+          avgTimeMs: parseFloat(row.avg_time_ms),
+          minTimeMs: parseInt(row.min_time_ms),
+          userTimeMs: null,
+          userMoves: null,
+          userRank: null,
+        };
+      }
+
+      if (userId) {
+        const userResult = await query(
+          `SELECT difficulty, time_ms, moves
+           FROM completions
+           WHERE puzzle_date = $1 AND user_id = $2 AND mode = 'competitive' AND time_ms IS NOT NULL`,
+          [puzzleDate, userId]
+        );
+        for (const row of userResult.rows) {
+          const diff = row.difficulty.toLowerCase();
+          if (leaderboard[diff]) {
+            leaderboard[diff].userTimeMs = parseInt(row.time_ms);
+            leaderboard[diff].userMoves = parseInt(row.moves);
+          }
+        }
+        for (const diff of Object.keys(leaderboard)) {
+          if (leaderboard[diff].userTimeMs !== null) {
+            const rankResult = await query(
+              `SELECT COUNT(*) + 1 as rank
+               FROM completions
+               WHERE puzzle_date = $1 AND LOWER(difficulty) = $2
+                     AND mode = 'competitive' AND time_ms IS NOT NULL AND time_ms < $3`,
+              [puzzleDate, diff, leaderboard[diff].userTimeMs]
+            );
+            leaderboard[diff].userRank = parseInt(rankResult.rows[0].rank);
+          }
+        }
+      }
+
+      return res.json(leaderboard);
+    }
+
+    // Casual (default)
     const aggResult = await query(
       `SELECT difficulty,
               COUNT(*) as total_completions,
               AVG(moves)::numeric(10,1) as avg_moves,
               MIN(moves) as min_moves
        FROM completions
-       WHERE puzzle_date = $1
+       WHERE puzzle_date = $1 AND mode = 'casual'
        GROUP BY difficulty`,
       [puzzleDate]
     );
@@ -321,6 +421,7 @@ app.get('/api/leaderboard', async (req, res) => {
     const leaderboard = {};
     for (const row of aggResult.rows) {
       leaderboard[row.difficulty.toLowerCase()] = {
+        mode: 'casual',
         totalCompletions: parseInt(row.total_completions),
         avgMoves: parseFloat(row.avg_moves),
         minMoves: parseInt(row.min_moves),
@@ -329,29 +430,26 @@ app.get('/api/leaderboard', async (req, res) => {
       };
     }
 
-    // If userId provided, get user's moves and rank per difficulty
     if (userId) {
       const userResult = await query(
         `SELECT difficulty, moves
          FROM completions
-         WHERE puzzle_date = $1 AND user_id = $2`,
+         WHERE puzzle_date = $1 AND user_id = $2 AND mode = 'casual'`,
         [puzzleDate, userId]
       );
-
       for (const row of userResult.rows) {
         const diff = row.difficulty.toLowerCase();
         if (leaderboard[diff]) {
           leaderboard[diff].userMoves = parseInt(row.moves);
         }
       }
-
-      // Compute rank for each difficulty the user completed
       for (const diff of Object.keys(leaderboard)) {
         if (leaderboard[diff].userMoves !== null) {
           const rankResult = await query(
             `SELECT COUNT(*) + 1 as rank
              FROM completions
-             WHERE puzzle_date = $1 AND LOWER(difficulty) = $2 AND moves < $3`,
+             WHERE puzzle_date = $1 AND LOWER(difficulty) = $2
+                   AND mode = 'casual' AND moves < $3`,
             [puzzleDate, diff, leaderboard[diff].userMoves]
           );
           leaderboard[diff].userRank = parseInt(rankResult.rows[0].rank);

@@ -68,6 +68,11 @@ async function setup() {
     `);
     console.log('✓ Created users table');
 
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS play_mode VARCHAR(20)
+    `);
+    console.log('✓ Ensured users.play_mode column');
+
     // Create completions table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS completions (
@@ -82,6 +87,37 @@ async function setup() {
       )
     `);
     console.log('✓ Created completions table');
+
+    // Add mode + time_ms columns and migrate the unique constraint to include mode.
+    // Existing rows pre-date competitive mode and are all casual.
+    await pool.query(`
+      ALTER TABLE completions ADD COLUMN IF NOT EXISTS mode VARCHAR(20) NOT NULL DEFAULT 'casual'
+    `);
+    await pool.query(`
+      ALTER TABLE completions ADD COLUMN IF NOT EXISTS time_ms INTEGER
+    `);
+    console.log('✓ Ensured completions.mode and completions.time_ms columns');
+
+    // Swap the old (user_id, puzzle_date, difficulty) UNIQUE for one that includes mode.
+    // Drop whichever name Postgres assigned (default: completions_user_id_puzzle_date_difficulty_key).
+    await pool.query(`
+      ALTER TABLE completions
+        DROP CONSTRAINT IF EXISTS completions_user_id_puzzle_date_difficulty_key
+    `);
+    // Add the new one only if it isn't already present.
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'completions_user_puzzle_diff_mode_key'
+        ) THEN
+          ALTER TABLE completions
+            ADD CONSTRAINT completions_user_puzzle_diff_mode_key
+            UNIQUE (user_id, puzzle_date, difficulty, mode);
+        END IF;
+      END$$;
+    `);
+    console.log('✓ Ensured (user_id, puzzle_date, difficulty, mode) UNIQUE constraint');
 
     // Create indexes
     await pool.query(`

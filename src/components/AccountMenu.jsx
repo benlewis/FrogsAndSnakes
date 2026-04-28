@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 
-function AccountMenu({ onShowStats, isAdmin, currentGame }) {
+function AccountMenu({ onShowStats, onChangePlayMode, playMode, isAdmin, currentGame }) {
   const { isAuthenticated, isLoading, user, loginWithRedirect, logout } = useAuth0()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -45,6 +45,15 @@ function AccountMenu({ onShowStats, isAdmin, currentGame }) {
     </>
   )
 
+  const playModeLink = onChangePlayMode ? (
+    <button
+      className="account-dropdown-item"
+      onClick={() => { setDropdownOpen(false); onChangePlayMode(); }}
+    >
+      Mode: {playMode === 'competitive' ? '⏱️ Competitive' : '🌿 Casual'}
+    </button>
+  ) : null
+
   if (!isAuthenticated) {
     return (
       <div className="account-menu" ref={dropdownRef}>
@@ -54,6 +63,8 @@ function AccountMenu({ onShowStats, isAdmin, currentGame }) {
         {dropdownOpen && (
           <div className="account-dropdown">
             {gameLinks}
+            {playModeLink && <div className="account-dropdown-divider" />}
+            {playModeLink}
             <div className="account-dropdown-divider" />
             <button
               className="account-dropdown-item"
@@ -98,6 +109,7 @@ function AccountMenu({ onShowStats, isAdmin, currentGame }) {
           <div className="account-dropdown-divider" />
           {gameLinks}
           <div className="account-dropdown-divider" />
+          {playModeLink}
           {isAdmin && (
             <a
               className="account-dropdown-item"

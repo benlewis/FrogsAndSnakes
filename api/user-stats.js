@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
   try {
     const completions = await query(
-      `SELECT puzzle_date, difficulty, moves, hints_used, completed_at
+      `SELECT puzzle_date, difficulty, moves, hints_used, completed_at, mode, time_ms
        FROM completions
        WHERE user_id = $1
        ORDER BY puzzle_date DESC`,

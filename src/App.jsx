@@ -8,8 +8,11 @@ import DailyStreakModal from './components/DailyStreakModal.jsx'
 import WelcomeModal from './components/WelcomeModal.jsx'
 import CalendarModal from './components/CalendarModal.jsx'
 import LeaderboardModal from './components/LeaderboardModal.jsx'
+import PlayModeDialog from './components/PlayModeDialog.jsx'
 import ColorJump from './ColorJump.jsx'
 import { solveLevel } from './solver.js'
+import { resolvePlayMode, savePlayMode } from './lib/playMode.js'
+import { useGameTimer, formatTime } from './lib/useGameTimer.js'
 import {
   FrogSVG,
   LilyPadSVG,
@@ -163,6 +166,16 @@ function App({ initialGame = 'jumping-frogs' }) {
   const [visitorId] = useState(() => getOrCreateVisitorId())
   const [currentDate, setCurrentDate] = useState(getTodayDate())
 
+  // Play mode: 'casual' | 'competitive' | null (null = not yet chosen).
+  // Resolved on mount from server (if logged in) → cookie. While null, the
+  // PlayModeDialog is shown and cannot be dismissed.
+  const [playMode, setPlayMode] = useState(null)
+  const [playModeResolved, setPlayModeResolved] = useState(false)
+  const [showPlayModeDialog, setShowPlayModeDialog] = useState(false)
+  // The mode used for the level currently in play. Mode changes mid-game don't
+  // affect an in-progress level — they take effect on reset / next puzzle.
+  const [activeMode, setActiveMode] = useState(null)
+
   // Show streak modal on first visit of the day
   useEffect(() => {
     const lastVisitDate = getCookie('last_visit_date')
@@ -201,6 +214,29 @@ function App({ initialGame = 'jumping-frogs' }) {
       }).catch(err => console.error('Failed to sync user:', err))
     }
   }, [isAuthenticated, user?.sub])
+
+  // Resolve play mode (server-first if logged in, then cookie). The user-sync
+  // effect above runs in parallel; for new users the row may not be in the DB
+  // yet when we fetch prefs. That's fine — we'll get null and fall back to the
+  // cookie. If the cookie is also empty we open the chooser dialog.
+  useEffect(() => {
+    let cancelled = false
+    const userId = isAuthenticated && user?.sub ? user.sub : null
+    resolvePlayMode({ userId }).then((resolved) => {
+      if (cancelled) return
+      setPlayMode(resolved)
+      setPlayModeResolved(true)
+      if (!resolved) setShowPlayModeDialog(true)
+    })
+    return () => { cancelled = true }
+  }, [isAuthenticated, user?.sub])
+
+  const handleChoosePlayMode = (mode) => {
+    setPlayMode(mode)
+    setShowPlayModeDialog(false)
+    const userId = isAuthenticated && user?.sub ? user.sub : null
+    savePlayMode({ userId, mode })
+  }
 
   // Fetch level coverage for admin users
   const isAdmin = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
@@ -335,6 +371,14 @@ function App({ initialGame = 'jumping-frogs' }) {
   // Cookie key for current game state
   const gameStateKey = `game_${currentDate}_${difficulty}`
 
+  // Competitive-mode stopwatch. Active only when the level is in progress in
+  // competitive mode and the page is visible. addPenalty is called when the
+  // player taps Hint (+10s).
+  const isWonLocal = gameState.frogs.length > 0 && checkWinCondition(gameState.frogs, gameState.lilyPads)
+  const timerActive = activeMode === 'competitive' && currentGame === 'jumping-frogs' && !isWonLocal
+  const timer = useGameTimer({ active: timerActive })
+  const [penaltyFlash, setPenaltyFlash] = useState(false)
+
   // Reset game state when level changes (or restore from cookie if available)
   useEffect(() => {
     // Temporarily disable rendering of any selection to prevent stale highlights
@@ -366,10 +410,24 @@ function App({ initialGame = 'jumping-frogs' }) {
         setGameState(saved.gameState)
         setMoves(saved.moves || 0)
         setHintsUsed(saved.hints || 0)
+        // The mode that the saved game is being played in. May differ from the
+        // user's current playMode preference if they changed it mid-puzzle —
+        // the in-progress level keeps its original mode until reset.
+        const savedMode = saved.activeMode === 'competitive' || saved.activeMode === 'casual'
+          ? saved.activeMode
+          : (playMode || 'casual')
+        setActiveMode(savedMode)
+        if (savedMode === 'competitive' && saved.timer) {
+          timer.restore(saved.timer)
+        } else {
+          timer.reset()
+        }
       } else {
         setGameState(initial)
         setMoves(0)
         setHintsUsed(0)
+        setActiveMode(playMode || null)
+        timer.reset()
       }
       clearHint()
     }
@@ -411,11 +469,11 @@ function App({ initialGame = 'jumping-frogs' }) {
     }
   }, [completedLevels, currentDate])
 
-  // Fetch the server-stored best for this level whenever the level identity
-  // changes. Clears the displayed best while the request is in flight so the
-  // previous level's value doesn't linger.
+  // Fetch the server-stored best for this level + mode whenever the level
+  // identity (or mode) changes. Casual tracks moves; competitive tracks time.
   useEffect(() => {
     const statsUserId = (isAuthenticated && user?.sub) ? user.sub : visitorId
+    const bestMode = activeMode || playMode || 'casual'
     if (!statsUserId || !currentDate || !difficulty) return
     setLevelBest(null)
     setNewBestFlash(false)
@@ -426,13 +484,20 @@ function App({ initialGame = 'jumping-frogs' }) {
         if (cancelled || !data?.completions) return
         const match = data.completions.find(c => {
           const d = new Date(c.puzzle_date).toISOString().slice(0, 10)
-          return d === currentDate && c.difficulty === difficulty
+          const cMode = c.mode || 'casual'
+          return d === currentDate && c.difficulty === difficulty && cMode === bestMode
         })
-        if (match) setLevelBest(match.moves)
+        if (match) {
+          setLevelBest(
+            bestMode === 'competitive'
+              ? { mode: 'competitive', timeMs: match.time_ms != null ? Number(match.time_ms) : null, moves: match.moves }
+              : { mode: 'casual', moves: match.moves }
+          )
+        }
       })
       .catch(err => console.error('Failed to fetch level best:', err))
     return () => { cancelled = true }
-  }, [currentDate, difficulty, isAuthenticated, user?.sub, visitorId])
+  }, [currentDate, difficulty, isAuthenticated, user?.sub, visitorId, activeMode, playMode])
 
   // Save stats when a level is won
   useEffect(() => {
@@ -448,12 +513,24 @@ function App({ initialGame = 'jumping-frogs' }) {
 
       // Update levelBest optimistically; the server is authoritative but the
       // next fetch may be a page load away. Flash "New best!" if we improved.
+      const finishedMode = activeMode || 'casual'
+      const finishTimeMs = finishedMode === 'competitive' ? timer.snapshot().accumulatedMs : null
       setLevelBest(prev => {
-        if (prev == null) return moves
-        if (moves < prev) {
+        if (finishedMode === 'competitive') {
+          if (prev?.timeMs == null) return { mode: 'competitive', timeMs: finishTimeMs, moves }
+          if (finishTimeMs < prev.timeMs) {
+            setNewBestFlash(true)
+            setTimeout(() => setNewBestFlash(false), 2500)
+            return { mode: 'competitive', timeMs: finishTimeMs, moves }
+          }
+          return prev
+        }
+        // casual
+        if (prev?.moves == null) return { mode: 'casual', moves }
+        if (moves < prev.moves) {
           setNewBestFlash(true)
           setTimeout(() => setNewBestFlash(false), 2500)
-          return moves
+          return { mode: 'casual', moves }
         }
         return prev
       })
@@ -466,17 +543,25 @@ function App({ initialGame = 'jumping-frogs' }) {
       const userId = isAuthenticated && user?.sub ? user.sub : null
       const anonVisitorId = !userId ? getOrCreateVisitorId() : null
 
+      const payload = {
+        userId,
+        visitorId: anonVisitorId,
+        puzzleDate: currentDate,
+        difficulty,
+        moves,
+        hintsUsed,
+        mode: activeMode || 'casual',
+      }
+      if ((activeMode || 'casual') === 'competitive') {
+        // Snapshot folds the live tick, so this is the final wall-clock time
+        // including any +10s hint penalties.
+        payload.timeMs = timer.snapshot().accumulatedMs
+      }
+
       fetch(`${API_BASE}/api/stats`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          visitorId: anonVisitorId,
-          puzzleDate: currentDate,
-          difficulty,
-          moves,
-          hintsUsed
-        })
+        body: JSON.stringify(payload),
       }).catch(err => console.error('Failed to save stats:', err))
     }
   }, [isGameWon])
@@ -522,13 +607,54 @@ function App({ initialGame = 'jumping-frogs' }) {
     setTimeout(() => setShowBigCelebration(false), 2800)
   }
 
-  // Save game state to cookie whenever it changes (but not when game is won)
-  // Save game state to cookie whenever it changes (including won state)
+  // Stable refs from the timer hook (the surrounding object is fresh every
+  // render, but each method is wrapped in useCallback). Using these in deps
+  // prevents the cookie-save effects from firing on every render.
+  const timerSnapshot = timer.snapshot
+  const timerStart = timer.start
+
+  // Save game state to cookie whenever it changes (including won state).
+  // Also persist the active mode and timer snapshot in competitive mode so
+  // a reload picks up where the player left off.
   useEffect(() => {
     if (currentLevel) {
-      setCookie(gameStateKey, { gameState, moves, hints: hintsUsed })
+      const payload = { gameState, moves, hints: hintsUsed, activeMode }
+      if (activeMode === 'competitive') {
+        payload.timer = timerSnapshot()
+      }
+      setCookie(gameStateKey, payload)
     }
-  }, [gameState, moves, hintsUsed, gameStateKey, currentLevel])
+  }, [gameState, moves, hintsUsed, activeMode, gameStateKey, currentLevel, timerSnapshot])
+
+  // Start the timer on the player's first move (only matters in competitive).
+  useEffect(() => {
+    if (moves > 0 && activeMode === 'competitive' && !timer.hasStarted) {
+      timerStart()
+    }
+    // timer.hasStarted is read each render; we re-fire only on moves/mode changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moves, activeMode, timerStart])
+
+  // Persist a fresh timer snapshot when the page is hidden / closed so a
+  // reload during paused state doesn't undercount.
+  useEffect(() => {
+    if (!currentLevel) return
+    const persist = () => {
+      const payload = { gameState, moves, hints: hintsUsed, activeMode }
+      if (activeMode === 'competitive') payload.timer = timerSnapshot()
+      setCookie(gameStateKey, payload)
+    }
+    window.addEventListener('pagehide', persist)
+    return () => window.removeEventListener('pagehide', persist)
+  }, [currentLevel, gameStateKey, gameState, moves, hintsUsed, activeMode, timerSnapshot])
+
+  // Keep activeMode in sync with the user's preference whenever the level is
+  // fresh (no moves yet). In-progress levels keep their original mode.
+  useEffect(() => {
+    if (playMode && moves === 0 && activeMode !== playMode && !showPlayModeDialog) {
+      setActiveMode(playMode)
+    }
+  }, [playMode, moves, activeMode, showPlayModeDialog])
 
   // Frog selection state - track which frog is selected for tap-to-move
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
@@ -560,11 +686,23 @@ function App({ initialGame = 'jumping-frogs' }) {
   const handleReset = () => {
     setGameState(getInitialState())
     setMoves(0)
-    setHintsUsed(0)
     setGameHistory([])
     setSelectedFrogIndex(null)
     setDraggingFrogIndex(null)
     clearHint()
+    // Reset puts the level into whatever mode the player currently prefers.
+    const newMode = playMode || null
+    setActiveMode(newMode)
+    // In competitive mode, reset is a strategic choice that still costs time —
+    // the stopwatch keeps running, accumulated +10s penalties stay, and the
+    // hint counter persists since those hints were already paid for.
+    // Outside competitive (or when switching away from it), clear them.
+    if (newMode === 'competitive') {
+      // keep timer + hintsUsed
+    } else {
+      setHintsUsed(0)
+      timer.reset()
+    }
   }
 
   const handleUndo = () => {
@@ -583,6 +721,15 @@ function App({ initialGame = 'jumping-frogs' }) {
     if (isGameWon || !currentLevel || hintLoading) return
     clearHint()
     setHintLoading(true)
+
+    // Apply the +10s penalty optimistically as soon as the player taps Hint.
+    // We do this before solving so the punishment lands the moment they press
+    // the button, not when the hint finishes computing.
+    if (activeMode === 'competitive') {
+      timer.addPenalty(10000)
+      setPenaltyFlash(true)
+      setTimeout(() => setPenaltyFlash(false), 600)
+    }
 
     setTimeout(() => {
       const solverFrogs = frogs.map(f => ({ position: [...f.position], color: f.color }))
@@ -1039,7 +1186,7 @@ function App({ initialGame = 'jumping-frogs' }) {
             <button className="calendar-btn" onClick={() => setShowCalendar(true)} aria-label="Select date">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
             </button>
-            <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} currentGame={currentGame} />
+            <AccountMenu onShowStats={() => setShowStats(true)} onChangePlayMode={() => setShowPlayModeDialog(true)} playMode={playMode} isAdmin={isAdmin} currentGame={currentGame} />
           </div>
         </header>
         <div className="loading-message">Loading puzzles...</div>
@@ -1047,7 +1194,15 @@ function App({ initialGame = 'jumping-frogs' }) {
         {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
         {showWelcome && <WelcomeModal onClose={() => { setShowWelcome(false); setCookie('has_seen_welcome', true, 365); setCookie('last_visit_date', getTodayDate(), 7) }} />}
         {showCalendar && <CalendarModal currentDate={currentDate} onSelectDate={(d) => { setCurrentDate(d); setShowCalendar(false) }} onClose={() => setShowCalendar(false)} isAdmin={isAdmin} />}
-        {showLeaderboard && <LeaderboardModal currentDate={currentDate} completedLevels={completedLevels} onClose={() => setShowLeaderboard(false)} />}
+        {showLeaderboard && <LeaderboardModal currentDate={currentDate} completedLevels={completedLevels} onClose={() => setShowLeaderboard(false)} mode={playMode || 'casual'} />}
+        {playModeResolved && showPlayModeDialog && (
+          <PlayModeDialog
+            currentMode={playMode}
+            allowDismiss={!!playMode}
+            onChoose={handleChoosePlayMode}
+            onClose={playMode ? () => setShowPlayModeDialog(false) : undefined}
+          />
+        )}
       </div>
     )
   }
@@ -1081,7 +1236,7 @@ function App({ initialGame = 'jumping-frogs' }) {
           <button className="calendar-btn" onClick={() => setShowCalendar(true)} aria-label="Select date">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
           </button>
-          <AccountMenu onShowStats={() => setShowStats(true)} isAdmin={isAdmin} currentGame={currentGame} />
+          <AccountMenu onShowStats={() => setShowStats(true)} onChangePlayMode={() => setShowPlayModeDialog(true)} playMode={playMode} isAdmin={isAdmin} currentGame={currentGame} />
         </div>
       </header>
 
@@ -1089,7 +1244,15 @@ function App({ initialGame = 'jumping-frogs' }) {
       {showStreakModal && <DailyStreakModal onClose={() => setShowStreakModal(false)} visitorId={visitorId} />}
       {showWelcome && <WelcomeModal onClose={() => { setShowWelcome(false); setCookie('has_seen_welcome', true, 365); setCookie('last_visit_date', getTodayDate(), 7) }} />}
       {showCalendar && <CalendarModal currentDate={currentDate} onSelectDate={(d) => { setCurrentDate(d); setShowCalendar(false) }} onClose={() => setShowCalendar(false)} isAdmin={isAdmin} />}
-      {showLeaderboard && <LeaderboardModal currentDate={currentDate} completedLevels={completedLevels} onClose={() => setShowLeaderboard(false)} />}
+      {showLeaderboard && <LeaderboardModal currentDate={currentDate} completedLevels={completedLevels} onClose={() => setShowLeaderboard(false)} mode={playMode || 'casual'} />}
+      {playModeResolved && showPlayModeDialog && (
+        <PlayModeDialog
+          currentMode={playMode}
+          allowDismiss={!!playMode}
+          onChoose={handleChoosePlayMode}
+          onClose={playMode ? () => setShowPlayModeDialog(false) : undefined}
+        />
+      )}
 
       {/* Difficulty selector with help button and date */}
       <div className="difficulty-row">
@@ -1142,6 +1305,14 @@ function App({ initialGame = 'jumping-frogs' }) {
               : formattedDate
             }
           </span>
+          {activeMode === 'competitive' && currentGame === 'jumping-frogs' && (
+            <span
+              className={`game-timer ${!timer.hasStarted ? 'game-timer-paused' : ''} ${penaltyFlash ? 'game-timer-penalty-flash' : ''}`}
+              aria-label="Elapsed time"
+            >
+              ⏱ {formatTime(timer.elapsedMs)}
+            </span>
+          )}
         </div>
         <div className="date-row-buttons">
           <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
@@ -1274,18 +1445,22 @@ function App({ initialGame = 'jumping-frogs' }) {
           >
             Undo
           </Button>
-          {difficulty === 'expert' ? (
-            <span className="no-hints-label">No Hints</span>
-          ) : (
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={handleHint}
-              disabled={isGameWon || !currentLevel || hintLoading}
-            >
-              {hintLoading ? 'Thinking...' : hintsUsed > 0 ? `Hint (${hintsUsed})` : 'Hint'}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={handleHint}
+            disabled={isGameWon || !currentLevel || hintLoading}
+            title={activeMode === 'competitive' ? 'Each hint adds 10 seconds to your time' : undefined}
+          >
+            {hintLoading ? 'Thinking...' : (
+              <>
+                <span>{hintsUsed > 0 ? `Hint (${hintsUsed})` : 'Hint'}</span>
+                {activeMode === 'competitive' && (
+                  <span className="hint-penalty-note">+10s</span>
+                )}
+              </>
+            )}
+          </Button>
         </div>
         <div className="stats">
           <span className="stat">
@@ -1296,12 +1471,14 @@ function App({ initialGame = 'jumping-frogs' }) {
               <span className="stat-label">Min:</span> {currentLevel.par}
             </span>
           )}
-          {levelBest != null && (
+          {levelBest && (
             <span className={`stat stat-best ${newBestFlash ? 'stat-best-new' : ''}`}>
               <span className="stat-label">
                 {newBestFlash ? 'New best!' : 'Best:'}
               </span>{' '}
-              {levelBest}
+              {levelBest.mode === 'competitive' && levelBest.timeMs != null
+                ? formatTime(levelBest.timeMs)
+                : levelBest.moves}
             </span>
           )}
         </div>
@@ -1327,7 +1504,7 @@ function App({ initialGame = 'jumping-frogs' }) {
             </div>
           )}
           <button className="share-btn" onClick={() => {
-            const hintsText = hintsUsed === 1 ? ', 1 hint' : `, ${hintsUsed} hints`
+            const hintsText = hintsUsed === 0 ? '' : (hintsUsed === 1 ? ', 1 hint' : `, ${hintsUsed} hints`)
             // Build grid visualization with directional snakes
             const getSnakeEmoji = (col, row) => {
               for (const snake of snakes) {
@@ -1357,7 +1534,12 @@ function App({ initialGame = 'jumping-frogs' }) {
               gridLines.push(line)
             }
             const gridText = gridLines.join('\n')
-            const shareText = `🐸 Frogs & Snakes\n${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}: ${moves} moves${hintsText}\n\n${gridText}\n\n${window.location.origin}`
+            const difficultyLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1)
+            const isCompetitive = activeMode === 'competitive'
+            const headlineLine = isCompetitive
+              ? `${difficultyLabel} ⏱ ${formatTime(timer.snapshot().accumulatedMs)} (${moves} moves${hintsText})`
+              : `${difficultyLabel}: ${moves} moves${hintsText}`
+            const shareText = `🐸 Frogs & Snakes\n${headlineLine}\n\n${gridText}\n\n${window.location.origin}`
             if (navigator.share) {
               navigator.share({ text: shareText }).catch(() => {})
             } else {
