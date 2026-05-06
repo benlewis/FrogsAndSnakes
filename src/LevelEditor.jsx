@@ -39,6 +39,129 @@ const generateDateRange = () => {
   return dates
 }
 
+// Parse a "1:30" or "90" string into milliseconds. Empty / invalid → 0.
+function parseTimeTargetText(text) {
+  if (text == null) return 0
+  const t = String(text).trim()
+  if (!t) return 0
+  if (t.includes(':')) {
+    const parts = t.split(':')
+    if (parts.length !== 2) return 0
+    const m = parseInt(parts[0], 10)
+    const s = parseInt(parts[1], 10)
+    if (Number.isNaN(m) || Number.isNaN(s) || m < 0 || s < 0 || s > 59) return 0
+    return (m * 60 + s) * 1000
+  }
+  const n = parseInt(t, 10)
+  if (Number.isNaN(n) || n < 0) return 0
+  return n * 1000
+}
+
+// Format ms back to a "m:ss" or "Ns" string for the editor input. 0 → ''.
+function formatTimeTargetText(ms) {
+  if (!ms || ms <= 0) return ''
+  const totalSec = Math.round(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  if (m === 0) return `${s}s`
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+// ---- Bulk-generation themes (campaign editor) ----
+// Each theme has a `start` and `end` profile. With ramp on, parameters
+// interpolate linearly from start (level 1) to end (level N). With ramp off,
+// every generated level uses the start profile.
+const BULK_THEMES = [
+  {
+    id: 'tutorial',
+    name: 'Tutorial',
+    description: 'Tiny boards, no snakes. Gentle 3–4 move puzzles to introduce mechanics.',
+    target: 'moves',
+    start: { gridSize: 4, numFrogs: 1, snakesMin: 0, snakesMax: 0, maxSnakeSize: 2, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 0, minMoves: 3, maxMoves: 4, timeMs: 0 },
+    end:   { gridSize: 4, numFrogs: 1, snakesMin: 0, snakesMax: 1, maxSnakeSize: 2, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 0, minMoves: 4, maxMoves: 5, timeMs: 0 },
+  },
+  {
+    id: 'beginner',
+    name: 'Beginner',
+    description: '1 frog, one short snake. Move target only, light ramp.',
+    target: 'moves',
+    start: { gridSize: 5, numFrogs: 1, snakesMin: 1, snakesMax: 1, maxSnakeSize: 2, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 0, minMoves: 4, maxMoves: 6, timeMs: 0 },
+    end:   { gridSize: 5, numFrogs: 1, snakesMin: 1, snakesMax: 2, maxSnakeSize: 3, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 7, maxMoves: 10, timeMs: 0 },
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    description: '1–2 frogs, 1–2 snakes. Move targets with a noticeable ramp.',
+    target: 'moves',
+    start: { gridSize: 5, numFrogs: 1, snakesMin: 1, snakesMax: 2, maxSnakeSize: 3, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 5, maxMoves: 8, timeMs: 0 },
+    end:   { gridSize: 5, numFrogs: 2, snakesMin: 2, snakesMax: 3, maxSnakeSize: 3, logsMin: 0, logsMax: 2, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 10, maxMoves: 14, timeMs: 0 },
+  },
+  {
+    id: 'challenging',
+    name: 'Challenging',
+    description: '2 frogs, 2–3 snakes, larger boards. Long solutions.',
+    target: 'moves',
+    start: { gridSize: 6, numFrogs: 2, snakesMin: 2, snakesMax: 3, maxSnakeSize: 3, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 8, maxMoves: 12, timeMs: 0 },
+    end:   { gridSize: 6, numFrogs: 2, snakesMin: 3, snakesMax: 4, maxSnakeSize: 3, logsMin: 0, logsMax: 2, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 14, maxMoves: 20, timeMs: 0 },
+  },
+  {
+    id: 'speed_run',
+    name: 'Speed Run',
+    description: 'Time targets only. Simple boards, but the clock tightens through the chapter.',
+    target: 'time',
+    start: { gridSize: 5, numFrogs: 1, snakesMin: 1, snakesMax: 2, maxSnakeSize: 3, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 4, maxMoves: 6, timeMs: 60000 },
+    end:   { gridSize: 5, numFrogs: 1, snakesMin: 1, snakesMax: 2, maxSnakeSize: 3, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 6, maxMoves: 10, timeMs: 25000 },
+  },
+  {
+    id: 'mixed',
+    name: 'Mixed Targets',
+    description: 'Both move and time targets, ramping together.',
+    target: 'both',
+    start: { gridSize: 5, numFrogs: 1, snakesMin: 1, snakesMax: 2, maxSnakeSize: 3, logsMin: 0, logsMax: 1, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 5, maxMoves: 8, timeMs: 90000 },
+    end:   { gridSize: 5, numFrogs: 2, snakesMin: 2, snakesMax: 3, maxSnakeSize: 3, logsMin: 0, logsMax: 2, lilyPadsMin: 0, lilyPadsMax: 1, minMoves: 10, maxMoves: 14, timeMs: 50000 },
+  },
+]
+
+// Compact human-readable summary of the params the solver failed on,
+// for the bulk-gen failure list.
+function summarizeFailureParams(p, target) {
+  const r = (a, b) => (a === b ? `${a}` : `${a}–${b}`)
+  const parts = [
+    `${p.gridSize}×${p.gridSize}`,
+    `${p.numFrogs} frog${p.numFrogs === 1 ? '' : 's'}`,
+    `${r(p.snakesMin, p.snakesMax)} snake${p.snakesMax === 1 ? '' : 's'}`,
+  ]
+  if (p.lilyPadsMax > 0) parts.push(`${r(p.lilyPadsMin, p.lilyPadsMax)} lilies`)
+  if (p.logsMax > 0) parts.push(`${r(p.logsMin, p.logsMax)} stumps`)
+  parts.push(`${r(p.minMoves, p.maxMoves)} moves`)
+  if (target === 'time' || target === 'both') {
+    const sec = Math.round((p.targetTimeMs || 0) / 1000)
+    const m = Math.floor(sec / 60), s = sec % 60
+    parts.push(`⏱ ${m}:${s.toString().padStart(2, '0')}`)
+  }
+  return parts.join(' · ')
+}
+
+function paramsForBulkLevel(theme, levelIndex, totalLevels, rampOn) {
+  const t = !rampOn || totalLevels <= 1 ? 0 : levelIndex / (totalLevels - 1)
+  const lerpInt = (a, b) => Math.round(a + (b - a) * t)
+  const s = theme.start, e = theme.end
+  return {
+    gridSize: lerpInt(s.gridSize, e.gridSize),
+    numFrogs: lerpInt(s.numFrogs, e.numFrogs),
+    snakesMin: lerpInt(s.snakesMin, e.snakesMin),
+    snakesMax: lerpInt(s.snakesMax, e.snakesMax),
+    maxSnakeSize: lerpInt(s.maxSnakeSize, e.maxSnakeSize),
+    logsMin: lerpInt(s.logsMin, e.logsMin),
+    logsMax: lerpInt(s.logsMax, e.logsMax),
+    lilyPadsMin: lerpInt(s.lilyPadsMin, e.lilyPadsMin),
+    lilyPadsMax: lerpInt(s.lilyPadsMax, e.lilyPadsMax),
+    minMoves: lerpInt(s.minMoves, e.minMoves),
+    maxMoves: lerpInt(s.maxMoves, e.maxMoves),
+    targetTimeMs: lerpInt(s.timeMs, e.timeMs),
+  }
+}
+
 // Frog colors for display
 const FROG_COLORS = ['green', 'brown', 'blue']
 
@@ -363,33 +486,59 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
   const fileInputRef = useRef(null)
   const selectedChapter = campaign.chapters.find(c => c.id === selectedChapterId) || null
   const levelCount = campaign.chapters.reduce((n, c) => n + c.levels.length, 0)
-  const [bulk, setBulk] = useState({
-    count: 5,
-    gridSize: 5,
-    minMoves: 4,
-    maxMoves: 8,
-    numFrogs: 1,
-    snakesMin: 1,
-    snakesMax: 2,
-    maxSnakeSize: 3,
-    logsMin: 0,
-    logsMax: 2,
-    lilyPadsMin: 0,
-    lilyPadsMax: 1,
+  // Bulk-gen profile: pick / edit the start (level 1) and end (level N)
+  // stats, optionally ramp between them, and pick a target type.
+  // (Older flat 'bulk' state retired — the side-by-side editor below covers
+  //  all the same parameters plus ramping and time targets.)
+  const initialPreset = BULK_THEMES.find(t => t.id === 'beginner') || BULK_THEMES[0]
+  const [profile, setProfile] = useState({
+    start: { ...initialPreset.start },
+    end: { ...initialPreset.end },
+    target: initialPreset.target,
   })
-  const bulkNum = (key, min, max) => (
+  const [loadedPresetName, setLoadedPresetName] = useState(initialPreset.name)
+  const [themeCount, setThemeCount] = useState(8)
+  const [rampOn, setRampOn] = useState(true)
+  // Track time-target text per side so users can type "1:30" naturally.
+  const [timeText, setTimeText] = useState({
+    start: formatTimeTargetText(initialPreset.start.timeMs || 0),
+    end: formatTimeTargetText(initialPreset.end.timeMs || 0),
+  })
+
+  const applyPreset = (id) => {
+    const t = BULK_THEMES.find(p => p.id === id)
+    if (!t) return
+    setProfile({ start: { ...t.start }, end: { ...t.end }, target: t.target })
+    setTimeText({
+      start: formatTimeTargetText(t.start.timeMs || 0),
+      end: formatTimeTargetText(t.end.timeMs || 0),
+    })
+    setLoadedPresetName(t.name)
+  }
+
+  const updateProfileField = (which, key, value) => {
+    setProfile(p => ({ ...p, [which]: { ...p[which], [key]: value } }))
+    // User's now editing, so the "loaded preset" badge becomes stale; clear it.
+    setLoadedPresetName(null)
+  }
+
+  const profileNum = (which, key, min, max) => (
     <input
       type="number"
       min={min}
       max={max}
-      value={bulk[key]}
+      value={profile[which][key] ?? 0}
       onChange={e => {
         const v = parseInt(e.target.value, 10)
-        setBulk(b => ({ ...b, [key]: isNaN(v) ? b[key] : v }))
+        if (Number.isNaN(v)) return
+        updateProfileField(which, key, Math.max(min, Math.min(max, v)))
       }}
-      style={{ width: 52, padding: '2px 4px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 3, color: 'white' }}
+      style={{ width: 48, padding: '2px 4px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 3, color: 'white' }}
     />
   )
+
+  const isTimeTarget = profile.target === 'time' || profile.target === 'both'
+  const isMovesTarget = profile.target === 'moves' || profile.target === 'both'
   const isBulkRunning = bulkProgress && bulkProgress.current < bulkProgress.total
   return (
     <div className="campaign-panel">
@@ -494,7 +643,15 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
                           style={{ flex: 1, textAlign: 'left', fontSize: '0.9em' }}
                           onClick={() => actions.selectLevel(chapter.id, level.id)}
                         >
-                          {lvIdx + 1}. {level.name} <span style={{ opacity: 0.6 }}>par {level.par}</span>
+                          {lvIdx + 1}. {level.name}{' '}
+                          <span style={{ opacity: 0.6 }}>
+                            {(() => {
+                              const parts = []
+                              if (level.par && level.par > 0) parts.push(`par ${level.par}`)
+                              if (level.targetTimeMs && level.targetTimeMs > 0) parts.push(`⏱ ${formatTimeTargetText(level.targetTimeMs)}`)
+                              return parts.length ? parts.join(' · ') : 'no target'
+                            })()}
+                          </span>
                         </button>
                         <button className="tool-btn" title="Rename" onClick={() => actions.renameLevel(chapter.id, level.id)}>✎</button>
                         <button className="tool-btn" title="Move up" disabled={lvIdx === 0} onClick={() => actions.moveLevel(chapter.id, level.id, -1)}>↑</button>
@@ -532,48 +689,167 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
       {selectedChapter && (
         <div className="editor-section">
           <label style={{ fontWeight: 'bold' }}>Bulk generate into “{selectedChapter.name}”</label>
-          <div style={{ marginTop: 6, display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 8, alignItems: 'center', fontSize: '0.9em' }}>
-            <span>Count</span>
-            <span>{bulkNum('count', 1, 50)}</span>
 
-            <span>Grid size</span>
-            <span>{bulkNum('gridSize', 4, 9)}</span>
-
-            <span>Moves</span>
-            <span>{bulkNum('minMoves', 1, 200)} – {bulkNum('maxMoves', 1, 200)}</span>
-
-            <span>Frogs</span>
-            <span>{bulkNum('numFrogs', 1, 3)}</span>
-
-            <span>Snakes</span>
-            <span>{bulkNum('snakesMin', 0, 20)} – {bulkNum('snakesMax', 0, 20)}</span>
-
-            <span>Max snake size</span>
-            <span>{bulkNum('maxSnakeSize', 2, 5)}</span>
-
-            <span>Stumps</span>
-            <span>{bulkNum('logsMin', 0, 20)} – {bulkNum('logsMax', 0, 20)}</span>
-
-            <span>Extra lilies</span>
-            <span>{bulkNum('lilyPadsMin', 0, 10)} – {bulkNum('lilyPadsMax', 0, 10)}</span>
+          <label style={{ marginTop: 8 }}>Load a preset (optional)</label>
+          <select
+            value=""
+            onChange={e => { if (e.target.value) applyPreset(e.target.value) }}
+            style={{ width: '100%', padding: '6px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, color: 'white' }}
+          >
+            <option value="">— Pick a starting point —</option>
+            {BULK_THEMES.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          <div style={{ marginTop: 4, fontSize: '0.8em', opacity: 0.65 }}>
+            {loadedPresetName ? `Loaded "${loadedPresetName}". Tweak start/end values below.` : 'Custom — edit Level 1 and Level N values directly.'}
           </div>
+
+          <label style={{ marginTop: 10 }}>Target type</label>
+          <select
+            value={profile.target}
+            onChange={e => { setProfile(p => ({ ...p, target: e.target.value })); setLoadedPresetName(null) }}
+            style={{ width: '100%', padding: '6px 8px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4, color: 'white' }}
+          >
+            <option value="moves">🎯 Moves only</option>
+            <option value="time">⏱ Time only</option>
+            <option value="both">🎯 Moves + ⏱ Time</option>
+            <option value="none">No target</option>
+          </select>
+
+          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 8, alignItems: 'center', fontSize: '0.9em' }}>
+            <span>Count</span>
+            <span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={themeCount}
+                onChange={e => {
+                  const v = parseInt(e.target.value, 10)
+                  setThemeCount(Number.isNaN(v) ? themeCount : Math.max(1, Math.min(50, v)))
+                }}
+                style={{ width: 60, padding: '2px 4px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 3, color: 'white' }}
+              />
+            </span>
+            <span>Ramp</span>
+            <span>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <input type="checkbox" checked={rampOn} onChange={e => setRampOn(e.target.checked)} />
+                Smoothly interpolate from Level 1 to {themeCount}
+              </label>
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            {['start', 'end'].map(which => {
+              const isEnd = which === 'end'
+              const dimmed = isEnd && !rampOn
+              return (
+                <div key={which} style={{ flex: 1, padding: 8, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 4, background: 'rgba(255,255,255,0.02)', opacity: dimmed ? 0.45 : 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.85em', marginBottom: 8 }}>
+                    {isEnd ? `Level ${themeCount}` : 'Level 1'}
+                    {dimmed && <span style={{ fontWeight: 400, opacity: 0.7, marginLeft: 6 }}>(unused)</span>}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 6, fontSize: '0.85em', alignItems: 'center' }}>
+                    <span>Grid</span>
+                    <span>{profileNum(which, 'gridSize', 4, 9)}</span>
+
+                    <span>Frogs</span>
+                    <span>{profileNum(which, 'numFrogs', 1, 3)}</span>
+
+                    <span>Snakes</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {profileNum(which, 'snakesMin', 0, 20)}–{profileNum(which, 'snakesMax', 0, 20)}
+                    </span>
+
+                    <span>Max len</span>
+                    <span>{profileNum(which, 'maxSnakeSize', 2, 5)}</span>
+
+                    <span>Stumps</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {profileNum(which, 'logsMin', 0, 20)}–{profileNum(which, 'logsMax', 0, 20)}
+                    </span>
+
+                    <span>Lilies</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      {profileNum(which, 'lilyPadsMin', 0, 10)}–{profileNum(which, 'lilyPadsMax', 0, 10)}
+                    </span>
+
+                    {isMovesTarget && (
+                      <>
+                        <span>Moves</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {profileNum(which, 'minMoves', 1, 200)}–{profileNum(which, 'maxMoves', 1, 200)}
+                        </span>
+                      </>
+                    )}
+
+                    {isTimeTarget && (
+                      <>
+                        <span>Time</span>
+                        <span>
+                          <input
+                            type="text"
+                            value={timeText[which]}
+                            placeholder="1:30"
+                            onChange={e => {
+                              const text = e.target.value
+                              setTimeText(t => ({ ...t, [which]: text }))
+                              updateProfileField(which, 'timeMs', parseTimeTargetText(text))
+                            }}
+                            onBlur={() => {
+                              const ms = profile[which].timeMs || 0
+                              if (ms > 0) setTimeText(t => ({ ...t, [which]: formatTimeTargetText(ms) }))
+                            }}
+                            style={{ width: 70, padding: '2px 4px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 3, color: 'white' }}
+                          />
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
           <button
             className="action-btn generate"
-            style={{ width: '100%', marginTop: 8 }}
+            style={{ width: '100%', marginTop: 10 }}
             disabled={isBulkRunning}
-            onClick={() => actions.bulkGenerate(selectedChapterId, bulk, bulk.count)}
+            onClick={() => actions.bulkGenerateByTheme(selectedChapterId, profile, themeCount, rampOn)}
           >
-            {isBulkRunning ? `Generating ${bulkProgress.current}/${bulkProgress.total}...` : `Generate ${bulk.count} levels`}
+            {isBulkRunning ? `Generating ${bulkProgress.current}/${bulkProgress.total}...` : `Generate ${themeCount} levels`}
           </button>
-          {bulkProgress && !isBulkRunning && (
-            <div style={{ marginTop: 6, fontSize: '0.85em', opacity: 0.8 }}>
-              Done: {bulkProgress.total - bulkProgress.failed} added
-              {bulkProgress.failed > 0 && `, ${bulkProgress.failed} failed (try widening ranges or raising max moves)`}
+
+          {bulkProgress && !isBulkRunning && bulkProgress.failed === 0 && (
+            <div style={{ marginTop: 6, fontSize: '0.85em', opacity: 0.85 }}>
+              Done: {bulkProgress.committed} added.
+            </div>
+          )}
+          {bulkProgress && !isBulkRunning && bulkProgress.failed > 0 && (
+            <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: 4, fontSize: '0.82em', lineHeight: 1.45 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                {bulkProgress.failed} of {bulkProgress.total} couldn't be generated. Nothing was added.
+              </div>
+              <div style={{ opacity: 0.85, marginBottom: 6 }}>
+                The solver couldn't find a level satisfying these parameters. Try widening the move range, reducing snakes, or growing the grid:
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {bulkProgress.failures.slice(0, 8).map((f, i) => (
+                  <li key={i} style={{ marginBottom: 2 }}>
+                    <strong>Level {f.levelIndex}:</strong> {summarizeFailureParams(f.params, f.target)}
+                  </li>
+                ))}
+                {bulkProgress.failures.length > 8 && (
+                  <li style={{ opacity: 0.7 }}>… and {bulkProgress.failures.length - 8} more</li>
+                )}
+              </ul>
             </div>
           )}
           {isBulkRunning && bulkProgress.failed > 0 && (
             <div style={{ marginTop: 6, fontSize: '0.85em', opacity: 0.7 }}>
-              {bulkProgress.failed} failed so far
+              {bulkProgress.failed} failed so far (will not be added if any fail)
             </div>
           )}
         </div>
@@ -592,6 +868,11 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [gridSize, setGridSize] = useState(existingLevel?.gridSize || 5)
   const [difficulty, setDifficulty] = useState(existingLevel?.difficulty || 'easy')
   const [par, setPar] = useState(existingLevel?.par || 3)
+  // Optional time target for campaign levels. 0 = no target.
+  // `timeTargetText` is the string the user is typing; we parse it back to ms
+  // so they can type "1:30" or "90" and we keep what they wrote on screen.
+  const [targetTimeMs, setTargetTimeMs] = useState(existingLevel?.targetTimeMs || 0)
+  const [timeTargetText, setTimeTargetText] = useState(formatTimeTargetText(existingLevel?.targetTimeMs || 0))
   const [levelDate, setLevelDate] = useState(existingLevel?.date || getLocalDateString(new Date()))
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
@@ -659,7 +940,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   }, [campaign])
 
   const uid = () => Math.random().toString(36).slice(2, 10)
-  const currentPuzzleData = () => ({ gridSize, frogs, snakes, logs, lilyPads, par, instructions })
+  const currentPuzzleData = () => ({ gridSize, frogs, snakes, logs, lilyPads, par, targetTimeMs, instructions })
   const loadPuzzleIntoCanvas = (p) => {
     setGridSize(p.gridSize || 5)
     setFrogs(p.frogs || [])
@@ -667,6 +948,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setLogs(p.logs || [])
     setLilyPads(p.lilyPads || [])
     setPar(p.par || 0)
+    const t = p.targetTimeMs || 0
+    setTargetTimeMs(t)
+    setTimeTargetText(formatTimeTargetText(t))
     setInstructions(p.instructions || '')
   }
 
@@ -723,6 +1007,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       logs: [],
       lilyPads: [],
       par: 0,
+      targetTimeMs: 0,
       instructions: '',
     }
     const level = {
@@ -809,6 +1094,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           logs: lv.logs,
           lilyPads: lv.lilyPads,
           par: lv.par,
+          ...(lv.targetTimeMs && lv.targetTimeMs > 0 ? { targetTimeMs: lv.targetTimeMs } : {}),
         })),
       })),
     }
@@ -855,6 +1141,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           logs: lv.logs,
           lilyPads: lv.lilyPads,
           par: lv.par,
+          ...(lv.targetTimeMs && lv.targetTimeMs > 0 ? { targetTimeMs: lv.targetTimeMs } : {}),
         })),
       })),
     }
@@ -946,6 +1233,79 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     }
     setCampaignBulkProgress({ current: count, total: count, failed })
     setTimeout(() => setCampaignBulkProgress(null), 4000)
+  }
+
+  // Theme-driven bulk generation. Each level's params are interpolated from
+  // theme.start to theme.end across the chapter when ramp is on; otherwise
+  // every level uses the start profile. Theme target ('moves'|'time'|'both'|
+  // 'none') decides whether par and/or targetTimeMs end up on the level.
+  // `theme` is a plain object: { start, end, target }.
+  //
+  // Atomic: if ANY level fails to generate, nothing is appended to the
+  // chapter. Failures (with the params the solver couldn't satisfy) are
+  // reported back through campaignBulkProgress so the UI can surface them.
+  const campaignBulkGenerateByTheme = async (chapterId, theme, count, rampOn) => {
+    if (!chapterId || !count || count < 1 || !theme || !theme.start || !theme.end) return
+    setCampaignBulkProgress({ current: 0, total: count, failed: 0, failures: [] })
+    const failures = []
+    const pending = []
+    for (let i = 0; i < count; i++) {
+      setCampaignBulkProgress({ current: i, total: count, failed: failures.length, failures: [...failures] })
+      await new Promise(r => setTimeout(r, 10))
+      const p = paramsForBulkLevel(theme, i, count, rampOn)
+      const level = generateLevelWithCriteria({
+        gridSize: p.gridSize,
+        minMoves: p.minMoves,
+        maxMoves: p.maxMoves,
+        numFrogs: p.numFrogs,
+        snakesMin: p.snakesMin,
+        snakesMax: p.snakesMax,
+        maxSnakeSize: p.maxSnakeSize,
+        logsMin: p.logsMin,
+        logsMax: p.logsMax,
+        lilyPadsMin: p.lilyPadsMin,
+        lilyPadsMax: p.lilyPadsMax,
+      })
+      if (!level) {
+        failures.push({ levelIndex: i + 1, params: p, target: theme.target })
+        continue
+      }
+      // Apply the theme's target type to this level.
+      let finalPar = level.par
+      let finalTargetTimeMs = 0
+      if (theme.target === 'time') {
+        finalPar = 0
+        finalTargetTimeMs = p.targetTimeMs
+      } else if (theme.target === 'both') {
+        finalTargetTimeMs = p.targetTimeMs
+      } else if (theme.target === 'none') {
+        finalPar = 0
+      }
+      pending.push({ ...level, par: finalPar, targetTimeMs: finalTargetTimeMs })
+    }
+
+    if (failures.length === 0) {
+      // All-or-nothing: commit the whole batch in a single state update.
+      setCampaign(c => ({
+        ...c,
+        chapters: c.chapters.map(ch => {
+          if (ch.id !== chapterId) return ch
+          const baseIdx = ch.levels.length
+          const newLevels = pending.map((lv, k) => ({ id: uid(), name: `Level ${baseIdx + k + 1}`, ...lv }))
+          return { ...ch, levels: [...ch.levels, ...newLevels] }
+        }),
+      }))
+    }
+
+    setCampaignBulkProgress({
+      current: count,
+      total: count,
+      failed: failures.length,
+      failures,
+      committed: failures.length === 0 ? pending.length : 0,
+    })
+    // Failure summaries deserve a longer dwell time so the user can read them.
+    setTimeout(() => setCampaignBulkProgress(null), failures.length > 0 ? 30000 : 4000)
   }
 
   // CJ difficulty grid sizes
@@ -2053,6 +2413,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       saveToServer: campaignSaveToServer,
                       loadFromServer: campaignLoadFromServer,
                       bulkGenerate: campaignBulkGenerate,
+                      bulkGenerateByTheme: campaignBulkGenerateByTheme,
                     }}
                   />
                 )}
@@ -2121,16 +2482,58 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                   />
                 </div>
 
-                <div className="editor-section">
-                  <label>Par (Optimal Moves)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="50"
-                    value={par}
-                    onChange={(e) => setPar(parseInt(e.target.value) || 3)}
-                  />
-                </div>
+                {editorGame === 'campaign' ? (
+                  <div className="editor-section">
+                    <label>Move target (optional)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={par || ''}
+                      placeholder="e.g. 5 — blank = no move target"
+                      onChange={(e) => {
+                        const n = parseInt(e.target.value, 10)
+                        setPar(Number.isNaN(n) || n < 0 ? 0 : n)
+                      }}
+                    />
+                    <label style={{ marginTop: 8 }}>Time target (optional)</label>
+                    <input
+                      type="text"
+                      value={timeTargetText}
+                      placeholder="e.g. 1:30 or 90 — blank = no time target"
+                      onChange={(e) => {
+                        const text = e.target.value
+                        setTimeTargetText(text)
+                        setTargetTimeMs(parseTimeTargetText(text))
+                      }}
+                      onBlur={() => {
+                        // Snap the visible text to the canonical formatting on blur,
+                        // but only if we parsed a value — keep raw text if not.
+                        if (targetTimeMs > 0) setTimeTargetText(formatTimeTargetText(targetTimeMs))
+                      }}
+                    />
+                    <div style={{ marginTop: 4, fontSize: '0.8em', opacity: 0.65 }}>
+                      {par > 0 && targetTimeMs > 0
+                        ? `Target: ${par} move${par === 1 ? '' : 's'} or under ${formatTimeTargetText(targetTimeMs)}`
+                        : par > 0
+                          ? `Target: ${par} move${par === 1 ? '' : 's'}`
+                          : targetTimeMs > 0
+                            ? `Target: under ${formatTimeTargetText(targetTimeMs)}`
+                            : 'No target set — level can be completed however the player likes.'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="editor-section">
+                    <label>Par (Optimal Moves)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={par}
+                      onChange={(e) => setPar(parseInt(e.target.value) || 3)}
+                    />
+                  </div>
+                )}
 
                 <div className="editor-section">
                   <label>Tool</label>

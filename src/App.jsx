@@ -15,6 +15,8 @@ import { resolvePlayMode, savePlayMode } from './lib/playMode.js'
 import { useGameTimer, formatTime } from './lib/useGameTimer.js'
 import {
   FrogSVG,
+  HappyFrogSVG,
+  SadFrogSVG,
   LilyPadSVG,
   LogSVG,
   VerticalSnakeSVG,
@@ -449,6 +451,16 @@ function App({ initialGame = 'jumping-frogs' }) {
 
   // Game stats
   const [moves, setMoves] = useState(0)
+
+  // Win-state mood for the on-board frogs:
+  //   par exact -> happy hop, 10x par or worse -> sad slump, otherwise neutral.
+  const winMood = (() => {
+    if (!isGameWon || !currentLevel?.par) return null
+    if (moves === currentLevel.par) return 'happy'
+    if (moves >= currentLevel.par * 10) return 'sad'
+    return null
+  })()
+  const FrogPiece = winMood === 'happy' ? HappyFrogSVG : winMood === 'sad' ? SadFrogSVG : FrogSVG
 
   // Track completed levels with their stats for the current date
   const [completedLevels, setCompletedLevels] = useState(() => {
@@ -1374,7 +1386,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                         <LilyPadSVG />
                       </span>
                       <span
-                        className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''}`}
+                        className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''} ${winMood ? `frog-mood-${winMood}` : ''}`}
                         onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
                         onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                         style={{
@@ -1384,13 +1396,13 @@ function App({ initialGame = 'jumping-frogs' }) {
                           zIndex: isThisFrogDragging ? 100 : undefined,
                         }}
                       >
-                        <FrogSVG color={content.frog.color} />
+                        <FrogPiece color={content.frog.color} />
                       </span>
                     </>
                   ) : content && content.type === 'frog' ? (
                     /* Frog not on lily pad */
                     <span
-                      className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''}`}
+                      className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''} ${winMood ? `frog-mood-${winMood}` : ''}`}
                       onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
                       onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                       style={{
@@ -1400,7 +1412,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                         zIndex: isThisFrogDragging ? 100 : undefined,
                       }}
                     >
-                      <FrogSVG color={content.frog.color} />
+                      <FrogPiece color={content.frog.color} />
                     </span>
                   ) : content && content.type === 'lilypad' ? (
                     <span className="piece-icon">

@@ -149,6 +149,200 @@ export const FrogSVG = ({ color = 'green' }) => {
   )
 }
 
+// Triumphant frog: shown when the level is beaten in exactly par moves.
+// Closed happy eyes, open grin with tongue, blushing cheeks, sparkles around the head.
+export const HappyFrogSVG = ({ color = 'green' }) => {
+  const colors = FROG_COLORS[color] || FROG_COLORS.green
+  const id = `frog-happy-${color}`
+
+  return (
+    <svg viewBox="0 0 100 100" className="piece-svg frog-happy">
+      <defs>
+        <radialGradient id={`${id}-body`} cx="40%" cy="30%" r="70%">
+          <stop offset="0%" stopColor={colors.bodyLight} />
+          <stop offset="60%" stopColor={colors.body} />
+          <stop offset="100%" stopColor={colors.bodyDark} />
+        </radialGradient>
+        <radialGradient id={`${id}-belly`} cx="50%" cy="30%" r="70%">
+          <stop offset="0%" stopColor={colors.belly} />
+          <stop offset="100%" stopColor={colors.bellyDark} />
+        </radialGradient>
+      </defs>
+
+      <ellipse cx="22" cy="78" rx="14" ry="10" fill={colors.outline} />
+      <ellipse cx="22" cy="77" rx="12" ry="8" fill={`url(#${id}-body)`} />
+      <ellipse cx="78" cy="78" rx="14" ry="10" fill={colors.outline} />
+      <ellipse cx="78" cy="77" rx="12" ry="8" fill={`url(#${id}-body)`} />
+
+      <ellipse cx="12" cy="88" rx="10" ry="6" fill={colors.outline} />
+      <ellipse cx="12" cy="87" rx="8" ry="5" fill={colors.toes} />
+      <ellipse cx="88" cy="88" rx="10" ry="6" fill={colors.outline} />
+      <ellipse cx="88" cy="87" rx="8" ry="5" fill={colors.toes} />
+
+      <ellipse cx="50" cy="62" rx="32" ry="28" fill={colors.outline} />
+      <ellipse cx="50" cy="60" rx="30" ry="26" fill={`url(#${id}-body)`} />
+
+      <ellipse cx="50" cy="68" rx="18" ry="14" fill={colors.outline} />
+      <ellipse cx="50" cy="67" rx="16" ry="12" fill={`url(#${id}-belly)`} />
+      <ellipse cx="50" cy="64" rx="8" ry="5" fill={colors.belly} opacity="0.6" />
+
+      {/* Front legs raised in a cheer */}
+      <ellipse cx="22" cy="60" rx="9" ry="6" fill={colors.outline} transform="rotate(-30 22 60)" />
+      <ellipse cx="22" cy="59" rx="7" ry="4" fill={`url(#${id}-body)`} transform="rotate(-30 22 59)" />
+      <ellipse cx="78" cy="60" rx="9" ry="6" fill={colors.outline} transform="rotate(30 78 60)" />
+      <ellipse cx="78" cy="59" rx="7" ry="4" fill={`url(#${id}-body)`} transform="rotate(30 78 59)" />
+      <ellipse cx="14" cy="50" rx="6" ry="4" fill={colors.outline} />
+      <ellipse cx="14" cy="49" rx="4" ry="3" fill={colors.toes} />
+      <ellipse cx="86" cy="50" rx="6" ry="4" fill={colors.outline} />
+      <ellipse cx="86" cy="49" rx="4" ry="3" fill={colors.toes} />
+
+      <ellipse cx="50" cy="35" rx="28" ry="24" fill={colors.outline} />
+      <ellipse cx="50" cy="34" rx="26" ry="22" fill={`url(#${id}-body)`} />
+
+      <circle cx="35" cy="22" r="15" fill={colors.outline} />
+      <circle cx="35" cy="21" r="13" fill={`url(#${id}-body)`} />
+      <ellipse cx="32" cy="16" rx="5" ry="3" fill="white" opacity="0.7" />
+
+      <circle cx="65" cy="22" r="15" fill={colors.outline} />
+      <circle cx="65" cy="21" r="13" fill={`url(#${id}-body)`} />
+      <ellipse cx="62" cy="16" rx="5" ry="3" fill="white" opacity="0.7" />
+
+      {/* Happy closed eyes — upward arcs (^ ^) */}
+      <path d="M27 26 Q35 18 43 26" stroke={colors.outline} strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M57 26 Q65 18 73 26" stroke={colors.outline} strokeWidth="3" fill="none" strokeLinecap="round" />
+
+      {/* Nostrils */}
+      <circle cx="44" cy="38" r="2" fill={colors.outline} />
+      <circle cx="56" cy="38" r="2" fill={colors.outline} />
+
+      {/* Wide open grin with tongue */}
+      <path d="M34 44 Q50 60 66 44 Q58 54 50 55 Q42 54 34 44 Z" fill="#4a0e0e" stroke={colors.outline} strokeWidth="2" strokeLinejoin="round" />
+      <path d="M40 49 Q50 58 60 49 Q55 56 50 56 Q45 56 40 49 Z" fill="#ef4444" />
+      <ellipse cx="50" cy="53" rx="3" ry="1.5" fill="#f87171" opacity="0.8" />
+
+      {/* Rosy cheeks */}
+      <ellipse cx="26" cy="40" rx="5" ry="3" fill="#fb7185" opacity="0.55" />
+      <ellipse cx="74" cy="40" rx="5" ry="3" fill="#fb7185" opacity="0.55" />
+
+      {/* Body shine highlights */}
+      <ellipse cx="40" cy="58" rx="10" ry="6" fill="white" opacity="0.3" />
+      <ellipse cx="38" cy="56" rx="5" ry="3" fill="white" opacity="0.5" />
+
+      {/* Sparkle stars */}
+      <g fill="#fde047" stroke="#facc15" strokeWidth="0.8">
+        <path d="M14 18 L16 22 L20 22 L17 25 L18 29 L14 27 L10 29 L11 25 L8 22 L12 22 Z" />
+        <path d="M86 16 L87.4 19 L90.5 19 L88 21 L89 24 L86 22.4 L83 24 L84 21 L81.5 19 L84.6 19 Z" />
+        <path d="M82 70 L83 72.4 L85.5 72.4 L83.5 74 L84.4 76.4 L82 75 L79.6 76.4 L80.5 74 L78.5 72.4 L81 72.4 Z" />
+      </g>
+    </svg>
+  )
+}
+
+// Defeated frog: shown when the level is beaten in 10x par moves or worse.
+// Droopy eyes, frown, tear drops, slumped posture.
+export const SadFrogSVG = ({ color = 'green' }) => {
+  const colors = FROG_COLORS[color] || FROG_COLORS.green
+  const id = `frog-sad-${color}`
+
+  return (
+    <svg viewBox="0 0 100 100" className="piece-svg frog-sad">
+      <defs>
+        <radialGradient id={`${id}-body`} cx="40%" cy="30%" r="70%">
+          <stop offset="0%" stopColor={colors.bodyLight} />
+          <stop offset="60%" stopColor={colors.body} />
+          <stop offset="100%" stopColor={colors.bodyDark} />
+        </radialGradient>
+        <radialGradient id={`${id}-belly`} cx="50%" cy="30%" r="70%">
+          <stop offset="0%" stopColor={colors.belly} />
+          <stop offset="100%" stopColor={colors.bellyDark} />
+        </radialGradient>
+        <radialGradient id={`${id}-eye`} cx="40%" cy="35%" r="60%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="70%" stopColor="#f0f0f0" />
+          <stop offset="100%" stopColor="#d0d0d0" />
+        </radialGradient>
+        <linearGradient id={`${id}-tear`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#bae6fd" />
+          <stop offset="100%" stopColor="#0284c7" />
+        </linearGradient>
+      </defs>
+
+      <ellipse cx="22" cy="80" rx="14" ry="9" fill={colors.outline} />
+      <ellipse cx="22" cy="79" rx="12" ry="7" fill={`url(#${id}-body)`} />
+      <ellipse cx="78" cy="80" rx="14" ry="9" fill={colors.outline} />
+      <ellipse cx="78" cy="79" rx="12" ry="7" fill={`url(#${id}-body)`} />
+
+      <ellipse cx="12" cy="89" rx="10" ry="5" fill={colors.outline} />
+      <ellipse cx="12" cy="88" rx="8" ry="4" fill={colors.toes} />
+      <ellipse cx="88" cy="89" rx="10" ry="5" fill={colors.outline} />
+      <ellipse cx="88" cy="88" rx="8" ry="4" fill={colors.toes} />
+
+      {/* Slumped body — slightly squashed and lower */}
+      <ellipse cx="50" cy="66" rx="32" ry="26" fill={colors.outline} />
+      <ellipse cx="50" cy="64" rx="30" ry="24" fill={`url(#${id}-body)`} />
+
+      <ellipse cx="50" cy="72" rx="18" ry="13" fill={colors.outline} />
+      <ellipse cx="50" cy="71" rx="16" ry="11" fill={`url(#${id}-belly)`} />
+      <ellipse cx="50" cy="68" rx="8" ry="5" fill={colors.belly} opacity="0.6" />
+
+      {/* Drooped front legs */}
+      <ellipse cx="25" cy="76" rx="10" ry="6" fill={colors.outline} />
+      <ellipse cx="25" cy="75" rx="8" ry="4" fill={`url(#${id}-body)`} />
+      <ellipse cx="75" cy="76" rx="10" ry="6" fill={colors.outline} />
+      <ellipse cx="75" cy="75" rx="8" ry="4" fill={`url(#${id}-body)`} />
+
+      <ellipse cx="18" cy="82" rx="8" ry="4" fill={colors.outline} />
+      <ellipse cx="18" cy="81" rx="6" ry="3" fill={colors.toes} />
+      <ellipse cx="82" cy="82" rx="8" ry="4" fill={colors.outline} />
+      <ellipse cx="82" cy="81" rx="6" ry="3" fill={colors.toes} />
+
+      {/* Head — tilted/lowered */}
+      <ellipse cx="50" cy="40" rx="28" ry="22" fill={colors.outline} />
+      <ellipse cx="50" cy="39" rx="26" ry="20" fill={`url(#${id}-body)`} />
+
+      {/* Drooping eye bumps */}
+      <circle cx="35" cy="28" r="14" fill={colors.outline} />
+      <circle cx="35" cy="27" r="12" fill={`url(#${id}-body)`} />
+      <ellipse cx="32" cy="22" rx="4" ry="2.5" fill="white" opacity="0.5" />
+
+      <circle cx="65" cy="28" r="14" fill={colors.outline} />
+      <circle cx="65" cy="27" r="12" fill={`url(#${id}-body)`} />
+      <ellipse cx="62" cy="22" rx="4" ry="2.5" fill="white" opacity="0.5" />
+
+      {/* Open eyes with pupils glancing down */}
+      <ellipse cx="35" cy="30" rx="8" ry="9" fill={colors.outline} />
+      <ellipse cx="35" cy="30" rx="7" ry="8" fill={`url(#${id}-eye)`} />
+      <ellipse cx="35" cy="34" rx="3.5" ry="4.5" fill="#1a1a1a" />
+      <circle cx="34" cy="32" r="1.5" fill="white" />
+
+      <ellipse cx="65" cy="30" rx="8" ry="9" fill={colors.outline} />
+      <ellipse cx="65" cy="30" rx="7" ry="8" fill={`url(#${id}-eye)`} />
+      <ellipse cx="65" cy="34" rx="3.5" ry="4.5" fill="#1a1a1a" />
+      <circle cx="64" cy="32" r="1.5" fill="white" />
+
+      {/* Sad slanted brow lines above each eye */}
+      <path d="M24 18 Q32 16 42 22" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+      <path d="M76 18 Q68 16 58 22" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+
+      {/* Nostrils */}
+      <circle cx="44" cy="44" r="2" fill={colors.outline} />
+      <circle cx="56" cy="44" r="2" fill={colors.outline} />
+
+      {/* Frown — curve dips upward at the corners */}
+      <path d="M38 56 Q50 49 62 56" stroke={colors.outline} strokeWidth="2.5" fill="none" strokeLinecap="round" />
+
+      {/* Tear drops — one on each cheek */}
+      <path d="M28 38 Q26 44 28 48 Q30 44 28 38 Z" fill={`url(#${id}-tear)`} stroke="#0369a1" strokeWidth="0.6" />
+      <ellipse cx="27.5" cy="42" rx="0.8" ry="1.5" fill="white" opacity="0.8" />
+      <path d="M72 38 Q70 44 72 48 Q74 44 72 38 Z" fill={`url(#${id}-tear)`} stroke="#0369a1" strokeWidth="0.6" />
+      <ellipse cx="71.5" cy="42" rx="0.8" ry="1.5" fill="white" opacity="0.8" />
+
+      {/* Body shine highlights — dimmer */}
+      <ellipse cx="40" cy="62" rx="10" ry="5" fill="white" opacity="0.18" />
+    </svg>
+  )
+}
+
 // Cartoony glossy Lily Pad SVG component
 export const LilyPadSVG = () => (
   <svg viewBox="0 0 100 100" className="piece-svg">

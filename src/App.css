@@ -1365,6 +1365,37 @@
   }
 }
 
+/* On-win mood for the level frogs: par-exact = happy hop, 10x par = sad slump. */
+.frog-piece.frog-mood-happy {
+  animation: frog-mood-happy-hop 0.55s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 10px rgba(253, 224, 71, 0.6));
+  transform-origin: 50% 90%;
+}
+
+@keyframes frog-mood-happy-hop {
+  0% {
+    transform: translateY(0) rotate(-4deg) scale(1);
+  }
+  100% {
+    transform: translateY(-12%) rotate(4deg) scale(1.05);
+  }
+}
+
+.frog-piece.frog-mood-sad {
+  animation: frog-mood-sad-sway 2.6s ease-in-out infinite;
+  filter: saturate(0.7) brightness(0.92);
+  transform-origin: 50% 90%;
+}
+
+@keyframes frog-mood-sad-sway {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(2%) rotate(3deg);
+  }
+}
+
 /* Short viewport styles */
 @media (max-height: 700px) {
   .app {
