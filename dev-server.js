@@ -157,6 +157,41 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+// POST /api/auto-level-ratings - Save a fun rating for a procedurally generated level
+app.post('/api/auto-level-ratings', async (req, res) => {
+  const { userId, visitorId, themeKey, chapterId, levelIndex, rating, par, moves, level } = req.body || {};
+  const finalUserId = userId || visitorId;
+
+  if (!finalUserId || !level || rating === undefined) {
+    return res.status(400).json({ error: 'userId/visitorId, rating, and level required' });
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: 'rating must be an integer between 1 and 5' });
+  }
+
+  try {
+    await query(
+      `INSERT INTO auto_level_ratings
+         (user_id, theme_key, chapter_id, level_index, rating, par, moves, level)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        finalUserId,
+        themeKey || null,
+        Number.isInteger(chapterId) ? chapterId : null,
+        Number.isInteger(levelIndex) ? levelIndex : null,
+        rating,
+        Number.isInteger(par) ? par : null,
+        Number.isInteger(moves) ? moves : null,
+        JSON.stringify(level),
+      ]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving auto level rating:', error);
+    res.status(500).json({ error: 'Failed to save rating' });
+  }
+});
+
 // POST /api/stats - Save a completion
 const VALID_MODES = new Set(['casual', 'competitive']);
 app.post('/api/stats', async (req, res) => {
