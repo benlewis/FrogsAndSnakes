@@ -1,5 +1,10 @@
 import { query } from './_db.js';
 
+function clampInt(value, min, max, fallback) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
 // Player-submitted fun ratings for procedurally generated Auto chapter levels.
 // Each row captures the full level JSON so we can mine for the highest-rated
 // layouts later (e.g. seed the campaign with the best procedural levels).
@@ -30,11 +35,44 @@ async function ensureSchema() {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // GET /api/auto-level-ratings?themeKey=auto1&minRating=4&limit=10
+  // Returns up to `limit` distinct levels grouped by JSON content, ordered
+  // by average rating (desc), then rating count (desc). Used by the iOS
+  // "Rated 1" chapter to surface the best procedural layouts.
+  if (req.method === 'GET') {
+    const themeKey = String(req.query.themeKey || '').trim();
+    const minRating = clampInt(parseInt(req.query.minRating, 10), 1, 5, 4);
+    const limit = clampInt(parseInt(req.query.limit, 10), 1, 50, 10);
+
+    if (!themeKey) {
+      return res.status(400).json({ error: 'themeKey required' });
+    }
+
+    try {
+      await ensureSchema();
+      const result = await query(
+        `SELECT level, AVG(rating)::float AS avg_rating, COUNT(*)::int AS rating_count
+         FROM auto_level_ratings
+         WHERE theme_key = $1 AND rating >= $2
+         GROUP BY level
+         ORDER BY avg_rating DESC, rating_count DESC
+         LIMIT $3`,
+        [themeKey, minRating, limit]
+      );
+      return res.status(200).json({
+        levels: result.rows.map((r) => r.level),
+      });
+    } catch (error) {
+      console.error('Error fetching top rated levels:', error);
+      return res.status(500).json({ error: 'Failed to fetch ratings: ' + error.message });
+    }
   }
 
   if (req.method !== 'POST') {

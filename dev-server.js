@@ -157,6 +157,38 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+// GET /api/auto-level-ratings?themeKey=auto1&minRating=4&limit=10 - Top-rated levels
+function clampInt(value, min, max, fallback) {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(value)));
+}
+
+app.get('/api/auto-level-ratings', async (req, res) => {
+  const themeKey = String(req.query.themeKey || '').trim();
+  const minRating = clampInt(parseInt(req.query.minRating, 10), 1, 5, 4);
+  const limit = clampInt(parseInt(req.query.limit, 10), 1, 50, 10);
+
+  if (!themeKey) {
+    return res.status(400).json({ error: 'themeKey required' });
+  }
+
+  try {
+    const result = await query(
+      `SELECT level, AVG(rating)::float AS avg_rating, COUNT(*)::int AS rating_count
+       FROM auto_level_ratings
+       WHERE theme_key = $1 AND rating >= $2
+       GROUP BY level
+       ORDER BY avg_rating DESC, rating_count DESC
+       LIMIT $3`,
+      [themeKey, minRating, limit]
+    );
+    res.json({ levels: result.rows.map((r) => r.level) });
+  } catch (error) {
+    console.error('Error fetching top rated levels:', error);
+    res.status(500).json({ error: 'Failed to fetch ratings' });
+  }
+});
+
 // POST /api/auto-level-ratings - Save a fun rating for a procedurally generated level
 app.post('/api/auto-level-ratings', async (req, res) => {
   const { userId, visitorId, themeKey, chapterId, levelIndex, rating, par, moves, level } = req.body || {};
