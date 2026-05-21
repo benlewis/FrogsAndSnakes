@@ -224,6 +224,30 @@ app.post('/api/auto-level-ratings', async (req, res) => {
   }
 });
 
+// GET /api/auto-level-pool?themeKey=auto6&limit=10 - random levels from the
+// server-generated pool. ?counts=true returns per-theme counts.
+app.get('/api/auto-level-pool', async (req, res) => {
+  try {
+    if (String(req.query.counts || '') === 'true') {
+      const r = await query(`SELECT theme_key, COUNT(*)::int AS n FROM auto_level_pool GROUP BY theme_key`);
+      const counts = {};
+      for (const row of r.rows) counts[row.theme_key] = row.n;
+      return res.json({ counts });
+    }
+    const themeKey = String(req.query.themeKey || '').trim();
+    const limit = clampInt(parseInt(req.query.limit, 10), 1, 50, 10);
+    if (!themeKey) return res.status(400).json({ error: 'themeKey required' });
+    const result = await query(
+      `SELECT level FROM auto_level_pool WHERE theme_key = $1 ORDER BY random() LIMIT $2`,
+      [themeKey, limit]
+    );
+    res.json({ levels: result.rows.map((r) => r.level) });
+  } catch (error) {
+    console.error('Error fetching auto level pool:', error);
+    res.status(500).json({ error: 'Failed to fetch pool' });
+  }
+});
+
 // POST /api/stats - Save a completion
 const VALID_MODES = new Set(['casual', 'competitive']);
 app.post('/api/stats', async (req, res) => {
