@@ -237,8 +237,19 @@ app.get('/api/auto-level-pool', async (req, res) => {
       return res.json({ counts });
     }
     const themeKey = String(req.query.themeKey || '').trim();
-    const limit = clampInt(parseInt(req.query.limit, 10), 1, 50, 10);
     if (!themeKey) return res.status(400).json({ error: 'themeKey required' });
+    if (req.query.afterId !== undefined) {
+      const afterId = clampInt(parseInt(req.query.afterId, 10), 0, Number.MAX_SAFE_INTEGER, 0);
+      const pageLimit = clampInt(parseInt(req.query.limit, 10), 1, 500, 200);
+      const page = await query(
+        `SELECT id, level FROM auto_level_pool WHERE theme_key = $1 AND id > $2 ORDER BY id ASC LIMIT $3`,
+        [themeKey, afterId, pageLimit]
+      );
+      const levels = page.rows.map((r) => r.level);
+      const maxId = page.rows.length ? page.rows[page.rows.length - 1].id : null;
+      return res.json({ levels, maxId });
+    }
+    const limit = clampInt(parseInt(req.query.limit, 10), 1, 50, 10);
     const result = await query(
       `SELECT level FROM auto_level_pool WHERE theme_key = $1 ORDER BY random() LIMIT $2`,
       [themeKey, limit]
@@ -253,7 +264,7 @@ app.get('/api/auto-level-pool', async (req, res) => {
 // POST /api/auto-level-pool { action: 'generate', themeKey? } - bounded
 // manual top-up run (admin "Generate now").
 app.post('/api/auto-level-pool', async (req, res) => {
-  const { action, themeKey } = req.body || {};
+  const { action, themeKey, count } = req.body || {};
   if (action !== 'generate') {
     return res.status(400).json({ error: "unsupported action; expected 'generate'" });
   }
@@ -262,6 +273,7 @@ app.post('/api/auto-level-pool', async (req, res) => {
     const added = await runGenerationPass({
       deadlineMs: start + 50_000,
       onlyThemeKey: themeKey ? String(themeKey) : undefined,
+      count: count != null ? clampInt(parseInt(count, 10), 1, 1000, undefined) : undefined,
     });
     res.json({ ok: true, added, elapsedMs: Date.now() - start, counts: await poolCounts() });
   } catch (error) {

@@ -202,3 +202,20 @@ export async function fetchRandom(themeKey, limit) {
   );
   return r.rows.map((row) => row.level);
 }
+
+// Returns up to `limit` levels for a theme with id > `afterId`, oldest first.
+// `id` is a monotonic SERIAL, so the client pages by passing back the largest
+// id it has seen — letting it download the whole pool and pick up only newly
+// generated levels on the next launch. Returns { levels, maxId }; `maxId` is
+// the largest id in this page, or null when there are no more levels.
+export async function fetchSince(themeKey, afterId, limit) {
+  const r = await query(
+    `SELECT id, level FROM auto_level_pool
+     WHERE theme_key = $1 AND id > $2
+     ORDER BY id ASC LIMIT $3`,
+    [themeKey, afterId, limit]
+  );
+  const levels = r.rows.map((row) => row.level);
+  const maxId = r.rows.length ? r.rows[r.rows.length - 1].id : null;
+  return { levels, maxId };
+}
