@@ -1309,8 +1309,13 @@ function App({ initialGame = 'jumping-frogs' }) {
       </div>
       <div className="date-row">
         <div className="date-row-left">
-          <span className="game-title">{gameTitle}</span>
-          <span className="date-separator">&middot;</span>
+          {/* Expert shows a long date range; drop the game name to save room. */}
+          {difficulty !== 'expert' && (
+            <>
+              <span className="game-title">{gameTitle}</span>
+              <span className="date-separator">&middot;</span>
+            </>
+          )}
           <span className="date-display">
             {difficulty === 'expert'
               ? formatDateRange(getMostRecentSunday(new Date(currentDate + 'T12:00:00')))
@@ -1443,15 +1448,25 @@ function App({ initialGame = 'jumping-frogs' }) {
         </div>
       </div>
 
-      {/* Stats bar */}
+      {/* Stats bar: stats on top, action buttons on their own line below */}
       <div className="stats-bar">
+        <div className="stats">
+          <span className="stat">
+            <span className="stat-label">Moves:</span> {moves}
+          </span>
+          {currentLevel?.par && (
+            <span className="stat stat-min">
+              <span className="stat-label">Min:</span> {currentLevel.par}
+            </span>
+          )}
+        </div>
         <div className="stats-bar-actions">
-          <Button variant="secondary" size="xs" onClick={handleReset}>
+          <Button variant="secondary" size="sm" onClick={handleReset}>
             Reset
           </Button>
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             onClick={handleUndo}
             disabled={gameHistory.length === 0 || isGameWon}
           >
@@ -1459,7 +1474,7 @@ function App({ initialGame = 'jumping-frogs' }) {
           </Button>
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             onClick={handleHint}
             disabled={isGameWon || !currentLevel || hintLoading}
             title={activeMode === 'competitive' ? 'Each hint adds 10 seconds to your time' : undefined}
@@ -1473,26 +1488,6 @@ function App({ initialGame = 'jumping-frogs' }) {
               </>
             )}
           </Button>
-        </div>
-        <div className="stats">
-          <span className="stat">
-            <span className="stat-label">Moves:</span> {moves}
-          </span>
-          {currentLevel?.par && (
-            <span className="stat stat-min">
-              <span className="stat-label">Min:</span> {currentLevel.par}
-            </span>
-          )}
-          {levelBest && (
-            <span className={`stat stat-best ${newBestFlash ? 'stat-best-new' : ''}`}>
-              <span className="stat-label">
-                {newBestFlash ? 'New best!' : 'Best:'}
-              </span>{' '}
-              {levelBest.mode === 'competitive' && levelBest.timeMs != null
-                ? formatTime(levelBest.timeMs)
-                : levelBest.moves}
-            </span>
-          )}
         </div>
       </div>
       {hintMove?.type === 'unsolvable' && (
