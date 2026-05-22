@@ -858,6 +858,16 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
   )
 }
 
+// Shared style for the pool panel's number inputs so their text is legible
+// on the dark editor background (otherwise inherits white text on white).
+const POOL_INPUT_STYLE = {
+  padding: '2px 4px',
+  background: 'rgba(255,255,255,0.08)',
+  border: '1px solid rgba(255,255,255,0.2)',
+  borderRadius: 3,
+  color: 'white',
+}
+
 // Admin panel for the server-generated Auto level pool: shows per-tier
 // cached counts vs. target, lets you edit the full generation recipe per
 // tier (persisted to the DB and used by the cron), and trigger a bounded
@@ -868,6 +878,7 @@ function LevelPoolPanel() {
   const [draft, setDraft] = useState(null) // editable copy of themes
   const [status, setStatus] = useState(null) // { kind, message }
   const [busyTier, setBusyTier] = useState(null) // themeKey being generated, or 'all'
+  const [genCount, setGenCount] = useState(10) // fixed # of levels per tier for the "Generate N each" action
 
   const loadCounts = async () => {
     try {
@@ -927,14 +938,15 @@ function LevelPoolPanel() {
     }
   }
 
-  const generate = async (themeKey) => {
+  const generate = async (themeKey, count) => {
     setBusyTier(themeKey || 'all')
-    setStatus({ kind: 'saving', message: `Generating ${themeKey ? data.titles[themeKey] : 'all tiers'}…` })
+    const scope = themeKey ? data.titles[themeKey] : 'all tiers'
+    setStatus({ kind: 'saving', message: count ? `Generating ${count} for ${scope}…` : `Generating ${scope}…` })
     try {
       const r = await fetch(`${API_BASE}/api/auto-level-pool`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'generate', themeKey }),
+        body: JSON.stringify({ action: 'generate', themeKey, count }),
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j.error || 'generate failed')
@@ -958,10 +970,10 @@ function LevelPoolPanel() {
       return (
         <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
           <input type="number" value={val[0]} min={spec.min} max={spec.max}
-            style={{ width: 56 }} onChange={(e) => setRangeField(themeKey, spec.key, 0, e.target.value)} />
+            style={{ ...POOL_INPUT_STYLE, width: 72 }} onChange={(e) => setRangeField(themeKey, spec.key, 0, e.target.value)} />
           <span style={{ opacity: 0.5 }}>–</span>
           <input type="number" value={val[1]} min={spec.min} max={spec.max}
-            style={{ width: 56 }} onChange={(e) => setRangeField(themeKey, spec.key, 1, e.target.value)} />
+            style={{ ...POOL_INPUT_STYLE, width: 72 }} onChange={(e) => setRangeField(themeKey, spec.key, 1, e.target.value)} />
         </span>
       )
     }
@@ -973,7 +985,7 @@ function LevelPoolPanel() {
             onChange={(e) => setField(themeKey, spec.key, e.target.checked ? (spec.min + 8) : null)} />
           {enabled && (
             <input type="number" value={val} min={spec.min} max={spec.max}
-              style={{ width: 64 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
+              style={{ ...POOL_INPUT_STYLE, width: 80 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
           )}
           {!enabled && <span style={{ opacity: 0.5, fontSize: '0.85em' }}>off</span>}
         </span>
@@ -981,7 +993,7 @@ function LevelPoolPanel() {
     }
     return (
       <input type="number" value={val} min={spec.min} max={spec.max}
-        style={{ width: 96 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
+        style={{ ...POOL_INPUT_STYLE, width: 120 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
     )
   }
 
@@ -993,8 +1005,17 @@ function LevelPoolPanel() {
           <button className="action-btn" style={{ width: 'auto' }} onClick={loadCounts}>Refresh</button>
           <button className="action-btn generate" style={{ width: 'auto' }}
             disabled={busyTier !== null} onClick={() => generate(undefined)}>
-            {busyTier === 'all' ? 'Generating…' : 'Generate all'}
+            {busyTier === 'all' ? 'Generating…' : 'Fill to target'}
           </button>
+          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+            <input type="number" min={1} max={1000} value={genCount}
+              style={{ ...POOL_INPUT_STYLE, width: 64 }}
+              onChange={(e) => setGenCount(Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1)))} />
+            <button className="action-btn generate" style={{ width: 'auto' }}
+              disabled={busyTier !== null} onClick={() => generate(undefined, genCount)}>
+              {busyTier === 'all' ? 'Generating…' : `Generate ${genCount} / tier`}
+            </button>
+          </span>
           <button className="action-btn export" style={{ width: 'auto' }} onClick={saveAll}>
             {status?.kind === 'saving' && status.message.startsWith('Saving') ? 'Saving…' : 'Save Parameters'}
           </button>
@@ -1037,7 +1058,7 @@ function LevelPoolPanel() {
                   ))}
                   <td style={{ padding: '6px 8px' }}>
                     <input type="number" value={draft[key].target} min={1} max={5000}
-                      style={{ width: 72 }} onChange={(e) => setField(key, 'target', parseInt(e.target.value, 10))} />
+                      style={{ ...POOL_INPUT_STYLE, width: 72 }} onChange={(e) => setField(key, 'target', parseInt(e.target.value, 10))} />
                   </td>
                   <td style={{ padding: '6px 8px' }}>
                     <button className="action-btn generate" style={{ width: 'auto', padding: '6px 10px' }}
@@ -1608,7 +1629,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     easy: { frogs: [1, 1], snakes: [1, 2], maxSnakeSize: 3, logs: [0, 2], extraLilyPads: [0, 1], moves: { min: 4, max: 7 } },
     medium: { frogs: [1, 2], snakes: [2, 4], maxSnakeSize: 3, logs: [1, 3], extraLilyPads: [0, 2], moves: { min: 8, max: 13 } },
     hard: { frogs: [1, 3], snakes: [3, 6], maxSnakeSize: 4, logs: [2, 5], extraLilyPads: [0, 3], moves: { min: 14, max: 20 } },
-    expert: { frogs: [2, 3], snakes: [3, 5], maxSnakeSize: 3, logs: [2, 5], extraLilyPads: [1, 3], moves: { min: 40, max: 60 } }
+    expert: { gridSize: 6, frogs: [2, 3], snakes: [3, 5], maxSnakeSize: 3, logs: [2, 5], extraLilyPads: [1, 3], moves: { min: 30, max: 60 } }
   }
 
   // "default" means use difficulty-based range, otherwise it's a specific number
@@ -2115,8 +2136,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   }
 
   // Generate a level for a specific difficulty without using React state
-  const generateLevelForDifficulty = (diff, size) => {
+  const generateLevelForDifficulty = (diff, fallbackSize) => {
     const defaults = difficultyDefaults[diff]
+    const size = defaults.gridSize ?? fallbackSize
     const minMoves = defaults.moves.min
     const maxMoves = defaults.moves.max
     const range = { min: minMoves, max: maxMoves }

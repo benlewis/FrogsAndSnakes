@@ -15,9 +15,10 @@ function clampInt(value, min, max, fallback) {
 //   → { levels: [Level, ...] }  (random selection from the server pool)
 // GET  /api/auto-level-pool?counts=true
 //   → { counts: { auto1: n, ... } }  (status/monitoring)
-// POST /api/auto-level-pool  { action: 'generate', themeKey? }
-//   → { ok, added, counts, elapsedMs }  (bounded manual top-up run; if
-//     themeKey omitted, fills the most-starved tiers across all)
+// POST /api/auto-level-pool  { action: 'generate', themeKey?, count? }
+//   → { ok, added, counts, elapsedMs }  (bounded manual run; if themeKey is
+//     omitted, runs across all tiers. With `count`, generates that many NEW
+//     levels per tier ignoring the target; without it, fills toward target.)
 //
 // Levels are stored in the iOS app's Swift `Level` JSON shape, so the
 // client can decode them directly with no transformation.
@@ -43,7 +44,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { action, themeKey } = req.body || {};
+      const { action, themeKey, count } = req.body || {};
       if (action !== 'generate') {
         return res.status(400).json({ error: "unsupported action; expected 'generate'" });
       }
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
       const added = await runGenerationPass({
         deadlineMs: start + MANUAL_BUDGET_MS,
         onlyThemeKey: themeKey ? String(themeKey) : undefined,
+        count: count != null ? clampInt(parseInt(count, 10), 1, 1000, undefined) : undefined,
       });
       return res.status(200).json({
         ok: true,

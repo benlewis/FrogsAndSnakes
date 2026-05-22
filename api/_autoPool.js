@@ -120,12 +120,15 @@ export async function saveConfig(themes) {
 // MARK: - Generation pass (shared by cron + manual admin trigger)
 
 // Tops up the pool until `deadlineMs`, most-starved-first. If
-// `onlyThemeKey` is given, only that tier is generated. Returns a map of
-// { themeKey: countAdded }.
-export async function runGenerationPass({ deadlineMs, onlyThemeKey } = {}) {
+// `onlyThemeKey` is given, only that tier is generated. If `count` is given,
+// generates exactly that many NEW levels for each in-scope tier (ignoring the
+// configured pool target); otherwise fills each tier up to its target.
+// Returns a map of { themeKey: countAdded }.
+export async function runGenerationPass({ deadlineMs, onlyThemeKey, count } = {}) {
   await ensurePoolSchema();
   const config = await getEffectiveConfig();
   const added = {};
+  const fixedCount = Number.isInteger(count) && count > 0 ? count : null;
 
   while (Date.now() < deadlineMs) {
     const counts = await poolCounts();
@@ -135,16 +138,23 @@ export async function runGenerationPass({ deadlineMs, onlyThemeKey } = {}) {
     for (const key of THEME_KEYS) {
       if (onlyThemeKey && key !== onlyThemeKey) continue;
       const have = (counts[key] || 0) + (added[key] || 0);
-      if (have < config[key].target && have < lowest) {
-        lowest = have;
+      // In fixed-count mode, rank by how many we've already added (round-robin
+      // across tiers); otherwise rank by absolute pool size (most-starved).
+      const remaining = fixedCount != null ? fixedCount - (added[key] || 0) : config[key].target - have;
+      const rank = fixedCount != null ? (added[key] || 0) : have;
+      if (remaining > 0 && rank < lowest) {
+        lowest = rank;
         target = key;
       }
     }
-    if (!target) break; // every (selected) tier is full
+    if (!target) break; // every (selected) tier has reached its goal
 
     // Small chunks so we re-check the deadline frequently — a single
     // Expert level can take many seconds.
-    const chunk = Math.min(config[target].target - lowest, 5);
+    const remaining = fixedCount != null
+      ? fixedCount - (added[target] || 0)
+      : config[target].target - ((counts[target] || 0) + (added[target] || 0));
+    const chunk = Math.min(remaining, 5);
     const levels = generateLevelsFromTheme(config[target], chunk, deadlineMs);
 
     let chunkAdded = 0;

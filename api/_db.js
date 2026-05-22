@@ -12,7 +12,8 @@ export function getPool() {
     const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
     pool = new Pool({
       connectionString,
-      ssl: { rejectUnauthorized: false },
+      // Local dev Postgres doesn't support SSL; cloud Postgres requires it.
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
       max: 1, // Serverless functions should use minimal connections
     });
   }
