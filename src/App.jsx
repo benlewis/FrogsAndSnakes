@@ -1322,14 +1322,6 @@ function App({ initialGame = 'jumping-frogs' }) {
               : formattedDate
             }
           </span>
-          {activeMode === 'competitive' && currentGame === 'jumping-frogs' && (
-            <span
-              className={`game-timer ${!timer.hasStarted ? 'game-timer-paused' : ''} ${penaltyFlash ? 'game-timer-penalty-flash' : ''}`}
-              aria-label="Elapsed time"
-            >
-              ⏱ {formatTime(timer.elapsedMs)}
-            </span>
-          )}
         </div>
         <div className="date-row-buttons">
           <button className="learn-btn" onClick={() => setShowWelcome(true)}>Learn</button>
@@ -1457,6 +1449,24 @@ function App({ initialGame = 'jumping-frogs' }) {
           {currentLevel?.par && (
             <span className="stat stat-min">
               <span className="stat-label">Min:</span> {currentLevel.par}
+            </span>
+          )}
+          {levelBest && (
+            <span className={`stat stat-best ${newBestFlash ? 'stat-best-new' : ''}`}>
+              <span className="stat-label">
+                {newBestFlash ? 'New best!' : 'Best:'}
+              </span>{' '}
+              {levelBest.mode === 'competitive' && levelBest.timeMs != null
+                ? formatTime(levelBest.timeMs)
+                : levelBest.moves}
+            </span>
+          )}
+          {activeMode === 'competitive' && currentGame === 'jumping-frogs' && (
+            <span
+              className={`stat game-timer ${!timer.hasStarted ? 'game-timer-paused' : ''} ${penaltyFlash ? 'game-timer-penalty-flash' : ''}`}
+              aria-label="Elapsed time"
+            >
+              ⏱ {formatTime(timer.elapsedMs)}
             </span>
           )}
         </div>
