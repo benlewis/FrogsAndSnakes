@@ -7,6 +7,8 @@ import express from 'express';
 import cors from 'cors';
 import { put, list, del } from '@vercel/blob';
 import { query, initializeSchema } from './lib/db.js';
+import { THEME_KEYS, THEME_TITLES, THEME_FIELD_SPEC } from './lib/autoLevelGenerator.js';
+import { getEffectiveConfig, saveConfig, runGenerationPass, poolCounts } from './api/_autoPool.js';
 
 const app = express();
 const PORT = 3002;
@@ -245,6 +247,51 @@ app.get('/api/auto-level-pool', async (req, res) => {
   } catch (error) {
     console.error('Error fetching auto level pool:', error);
     res.status(500).json({ error: 'Failed to fetch pool' });
+  }
+});
+
+// POST /api/auto-level-pool { action: 'generate', themeKey? } - bounded
+// manual top-up run (admin "Generate now").
+app.post('/api/auto-level-pool', async (req, res) => {
+  const { action, themeKey } = req.body || {};
+  if (action !== 'generate') {
+    return res.status(400).json({ error: "unsupported action; expected 'generate'" });
+  }
+  try {
+    const start = Date.now();
+    const added = await runGenerationPass({
+      deadlineMs: start + 50_000,
+      onlyThemeKey: themeKey ? String(themeKey) : undefined,
+    });
+    res.json({ ok: true, added, elapsedMs: Date.now() - start, counts: await poolCounts() });
+  } catch (error) {
+    console.error('Error generating auto levels:', error);
+    res.status(500).json({ error: 'Generation failed: ' + error.message });
+  }
+});
+
+// GET/POST /api/auto-level-config - per-tier generation params + target.
+app.get('/api/auto-level-config', async (req, res) => {
+  try {
+    const themes = await getEffectiveConfig();
+    res.json({ themes, keys: THEME_KEYS, titles: THEME_TITLES, fieldSpec: THEME_FIELD_SPEC });
+  } catch (error) {
+    console.error('Error fetching auto level config:', error);
+    res.status(500).json({ error: 'Failed to fetch config' });
+  }
+});
+
+app.post('/api/auto-level-config', async (req, res) => {
+  const body = req.body || {};
+  if (!body.themes || typeof body.themes !== 'object') {
+    return res.status(400).json({ error: 'themes object required' });
+  }
+  try {
+    await saveConfig(body.themes);
+    res.json({ ok: true, themes: await getEffectiveConfig() });
+  } catch (error) {
+    console.error('Error saving auto level config:', error);
+    res.status(500).json({ error: 'Failed to save config' });
   }
 });
 

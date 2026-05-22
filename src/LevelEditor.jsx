@@ -858,6 +858,208 @@ function CampaignPanel({ campaign, setCampaign, selectedChapterId, selectedCampa
   )
 }
 
+// Admin panel for the server-generated Auto level pool: shows per-tier
+// cached counts vs. target, lets you edit the full generation recipe per
+// tier (persisted to the DB and used by the cron), and trigger a bounded
+// generation run on demand.
+function LevelPoolPanel() {
+  const [data, setData] = useState(null) // { themes, keys, titles, fieldSpec }
+  const [counts, setCounts] = useState({})
+  const [draft, setDraft] = useState(null) // editable copy of themes
+  const [status, setStatus] = useState(null) // { kind, message }
+  const [busyTier, setBusyTier] = useState(null) // themeKey being generated, or 'all'
+
+  const loadCounts = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/auto-level-pool?counts=true`)
+      const j = await r.json()
+      setCounts(j.counts || {})
+    } catch (e) {
+      // non-fatal — leave counts as-is
+    }
+  }
+
+  const loadConfig = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/auto-level-config`)
+      const j = await r.json()
+      setData(j)
+      setDraft(JSON.parse(JSON.stringify(j.themes)))
+    } catch (e) {
+      setStatus({ kind: 'error', message: 'Failed to load config: ' + e.message })
+    }
+  }
+
+  useEffect(() => {
+    loadConfig()
+    loadCounts()
+    // Poll counts while the panel is open so a running job shows progress.
+    const id = setInterval(loadCounts, 4000)
+    return () => clearInterval(id)
+  }, [])
+
+  const setField = (themeKey, fieldKey, value) => {
+    setDraft((prev) => ({ ...prev, [themeKey]: { ...prev[themeKey], [fieldKey]: value } }))
+  }
+  const setRangeField = (themeKey, fieldKey, idx, value) => {
+    setDraft((prev) => {
+      const cur = prev[themeKey][fieldKey].slice()
+      cur[idx] = value === '' ? '' : parseInt(value, 10)
+      return { ...prev, [themeKey]: { ...prev[themeKey], [fieldKey]: cur } }
+    })
+  }
+
+  const saveAll = async () => {
+    setStatus({ kind: 'saving', message: 'Saving…' })
+    try {
+      const r = await fetch(`${API_BASE}/api/auto-level-config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ themes: draft }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'save failed')
+      setData((d) => ({ ...d, themes: j.themes }))
+      setDraft(JSON.parse(JSON.stringify(j.themes)))
+      setStatus({ kind: 'saved', message: 'Saved ✓ (validated values shown)' })
+    } catch (e) {
+      setStatus({ kind: 'error', message: 'Save failed: ' + e.message })
+    }
+  }
+
+  const generate = async (themeKey) => {
+    setBusyTier(themeKey || 'all')
+    setStatus({ kind: 'saving', message: `Generating ${themeKey ? data.titles[themeKey] : 'all tiers'}…` })
+    try {
+      const r = await fetch(`${API_BASE}/api/auto-level-pool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate', themeKey }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.error || 'generate failed')
+      setCounts(j.counts || {})
+      const total = Object.values(j.added || {}).reduce((a, b) => a + b, 0)
+      setStatus({ kind: 'saved', message: `Added ${total} level${total === 1 ? '' : 's'} in ${(j.elapsedMs / 1000).toFixed(1)}s` })
+    } catch (e) {
+      setStatus({ kind: 'error', message: 'Generate failed: ' + e.message })
+    } finally {
+      setBusyTier(null)
+    }
+  }
+
+  if (!data || !draft) {
+    return <div className="editor-section" style={{ padding: 16 }}>Loading level pool…</div>
+  }
+
+  const fmtField = (themeKey, spec) => {
+    const val = draft[themeKey][spec.key]
+    if (spec.kind === 'range') {
+      return (
+        <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+          <input type="number" value={val[0]} min={spec.min} max={spec.max}
+            style={{ width: 56 }} onChange={(e) => setRangeField(themeKey, spec.key, 0, e.target.value)} />
+          <span style={{ opacity: 0.5 }}>–</span>
+          <input type="number" value={val[1]} min={spec.min} max={spec.max}
+            style={{ width: 56 }} onChange={(e) => setRangeField(themeKey, spec.key, 1, e.target.value)} />
+        </span>
+      )
+    }
+    if (spec.kind === 'intOrNull') {
+      const enabled = val !== null && val !== ''
+      return (
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <input type="checkbox" checked={enabled}
+            onChange={(e) => setField(themeKey, spec.key, e.target.checked ? (spec.min + 8) : null)} />
+          {enabled && (
+            <input type="number" value={val} min={spec.min} max={spec.max}
+              style={{ width: 64 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
+          )}
+          {!enabled && <span style={{ opacity: 0.5, fontSize: '0.85em' }}>off</span>}
+        </span>
+      )
+    }
+    return (
+      <input type="number" value={val} min={spec.min} max={spec.max}
+        style={{ width: 96 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
+    )
+  }
+
+  return (
+    <div className="pool-panel" style={{ padding: '0 12px', maxWidth: 1100 }}>
+      <div className="editor-section" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <strong style={{ fontSize: '1.1em' }}>Level Pool</strong>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="action-btn" style={{ width: 'auto' }} onClick={loadCounts}>Refresh</button>
+          <button className="action-btn generate" style={{ width: 'auto' }}
+            disabled={busyTier !== null} onClick={() => generate(undefined)}>
+            {busyTier === 'all' ? 'Generating…' : 'Generate all'}
+          </button>
+          <button className="action-btn export" style={{ width: 'auto' }} onClick={saveAll}>
+            {status?.kind === 'saving' && status.message.startsWith('Saving') ? 'Saving…' : 'Save Parameters'}
+          </button>
+        </div>
+      </div>
+
+      {status && (
+        <div className={status.kind === 'error' ? 'save-error' : 'editor-section'}
+          style={{ marginBottom: 8, color: status.kind === 'saved' ? '#4ade80' : undefined }}>
+          {status.message}
+        </div>
+      )}
+
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85em' }}>
+          <thead>
+            <tr style={{ textAlign: 'left', opacity: 0.7 }}>
+              <th style={{ padding: '6px 8px' }}>Tier</th>
+              <th style={{ padding: '6px 8px' }}>Cached</th>
+              {data.fieldSpec.map((s) => (
+                <th key={s.key} style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{s.key}</th>
+              ))}
+              <th style={{ padding: '6px 8px' }}>Target</th>
+              <th style={{ padding: '6px 8px' }}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.keys.map((key) => {
+              const have = counts[key] || 0
+              const target = draft[key].target
+              const full = have >= target
+              return (
+                <tr key={key} style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{data.titles[key]}</td>
+                  <td style={{ padding: '6px 8px', whiteSpace: 'nowrap', color: full ? '#4ade80' : have === 0 ? '#ef4444' : '#fb923c', fontWeight: 600 }}>
+                    {have} / {target}
+                  </td>
+                  {data.fieldSpec.map((s) => (
+                    <td key={s.key} style={{ padding: '6px 8px' }}>{fmtField(key, s)}</td>
+                  ))}
+                  <td style={{ padding: '6px 8px' }}>
+                    <input type="number" value={draft[key].target} min={1} max={5000}
+                      style={{ width: 72 }} onChange={(e) => setField(key, 'target', parseInt(e.target.value, 10))} />
+                  </td>
+                  <td style={{ padding: '6px 8px' }}>
+                    <button className="action-btn generate" style={{ width: 'auto', padding: '6px 10px' }}
+                      disabled={busyTier !== null} onClick={() => generate(key)}>
+                      {busyTier === key ? '…' : 'Generate'}
+                    </button>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="editor-section" style={{ marginTop: 8, fontSize: '0.8em', opacity: 0.6 }}>
+        Parameters are validated/clamped on save; the saved (clamped) values are shown after saving.
+        Generation runs are bounded (~50s) — for big Expert backfills, click Generate a few times or let the hourly cron catch up.
+      </div>
+    </div>
+  )
+}
+
 const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0()
 
@@ -2378,9 +2580,20 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           >
             Campaign
           </button>
+          <button
+            className={`tool-btn ${editorGame === 'pool' ? 'active' : ''}`}
+            onClick={() => setEditorGame('pool')}
+          >
+            Level Pool
+          </button>
         </div>
 
-        <div className={`editor-layout ${editorGame === 'campaign' ? 'campaign-mode' : ''}`}>
+        {editorGame === 'pool' && <LevelPoolPanel />}
+
+        <div
+          className={`editor-layout ${editorGame === 'campaign' ? 'campaign-mode' : ''}`}
+          style={{ display: editorGame === 'pool' ? 'none' : undefined }}
+        >
           {/* Left side - Editor */}
           <div className="editor-main">
             <div className="editor-content">
