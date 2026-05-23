@@ -119,51 +119,59 @@ export async function saveConfig(themes) {
 
 // MARK: - Generation pass (shared by cron + manual admin trigger)
 
-// Tops up the pool until `deadlineMs`, most-starved-first. If
-// `onlyThemeKey` is given, only that tier is generated. If `count` is given,
-// generates exactly that many NEW levels for each in-scope tier (ignoring the
-// configured pool target); otherwise fills each tier up to its target.
-// Returns a map of { themeKey: countAdded }.
-export async function runGenerationPass({ deadlineMs, onlyThemeKey, count } = {}) {
+// Per-tier time slice (ms) granted on each round-robin cycle. Bounding each
+// tier's turn keeps a slow tier (Expert levels can take many seconds each)
+// from eating the whole budget and starving the cheap tiers — the bug where
+// Easy/Medium/Hard plateaued while Extra Hard/Expert crawled.
+const TIER_SLICE_MS = 8_000;
+
+// Tops up the pool until `deadlineMs` using a fair round-robin: each cycle,
+// every in-scope tier that still needs levels gets up to `TIER_SLICE_MS` of
+// generation time before we move on to the next. If `onlyThemeKey` is given,
+// only that tier is generated. If `count` is given, generates exactly that
+// many NEW levels per in-scope tier (ignoring the configured pool target);
+// otherwise fills each tier up to its target. Returns { themeKey: countAdded }.
+export async function runGenerationPass({ deadlineMs, onlyThemeKey, count, sliceMs = TIER_SLICE_MS } = {}) {
   await ensurePoolSchema();
   const config = await getEffectiveConfig();
   const added = {};
   const fixedCount = Number.isInteger(count) && count > 0 ? count : null;
+  const keys = THEME_KEYS.filter((k) => !onlyThemeKey || k === onlyThemeKey);
 
   while (Date.now() < deadlineMs) {
     const counts = await poolCounts();
+    let progressedThisCycle = false;
 
-    let target = null;
-    let lowest = Infinity;
-    for (const key of THEME_KEYS) {
-      if (onlyThemeKey && key !== onlyThemeKey) continue;
-      const have = (counts[key] || 0) + (added[key] || 0);
-      // In fixed-count mode, rank by how many we've already added (round-robin
-      // across tiers); otherwise rank by absolute pool size (most-starved).
-      const remaining = fixedCount != null ? fixedCount - (added[key] || 0) : config[key].target - have;
-      const rank = fixedCount != null ? (added[key] || 0) : have;
-      if (remaining > 0 && rank < lowest) {
-        lowest = rank;
-        target = key;
+    for (const key of keys) {
+      if (Date.now() >= deadlineMs) break;
+
+      // How many this tier still needs (toward its fixed count, or its target).
+      const remainingFor = () => fixedCount != null
+        ? fixedCount - (added[key] || 0)
+        : config[key].target - ((counts[key] || 0) + (added[key] || 0));
+      if (remainingFor() <= 0) continue;
+
+      // Give this tier a bounded slice of the remaining budget. A fast tier
+      // fills within it (then we skip it); a slow tier is capped so the next
+      // tier still gets a turn this cycle.
+      const sliceDeadline = Math.min(Date.now() + sliceMs, deadlineMs);
+      while (Date.now() < sliceDeadline && remainingFor() > 0) {
+        // Small chunks so we re-check the slice deadline frequently.
+        const want = Math.min(remainingFor(), 5);
+        const levels = generateLevelsFromTheme(config[key], want, sliceDeadline);
+        if (levels.length === 0) break; // slice spent without a new level
+
+        let chunkAdded = 0;
+        for (const level of levels) {
+          if (await insertLevel(key, level)) chunkAdded++;
+        }
+        added[key] = (added[key] || 0) + chunkAdded;
+        if (chunkAdded > 0) progressedThisCycle = true;
+        if (chunkAdded === 0) break; // only duplicates — don't burn the slice
       }
     }
-    if (!target) break; // every (selected) tier has reached its goal
 
-    // Small chunks so we re-check the deadline frequently — a single
-    // Expert level can take many seconds.
-    const remaining = fixedCount != null
-      ? fixedCount - (added[target] || 0)
-      : config[target].target - ((counts[target] || 0) + (added[target] || 0));
-    const chunk = Math.min(remaining, 5);
-    const levels = generateLevelsFromTheme(config[target], chunk, deadlineMs);
-
-    let chunkAdded = 0;
-    for (const level of levels) {
-      if (await insertLevel(target, level)) chunkAdded++;
-    }
-    added[target] = (added[target] || 0) + chunkAdded;
-
-    if (levels.length === 0) break; // deadline hit mid-generation
+    if (!progressedThisCycle) break; // every tier is full or stuck
   }
 
   return added;
