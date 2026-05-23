@@ -88,11 +88,15 @@ export async function getEffectiveConfig() {
   const out = {};
   for (const key of THEME_KEYS) {
     const o = overrides[key];
+    // Per-tier code default (slow tiers stockpile fewer); falls back to the
+    // global DEFAULT_TARGET. An admin override in the DB still wins.
+    const fallbackTarget = DEFAULT_THEMES[key].defaultTarget ?? DEFAULT_TARGET;
     out[key] = {
       ...DEFAULT_THEMES[key],
       ...(o ? validateThemeParams(o.params) : {}),
-      target: o ? clampInt(o.target, 1, 5000, DEFAULT_TARGET) : DEFAULT_TARGET,
+      target: o ? clampInt(o.target, 1, 5000, fallbackTarget) : fallbackTarget,
     };
+    delete out[key].defaultTarget; // internal-only; not part of the effective config
   }
   return out;
 }
