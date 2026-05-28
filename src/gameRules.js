@@ -43,14 +43,34 @@ export const canFrogLandOn = (col, row, { frogs, snakes, logs, lilyPads }, exclu
   return true
 }
 
-// Check if a cell is blocked for snake movement
-export const isCellBlockedForSnake = (col, row, { frogs, snakes, logs, lilyPads }, excludeSnakeIndex = -1) => {
-  if (isFrogAt(col, row, frogs)) return true
+// Check if a cell is blocked for snake movement. excludeFrogIndex lets a
+// saddled snake ignore its own rider, who moves along with it.
+export const isCellBlockedForSnake = (col, row, { frogs, snakes, logs, lilyPads }, excludeSnakeIndex = -1, excludeFrogIndex = -1) => {
+  if (isFrogAt(col, row, frogs, excludeFrogIndex)) return true
   if (isSnakeAt(col, row, snakes, excludeSnakeIndex)) return true
   if (isLogAt(col, row, logs)) return true
   if (isLilyPadAt(col, row, lilyPads)) return true
   return false
 }
+
+// The saddle (middle) cell of a snake, or null if it isn't a saddled
+// length-3+ snake. A frog can land on this cell and ride along.
+export const saddleCellOf = (snake) =>
+  (snake && snake.saddle === true && snake.positions.length >= 3)
+    ? snake.positions[Math.floor(snake.positions.length / 2)]
+    : null
+
+// All saddle cells currently on the board.
+export const getSaddleCells = (snakes) =>
+  snakes.map(saddleCellOf).filter(Boolean)
+
+// Index of the saddled snake the frog at `pos` is riding, or -1 if it isn't
+// on any saddle. The frog can't jump over the snake it's riding.
+export const riddenSnakeIndexAt = (pos, snakes) =>
+  snakes.findIndex((s) => {
+    const saddle = saddleCellOf(s)
+    return saddle && saddle[0] === pos[0] && saddle[1] === pos[1]
+  })
 
 // Get valid frog jump destinations
 export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, lilyPads }) => {
@@ -60,6 +80,16 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
   const [frogCol, frogRow] = frogPos
   const validMoves = []
   const gameState = { frogs, snakes, logs, lilyPads }
+
+  // Saddle (middle) cells a frog may land on after a jump, keyed for fast
+  // lookup. A saddle is also jump-over-able, so the scan never stops on one.
+  const saddleKeys = new Set(getSaddleCells(snakes).map(([c, r]) => `${c},${r}`))
+  // If this frog is currently on a saddle, the snake it's riding is its mount:
+  // it can't jump over its own mount, so those cells act as walls.
+  const riddenIdx = riddenSnakeIndexAt(frogPos, snakes)
+  const mountKeys = riddenIdx >= 0
+    ? new Set(snakes[riddenIdx].positions.map(([c, r]) => `${c},${r}`))
+    : null
 
   const directions = [
     { dc: 1, dr: 0 },
@@ -75,6 +105,9 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
     // Check bounds
     if (col < 0 || col >= gridSize || row < 0 || row >= gridSize) continue
 
+    // Can't jump over the snake we're riding — its body is a wall.
+    if (mountKeys && mountKeys.has(`${col},${row}`)) continue
+
     // Must have an adjacent obstacle to jump over
     if (!isObstacleForFrog(col, row, gameState, frogIndex)) continue
 
@@ -85,6 +118,9 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
     col += dc
     row += dr
     while (col >= 0 && col < gridSize && row >= 0 && row < gridSize) {
+      // The mount we're riding blocks the jump entirely.
+      if (mountKeys && mountKeys.has(`${col},${row}`)) break
+
       const hasLilyPad = isLilyPadAt(col, row, lilyPads)
       const hasFrog = isFrogAt(col, row, frogs, frogIndex)
       const hasSnake = isSnakeAt(col, row, snakes)
@@ -100,6 +136,12 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
       if (!hasSnake && !hasLog && !hasFrog) {
         validMoves.push([col, row])
         break
+      }
+
+      // A free saddle is a landing spot — and can still be jumped over, so we
+      // record it and keep scanning past it.
+      if (hasSnake && !hasFrog && saddleKeys.has(`${col},${row}`)) {
+        validMoves.push([col, row])
       }
 
       // Can only continue jumping over snakes, logs, or frogs
@@ -151,6 +193,16 @@ export const getMaxSnakeDelta = (snakeIndex, direction, gridSize, { frogs, snake
   let maxDelta = 0
   const step = direction > 0 ? 1 : -1
 
+  // A frog riding this snake's saddle slides along with it, so it must not
+  // count as a blocker for the snake's own motion.
+  const saddle = saddleCellOf(snake)
+  const riderFrogIndex = saddle
+    ? frogs.findIndex(f => {
+        const p = Array.isArray(f) ? f : f.position
+        return p[0] === saddle[0] && p[1] === saddle[1]
+      })
+    : -1
+
   const leadingEdge = direction > 0
     ? (isVertical
         ? Math.max(...positions.map(p => p[1]))
@@ -167,7 +219,7 @@ export const getMaxSnakeDelta = (snakeIndex, direction, gridSize, { frogs, snake
     const blocked = positions.some(([col, row]) => {
       const newCol = isVertical ? col : col + delta
       const newRow = isVertical ? row + delta : row
-      return isCellBlockedForSnake(newCol, newRow, gameState, snakeIndex)
+      return isCellBlockedForSnake(newCol, newRow, gameState, snakeIndex, riderFrogIndex)
     })
 
     if (blocked) break

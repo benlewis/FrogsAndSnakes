@@ -29,7 +29,9 @@ import {
   isFrogAt,
   getValidFrogMoves,
   getMaxSnakeDelta,
-  checkWinCondition
+  checkWinCondition,
+  saddleCellOf,
+  riddenSnakeIndexAt
 } from './gameRules.js'
 
 // API base URL - use relative path for production, localhost for dev
@@ -357,7 +359,8 @@ function App({ initialGame = 'jumping-frogs' }) {
       frogs,
       snakes: currentLevel.snakes.map(s => ({
         positions: s.positions.map(p => [...p]),
-        orientation: s.orientation
+        orientation: s.orientation,
+        saddle: s.saddle
       })),
       logs: currentLevel.logs.map(l => ({
         positions: l.positions.map(p => [...p])
@@ -409,7 +412,13 @@ function App({ initialGame = 'jumping-frogs' }) {
         saved.gameState.lilyPads?.length === initial.lilyPads.length
 
       if (isValidSavedState) {
-        setGameState(saved.gameState)
+        // `saddle` is a static property of the level, not gameplay state, so
+        // re-apply it from the fresh level — otherwise a saved game captured
+        // before the level gained a saddle would restore saddle-less snakes.
+        setGameState({
+          ...saved.gameState,
+          snakes: saved.gameState.snakes.map((s, i) => ({ ...s, saddle: initial.snakes[i]?.saddle })),
+        })
         setMoves(saved.moves || 0)
         setHintsUsed(saved.hints || 0)
         // The mode that the saved game is being played in. May differ from the
@@ -936,11 +945,25 @@ function App({ initialGame = 'jumping-frogs' }) {
   }
 
   // Snake click handler for tap-to-select
-  const handleSnakeClick = (snakeIndex) => {
+  const handleSnakeClick = (snakeIndex, e) => {
     if (isGameWon) return
     if (justFinishedSnakeDragRef.current) {
       justFinishedSnakeDragRef.current = false
       return
+    }
+    // With a frog selected, tapping this snake's free saddle boards the frog
+    // (jumps it onto the saddle) instead of selecting the snake.
+    if (selectedFrogIndex !== null && e) {
+      const saddle = saddleCellOf(snakes[snakeIndex])
+      const rect = gridRef.current?.getBoundingClientRect()
+      if (saddle && rect && isValidFrogDestination(saddle[0], saddle[1])) {
+        const col = Math.floor((e.clientX - rect.left) / (rect.width / gridSize))
+        const row = Math.floor((e.clientY - rect.top) / (rect.height / gridSize))
+        if (col === saddle[0] && row === saddle[1]) {
+          handleCellClick(saddle[0], saddle[1])
+          return
+        }
+      }
     }
     // Clear frog selection when selecting a snake
     setSelectedFrogIndex(null)
@@ -949,6 +972,33 @@ function App({ initialGame = 'jumping-frogs' }) {
       setSelectedSnakeIndex(null)
     } else {
       setSelectedSnakeIndex(snakeIndex)
+    }
+  }
+
+  // Slide a snake by `delta` along its axis, carrying any frog riding its
+  // saddle (middle segment) to the snake's new middle.
+  const slideSnakeCarryingRider = (prev, snakeIdx, delta, isVertical) => {
+    const snake = prev.snakes[snakeIdx]
+    const moved = {
+      ...snake,
+      positions: snake.positions.map(([c, r]) =>
+        isVertical ? [c, r + delta] : [c + delta, r]
+      )
+    }
+    const oldSaddle = saddleCellOf(snake)
+    let frogs = prev.frogs
+    if (oldSaddle) {
+      const newSaddle = saddleCellOf(moved)
+      frogs = prev.frogs.map(f =>
+        f.position[0] === oldSaddle[0] && f.position[1] === oldSaddle[1]
+          ? { ...f, position: [newSaddle[0], newSaddle[1]] }
+          : f
+      )
+    }
+    return {
+      ...prev,
+      frogs,
+      snakes: prev.snakes.map((s, i) => (i === snakeIdx ? moved : s)),
     }
   }
 
@@ -1007,19 +1057,7 @@ function App({ initialGame = 'jumping-frogs' }) {
 
       if (posDelta !== 0) {
         setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
-        setGameState(prev => ({
-          ...prev,
-          snakes: prev.snakes.map((s, i) =>
-            i === snakeIndex
-              ? {
-                  ...s,
-                  positions: s.positions.map(([col, row]) =>
-                    isVertical ? [col, row + posDelta] : [col + posDelta, row]
-                  )
-                }
-              : s
-          )
-        }))
+        setGameState(prev => slideSnakeCarryingRider(prev, snakeIndex, posDelta, isVertical))
         setMoves(m => m + 1)
         setSelectedSnakeIndex(null)
         clearHint()
@@ -1089,19 +1127,7 @@ function App({ initialGame = 'jumping-frogs' }) {
       const isVertical = snake.orientation === 'vertical'
 
       setGameHistory(prev => [...prev, { gameState, moves, hintsUsed }])
-      setGameState(prev => ({
-        ...prev,
-        snakes: prev.snakes.map((s, i) =>
-          i === snakeIdx
-            ? {
-                ...s,
-                positions: s.positions.map(([c, r]) =>
-                  isVertical ? [c, r + delta] : [c + delta, r]
-                )
-              }
-            : s
-        )
-      }))
+      setGameState(prev => slideSnakeCarryingRider(prev, snakeIdx, delta, isVertical))
       setMoves(m => m + 1)
       setSelectedSnakeIndex(null)
       triggerSnakeSlide(snakeIdx)
@@ -1364,6 +1390,13 @@ function App({ initialGame = 'jumping-frogs' }) {
               const isFrogCell = content?.type === 'frog'
               const isThisFrogSelected = isFrogCell && validSelectedFrogIndex === content.frogIndex
               const isThisFrogDragging = isFrogCell && validDraggingFrogIndex === content.frogIndex
+              // A frog riding the saddle of the snake being dragged follows it live.
+              const isRidingDraggedSnake = isFrogCell && draggingSnakeIndex !== null &&
+                riddenSnakeIndexAt(content.frog.position, snakes) === draggingSnakeIndex
+              const ridingDragVertical = isRidingDraggedSnake && snakes[draggingSnakeIndex]?.orientation === 'vertical'
+              const riderFollowTransform = isRidingDraggedSnake
+                ? `translate(${ridingDragVertical ? 0 : snakeDragOffset}px, ${ridingDragVertical ? snakeDragOffset : 0}px)`
+                : undefined
               const isValidFrogDest = isValidFrogDestination(colIndex, rowIndex)
               const isValidSnakeDest = isValidSnakeDestination(colIndex, rowIndex)
 
@@ -1389,8 +1422,9 @@ function App({ initialGame = 'jumping-frogs' }) {
                         style={{
                           transform: isThisFrogDragging
                             ? `translate(${frogDragPos.x}px, ${frogDragPos.y}px)`
-                            : undefined,
-                          zIndex: isThisFrogDragging ? 100 : undefined,
+                            : riderFollowTransform,
+                          zIndex: isThisFrogDragging ? 100 : isRidingDraggedSnake ? 50 : undefined,
+                          transition: isRidingDraggedSnake ? 'none' : undefined,
                         }}
                       >
                         <FrogPiece color={content.frog.color} />
@@ -1405,8 +1439,9 @@ function App({ initialGame = 'jumping-frogs' }) {
                       style={{
                         transform: isThisFrogDragging
                           ? `translate(${frogDragPos.x}px, ${frogDragPos.y}px)`
-                          : undefined,
-                        zIndex: isThisFrogDragging ? 100 : undefined,
+                          : riderFollowTransform,
+                        zIndex: isThisFrogDragging ? 100 : isRidingDraggedSnake ? 50 : undefined,
+                        transition: isRidingDraggedSnake ? 'none' : undefined,
                       }}
                     >
                       <FrogPiece color={content.frog.color} />
@@ -1432,9 +1467,9 @@ function App({ initialGame = 'jumping-frogs' }) {
               className={`snake-overlay ${draggingSnakeIndex === index ? 'dragging' : ''} ${movingSnakeIdx === index ? 'moving' : ''} ${validSelectedSnakeIndex === index ? 'snake-selected' : ''} ${hintMove?.type === 'snake' && hintMove.snakeIdx === index ? 'snake-hint' : ''}`}
               style={getSnakeStyle(snake, index)}
               onPointerDown={(e) => handleSnakePointerDown(e, index)}
-              onClick={(e) => { e.stopPropagation(); handleSnakeClick(index); }}
+              onClick={(e) => { e.stopPropagation(); handleSnakeClick(index, e); }}
             >
-              {snake.orientation === 'vertical' ? <VerticalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} /> : <HorizontalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} />}
+              {snake.orientation === 'vertical' ? <VerticalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} saddle={snake.saddle} /> : <HorizontalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} saddle={snake.saddle} />}
             </div>
           ))}
         </div>

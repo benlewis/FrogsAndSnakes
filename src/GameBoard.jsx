@@ -13,7 +13,9 @@ import {
   isFrogAt,
   getValidFrogMoves,
   getMaxSnakeDelta,
-  checkWinCondition
+  checkWinCondition,
+  saddleCellOf,
+  riddenSnakeIndexAt
 } from './gameRules.js'
 import { solveLevel } from './solver.js'
 
@@ -51,7 +53,8 @@ const GameBoard = forwardRef(({
     })),
     snakes: initialState.snakes.map(s => ({
       positions: s.positions.map(p => [...p]),
-      orientation: s.orientation
+      orientation: s.orientation,
+      saddle: s.saddle
     })),
     logs: initialState.logs.map(l => ({
       positions: l.positions.map(p => [...p])
@@ -353,6 +356,33 @@ const GameBoard = forwardRef(({
     }
   }
 
+  // Slide a snake by `delta` along its axis, carrying any frog riding its
+  // saddle (middle segment) to the snake's new middle.
+  const slideSnakeState = (prev, snakeIdx, delta, isVertical) => {
+    const snake = prev.snakes[snakeIdx]
+    const moved = {
+      ...snake,
+      positions: snake.positions.map(([c, r]) =>
+        isVertical ? [c, r + delta] : [c + delta, r]
+      )
+    }
+    const oldSaddle = saddleCellOf(snake)
+    let frogs = prev.frogs
+    if (oldSaddle) {
+      const newSaddle = saddleCellOf(moved)
+      frogs = prev.frogs.map(f =>
+        f.position[0] === oldSaddle[0] && f.position[1] === oldSaddle[1]
+          ? { ...f, position: [newSaddle[0], newSaddle[1]] }
+          : f
+      )
+    }
+    return {
+      ...prev,
+      frogs,
+      snakes: prev.snakes.map((s, i) => (i === snakeIdx ? moved : s)),
+    }
+  }
+
   // Snake drag handler - uses same inline listener pattern as frog drag
   const handleSnakePointerDown = (e, snakeIndex) => {
     if (isGameWon) return
@@ -407,19 +437,7 @@ const GameBoard = forwardRef(({
       const posDelta = Math.round(currentOffset / cellSize)
 
       if (posDelta !== 0) {
-        setGameState(prev => ({
-          ...prev,
-          snakes: prev.snakes.map((s, i) =>
-            i === snakeIndex
-              ? {
-                  ...s,
-                  positions: s.positions.map(([col, row]) =>
-                    isVertical ? [col, row + posDelta] : [col + posDelta, row]
-                  )
-                }
-              : s
-          )
-        }))
+        setGameState(prev => slideSnakeState(prev, snakeIndex, posDelta, isVertical))
         setMoves(prev => {
           const newMoves = prev + 1
           if (onMove) onMove(newMoves)
@@ -457,11 +475,25 @@ const GameBoard = forwardRef(({
   }
 
   // Snake click handler for tap-to-select
-  const handleSnakeClick = (snakeIndex) => {
+  const handleSnakeClick = (snakeIndex, e) => {
     if (isGameWon) return
     if (justFinishedSnakeDragRef.current) {
       justFinishedSnakeDragRef.current = false
       return
+    }
+    // With a frog selected, tapping this snake's free saddle boards the frog
+    // (jumps it onto the saddle) instead of selecting the snake.
+    if (selectedFrogIndex !== null && e) {
+      const saddle = saddleCellOf(snakes[snakeIndex])
+      const rect = gridRef.current?.getBoundingClientRect()
+      if (saddle && rect && isValidFrogDestination(saddle[0], saddle[1])) {
+        const col = Math.floor((e.clientX - rect.left) / (rect.width / gridSize))
+        const row = Math.floor((e.clientY - rect.top) / (rect.height / gridSize))
+        if (col === saddle[0] && row === saddle[1]) {
+          handleCellClick(saddle[0], saddle[1])
+          return
+        }
+      }
     }
     setSelectedFrogIndex(null)
     if (selectedSnakeIndex === snakeIndex) {
@@ -510,19 +542,7 @@ const GameBoard = forwardRef(({
       const snake = snakes[snakeIdx]
       const isVertical = snake.orientation === 'vertical'
 
-      setGameState(prev => ({
-        ...prev,
-        snakes: prev.snakes.map((s, i) =>
-          i === snakeIdx
-            ? {
-                ...s,
-                positions: s.positions.map(([c, r]) =>
-                  isVertical ? [c, r + delta] : [c + delta, r]
-                )
-              }
-            : s
-        )
-      }))
+      setGameState(prev => slideSnakeState(prev, snakeIdx, delta, isVertical))
       const newMoves = moves + 1
       setMoves(newMoves)
       if (onMove) onMove(newMoves)
@@ -646,6 +666,10 @@ const GameBoard = forwardRef(({
               const isFrogCell = content?.type === 'frog'
               const isThisFrogSelected = isFrogCell && validSelectedFrogIndex === content.frogIndex
               const isThisFrogDragging = isFrogCell && validDraggingFrogIndex === content.frogIndex
+              // A frog riding the saddle of the snake being dragged follows it live.
+              const isRidingDraggedSnake = isFrogCell && draggingSnakeIndex !== null &&
+                riddenSnakeIndexAt(content.frog.position, snakes) === draggingSnakeIndex
+              const ridingDragVertical = isRidingDraggedSnake && snakes[draggingSnakeIndex]?.orientation === 'vertical'
               const isValidDest = isValidFrogDestination(colIndex, rowIndex)
               const isValidSnakeDest = isValidSnakeDestination(colIndex, rowIndex)
 
@@ -667,6 +691,10 @@ const GameBoard = forwardRef(({
                         style={isThisFrogDragging ? {
                           transform: `translate(${frogDragPos.x}px, ${frogDragPos.y}px)`,
                           zIndex: 100
+                        } : isRidingDraggedSnake ? {
+                          transform: `translate(${ridingDragVertical ? 0 : snakeDragOffset}px, ${ridingDragVertical ? snakeDragOffset : 0}px)`,
+                          zIndex: 50,
+                          transition: 'none'
                         } : {}}
                         onPointerDown={(e) => handleFrogPointerDown(e, content.frogIndex)}
                         onClick={(e) => {
@@ -699,13 +727,13 @@ const GameBoard = forwardRef(({
                 onPointerDown={(e) => handleSnakePointerDown(e, index)}
                 onClick={(e) => {
                   e.stopPropagation()
-                  handleSnakeClick(index)
+                  handleSnakeClick(index, e)
                 }}
               >
                 {snake.orientation === 'vertical' ? (
-                  <VerticalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} />
+                  <VerticalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} saddle={snake.saddle} />
                 ) : (
-                  <HorizontalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} />
+                  <HorizontalSnakeSVG length={snake.positions.length} blinkDelay={index * 1.1} saddle={snake.saddle} />
                 )}
               </div>
             )

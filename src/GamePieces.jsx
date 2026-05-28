@@ -566,8 +566,66 @@ export const LogSVG = () => (
   </svg>
 )
 
+// A western saddle drawn on a snake's middle segment (a frog can ride it).
+// Centered at (cx, cy); `rotate` aligns its long (front-to-back) axis along the
+// snake's body — 0 for a vertical snake, 90 for a horizontal one. Glossy
+// cartoon styling to match the frog/snake pieces: a leather seat with a raised
+// cantle and front horn, gold trim and stitching, and a soft highlight.
+export const SaddleMark = ({ cx, cy, scale = 1, rotate = 0 }) => {
+  const gid = `sdl${Math.round(cx)}_${Math.round(cy)}_${rotate}`
+  const skirt = 'M0,-22 C11,-22 18,-15 18,-6 C18,3 17,13 12,20 C8,24 4,23 0,23 C-4,23 -8,24 -12,20 C-17,13 -18,3 -18,-6 C-18,-15 -11,-22 0,-22 Z'
+  const seat = 'M0,-14 C7,-14 12,-8 12,-1 C12,8 8,18 0,19 C-8,18 -12,8 -12,-1 C-12,-8 -7,-14 0,-14 Z'
+  return (
+    <g transform={`translate(${cx} ${cy}) rotate(${rotate}) scale(${scale})`} className="snake-saddle">
+      <defs>
+        <radialGradient id={`${gid}-l`} cx="42%" cy="30%" r="80%">
+          <stop offset="0%" stopColor="#b56a3a" />
+          <stop offset="55%" stopColor="#8a3d12" />
+          <stop offset="100%" stopColor="#4d2308" />
+        </radialGradient>
+        <radialGradient id={`${gid}-s`} cx="44%" cy="28%" r="82%">
+          <stop offset="0%" stopColor="#e0975a" />
+          <stop offset="50%" stopColor="#a8531c" />
+          <stop offset="100%" stopColor="#67300e" />
+        </radialGradient>
+        <linearGradient id={`${gid}-g`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fde68a" />
+          <stop offset="100%" stopColor="#d4961f" />
+        </linearGradient>
+      </defs>
+
+      {/* Drop shadow */}
+      <ellipse cx="0" cy="3" rx="18" ry="23" fill="#000" opacity="0.18" />
+
+      {/* Skirt / under-leather */}
+      <path d={skirt} fill={`url(#${gid}-l)`} stroke="#3d1c06" strokeWidth="1.6" strokeLinejoin="round" />
+      {/* Gold border just inside the skirt */}
+      <path d="M0,-18 C9,-18 15,-12 15,-4 C15,3 14,11 10,17 C7,20 4,19 0,19 C-4,19 -7,20 -10,17 C-14,11 -15,3 -15,-4 C-15,-12 -9,-18 0,-18 Z"
+        fill="none" stroke={`url(#${gid}-g)`} strokeWidth="1.4" opacity="0.85" />
+
+      {/* Seat */}
+      <path d={seat} fill={`url(#${gid}-s)`} stroke="#5b2c0a" strokeWidth="1.3" strokeLinejoin="round" />
+      {/* Stitching */}
+      <path d="M0,-10 C6,-10 9,-5 9,1 C9,8 6,15 0,16 C-6,15 -9,8 -9,1 C-9,-5 -6,-10 0,-10 Z"
+        fill="none" stroke="#f7d6a3" strokeWidth="0.8" strokeDasharray="1.6 1.9" opacity="0.7" />
+
+      {/* Cantle — raised back rim */}
+      <path d="M-12,6 C-9,16 -4,20 0,20 C4,20 9,16 12,6" fill="none" stroke="#67300e" strokeWidth="5" strokeLinecap="round" />
+      <path d="M-10.5,6 C-8,14 -4,18 0,18 C4,18 8,14 10.5,6" fill="none" stroke={`url(#${gid}-g)`} strokeWidth="1.3" strokeLinecap="round" opacity="0.8" />
+
+      {/* Swell + horn at the front */}
+      <path d="M-9,-8 C-6,-14 -3,-16 0,-16 C3,-16 6,-14 9,-8" fill="none" stroke="#67300e" strokeWidth="4.5" strokeLinecap="round" />
+      <ellipse cx="0" cy="-15.5" rx="4" ry="3.4" fill="#7a3a12" stroke="#3d1c06" strokeWidth="1" />
+      <ellipse cx="-1" cy="-16.6" rx="1.6" ry="0.9" fill="#fff" opacity="0.4" />
+
+      {/* Glossy seat highlight */}
+      <ellipse cx="-3.5" cy="-3" rx="5.5" ry="3.6" fill="#fff" opacity="0.22" />
+    </g>
+  )
+}
+
 // Cartoony glossy Vertical Snake SVG component
-export const VerticalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
+export const VerticalSnakeSVG = ({ length = 2, blinkDelay = 0, saddle = false }) => {
   const cellHeight = 50
   const viewHeight = length * cellHeight
   const bodyEnd = viewHeight - 5
@@ -662,12 +720,17 @@ export const VerticalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
 
       {/* Tail */}
       <path d={`M20 ${tailY} Q23 ${tailY + 3} 21 ${tailY + 5} Q19 ${tailY + 6} 18 ${tailY + 4}`} stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />
+
+      {/* Saddle on the middle segment (length 3+ only) */}
+      {saddle && length >= 3 && (
+        <SaddleMark cx={20} cy={Math.floor(length / 2) * cellHeight + cellHeight / 2} scale={1} rotate={0} />
+      )}
     </svg>
   )
 }
 
 // Cartoony glossy Horizontal Snake SVG component
-export const HorizontalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
+export const HorizontalSnakeSVG = ({ length = 2, blinkDelay = 0, saddle = false }) => {
   const cellWidth = 50
   const viewWidth = length * cellWidth
   const bodyEnd = viewWidth - 18
@@ -759,6 +822,11 @@ export const HorizontalSnakeSVG = ({ length = 2, blinkDelay = 0 }) => {
 
       {/* Tail */}
       <path d="M6 20 Q3 22 1 21 Q-1 20 1 19 Q3 18 6 20" stroke="#14532d" strokeWidth="3" fill="none" strokeLinecap="round" />
+
+      {/* Saddle on the middle segment (length 3+ only) */}
+      {saddle && length >= 3 && (
+        <SaddleMark cx={Math.floor(length / 2) * cellWidth + cellWidth / 2} cy={20} scale={1} rotate={90} />
+      )}
     </svg>
   )
 }

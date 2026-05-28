@@ -63,6 +63,8 @@ export function validateThemeParams(input) {
     const v = input[spec.key];
     if (spec.kind === 'int') {
       out[spec.key] = clampInt(v, spec.min, spec.max, spec.min);
+    } else if (spec.kind === 'bool') {
+      out[spec.key] = v === true || v === 'true';
     } else if (spec.kind === 'intOrNull') {
       out[spec.key] = v === null || v === '' ? null : clampInt(v, spec.min, spec.max, spec.min);
     } else if (spec.kind === 'range') {

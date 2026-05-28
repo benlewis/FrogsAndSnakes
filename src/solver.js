@@ -1,7 +1,8 @@
 import {
   getValidFrogMoves,
   getValidSnakeMoves,
-  checkWinCondition
+  checkWinCondition,
+  saddleCellOf
 } from './gameRules.js'
 
 // Compact state key using string concatenation instead of JSON.stringify
@@ -51,7 +52,8 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
   // BFS
   const initialSnakes = snakes.map(s => ({
     positions: s.positions.map(p => [...p]),
-    orientation: s.orientation
+    orientation: s.orientation,
+    saddle: s.saddle
   }))
   const initialFrogs = frogs.map(f => [...(f.position || f)])
 
@@ -116,11 +118,23 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
       for (const move of snakeMoves) {
         const newSnakes = currentSnakes.map((s, idx) =>
           idx === move.snakeIdx
-            ? { positions: move.positions, orientation: move.orientation }
-            : { positions: s.positions.map(p => [...p]), orientation: s.orientation }
+            ? { positions: move.positions, orientation: move.orientation, saddle: s.saddle }
+            : { positions: s.positions.map(p => [...p]), orientation: s.orientation, saddle: s.saddle }
         )
 
-        const key = compactStateKey(currentFrogs, newSnakes)
+        // A frog riding this snake's saddle (middle segment) slides along with
+        // it: relocate any frog on the old saddle cell to the new one.
+        let newFrogs = currentFrogs
+        const oldSaddle = saddleCellOf(currentSnakes[move.snakeIdx])
+        if (oldSaddle) {
+          const mid = Math.floor(currentSnakes[move.snakeIdx].positions.length / 2)
+          const newSaddle = move.positions[mid]
+          newFrogs = currentFrogs.map(f =>
+            f[0] === oldSaddle[0] && f[1] === oldSaddle[1] ? [newSaddle[0], newSaddle[1]] : [...f]
+          )
+        }
+
+        const key = compactStateKey(newFrogs, newSnakes)
         if (!visited.has(key)) {
           visited.add(key)
           const moveEntry = trackPath ? {
@@ -129,7 +143,7 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
             from: currentSnakes[move.snakeIdx].positions.map(p => [...p]),
             to: move.positions.map(p => [...p])
           } : null
-          queue.push({ frogs: currentFrogs, snakes: newSnakes, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
+          queue.push({ frogs: newFrogs, snakes: newSnakes, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
         }
       }
     }

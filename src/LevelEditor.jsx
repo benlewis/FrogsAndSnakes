@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import './LevelEditor.css'
 import { solveLevel } from './solver.js'
+import { saddleCellOf } from './gameRules.js'
 import { solveGreedy, NUM_COLORS } from './colorJumpSolver.js'
+import { SaddleMark } from './GamePieces.jsx'
 import GameBoard from './GameBoard.jsx'
 
 // API base URL - use relative path for production, localhost for dev
@@ -344,7 +346,7 @@ const LogSVG = () => (
   </svg>
 )
 
-const VerticalSnakeSVG = ({ length = 2 }) => {
+const VerticalSnakeSVG = ({ length = 2, saddle = false }) => {
   const cellHeight = 50
   const viewHeight = length * cellHeight
   const bodyHeight = viewHeight - 32
@@ -408,11 +410,15 @@ const VerticalSnakeSVG = ({ length = 2 }) => {
       <path d="M20 26 L20 32 M18 34 L20 32 L22 34" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
       {/* Shine */}
       <ellipse cx="14" cy="12" rx="4" ry="3" fill="white" opacity="0.3" />
+      {/* Saddle on the middle segment (length 3+ only) */}
+      {saddle && length >= 3 && (
+        <SaddleMark cx={20} cy={Math.floor(length / 2) * cellHeight + cellHeight / 2} scale={1} rotate={0} />
+      )}
     </svg>
   )
 }
 
-const HorizontalSnakeSVG = ({ length = 2 }) => {
+const HorizontalSnakeSVG = ({ length = 2, saddle = false }) => {
   const cellWidth = 50
   const viewWidth = length * cellWidth
   const bodyWidth = viewWidth - 22
@@ -476,6 +482,10 @@ const HorizontalSnakeSVG = ({ length = 2 }) => {
       <path d={`M${headX + 14} 20 L${headX + 20} 20 M${headX + 22} 18 L${headX + 20} 20 L${headX + 22} 22`} stroke="#dc2626" strokeWidth="2" strokeLinecap="round" fill="none" />
       {/* Shine */}
       <ellipse cx={headX + 2} cy="14" rx="3" ry="4" fill="white" opacity="0.3" />
+      {/* Saddle on the middle segment (length 3+ only) */}
+      {saddle && length >= 3 && (
+        <SaddleMark cx={Math.floor(length / 2) * cellWidth + cellWidth / 2} cy={20} scale={1} rotate={90} />
+      )}
     </svg>
   )
 }
@@ -988,6 +998,15 @@ function LevelPoolPanel() {
               style={{ ...POOL_INPUT_STYLE, width: 80 }} onChange={(e) => setField(themeKey, spec.key, parseInt(e.target.value, 10))} />
           )}
           {!enabled && <span style={{ opacity: 0.5, fontSize: '0.85em' }}>off</span>}
+        </span>
+      )
+    }
+    if (spec.kind === 'bool') {
+      return (
+        <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <input type="checkbox" checked={val === true}
+            onChange={(e) => setField(themeKey, spec.key, e.target.checked)} />
+          <span style={{ opacity: 0.5, fontSize: '0.85em' }}>{val === true ? 'on' : 'off'}</span>
         </span>
       )
     }
@@ -1622,6 +1641,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [selectedFrogIndex, setSelectedFrogIndex] = useState(null)
   const [snakeOrientation, setSnakeOrientation] = useState('vertical')
   const [snakeLength, setSnakeLength] = useState(2)
+  // Place a saddle on the next snake (only meaningful for length 3+).
+  const [snakeSaddle, setSnakeSaddle] = useState(false)
+  // Auto-generated levels add a saddle to an eligible snake by default.
+  const [generateSaddles, setGenerateSaddles] = useState(true)
   const [logLength, setLogLength] = useState(1)
 
   // Generation options - difficulty defaults
@@ -1738,7 +1761,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         if (newCol >= gridSize || newRow >= gridSize) return
         positions.push([newCol, newRow])
       }
-      setSnakes([...snakes, { positions, orientation: snakeOrientation }])
+      const snake = { positions, orientation: snakeOrientation }
+      if (snakeSaddle && snakeLength >= 3) snake.saddle = true
+      setSnakes([...snakes, snake])
     } else if (currentTool === 'log') {
       const positions = []
       for (let i = 0; i < logLength; i++) {
@@ -1836,7 +1861,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       frogs: frogs.map(f => ({ position: f.position, color: f.color })),
       snakes: snakes.map(s => ({
         positions: s.positions,
-        orientation: s.orientation
+        orientation: s.orientation,
+        ...(s.saddle ? { saddle: true } : {})
       })),
       logs: logs.map(l => ({ positions: l.positions })),
       lilyPads: lilyPads.map(lp => ({ position: lp.position })),
@@ -1857,7 +1883,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
       if (levelData.gridSize) setGridSize(levelData.gridSize)
       if (levelData.frogs) setFrogs(levelData.frogs.map(f => ({ position: f.position, color: f.color || 'green' })))
-      if (levelData.snakes) setSnakes(levelData.snakes.map(s => ({ positions: s.positions, orientation: s.orientation })))
+      if (levelData.snakes) setSnakes(levelData.snakes.map(s => ({ positions: s.positions, orientation: s.orientation, ...(s.saddle ? { saddle: true } : {}) })))
       if (levelData.logs) setLogs(levelData.logs.map(l => ({ positions: l.positions })))
       if (levelData.lilyPads) setLilyPads(levelData.lilyPads.map(lp => ({ position: lp.position })))
       if (levelData.par) setPar(levelData.par)
@@ -1892,6 +1918,16 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       }
       setChecking(false)
     }, 10)
+  }
+
+  // When saddle generation is on, mark one eligible (length-3+) snake rideable
+  // before solving, so the computed par accounts for the ride. Mutates the
+  // passed snakes; a saddle only adds frog options, so solvability is kept.
+  const applyGeneratedSaddle = (genSnakes) => {
+    if (!generateSaddles) return
+    const eligible = genSnakes.filter(s => s.positions.length >= 3)
+    if (eligible.length === 0) return
+    eligible[Math.floor(Math.random() * eligible.length)].saddle = true
   }
 
   // Generate a random level that's solvable in the target move range
@@ -2033,6 +2069,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         }
         if (newLilyPads.length !== numLilyPads) continue
 
+        applyGeneratedSaddle(newSnakes)
+
         // For expert: quick reject boards solvable in too few moves, then full solve promising ones
         const isExpert = difficulty === 'expert'
         if (isExpert) {
@@ -2098,7 +2136,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           frogs: frogs.map(f => ({ position: f.position, color: f.color })),
           snakes: snakes.map(s => ({
             positions: s.positions,
-            orientation: s.orientation
+            orientation: s.orientation,
+            ...(s.saddle ? { saddle: true } : {})
           })),
           logs: logs.map(l => ({ positions: l.positions })),
           lilyPads: lilyPads.map(lp => ({ position: lp.position })),
@@ -2231,6 +2270,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       }
       if (newLilyPads.length !== numLilyPads) continue
 
+      applyGeneratedSaddle(newSnakes)
+
       const isExpert = diff === 'expert'
       if (isExpert) {
         // Quick reject boards solvable in too few moves
@@ -2362,6 +2403,8 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         }
       }
       if (newLilyPads.length !== numLilyPads) continue
+
+      applyGeneratedSaddle(newSnakes)
 
       if (isHardSolve) {
         const quick = solveLevel(size, newFrogs, newSnakes, newLogs, newLilyPads, { trackPath: false, maxIterations: 100000 })
@@ -2829,6 +2872,18 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                         onChange={(e) => setSnakeLength(parseInt(e.target.value) || 2)}
                       />
                     </div>
+                    <div className="option-row">
+                      <span>Saddle:</span>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, opacity: snakeLength < 3 ? 0.5 : 1 }}>
+                        <input
+                          type="checkbox"
+                          checked={snakeSaddle && snakeLength >= 3}
+                          disabled={snakeLength < 3}
+                          onChange={(e) => setSnakeSaddle(e.target.checked)}
+                        />
+                        {snakeLength < 3 ? 'needs length 3+' : 'rideable'}
+                      </label>
+                    </div>
                   </div>
                 )}
 
@@ -2922,6 +2977,17 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       />
                       {genMaxMoves === 'default' && <span className="default-hint">({difficultyDefaults[difficulty].moves.max})</span>}
                     </div>
+                  </div>
+
+                  <div className="option-row">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={generateSaddles}
+                        onChange={(e) => setGenerateSaddles(e.target.checked)}
+                      />
+                      Include saddles (rideable snakes)
+                    </label>
                   </div>
 
                   <div className="action-btn-row">
@@ -3026,7 +3092,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       ref={gameBoardRef}
                       initialState={{
                         frogs: frogs.map(f => ({ position: [...f.position], color: f.color })),
-                        snakes: snakes.map(s => ({ positions: s.positions.map(p => [...p]), orientation: s.orientation })),
+                        snakes: snakes.map(s => ({ positions: s.positions.map(p => [...p]), orientation: s.orientation, ...(s.saddle ? { saddle: true } : {}) })),
                         logs: logs.map(l => ({ positions: l.positions.map(p => [...p]) })),
                         lilyPads: lilyPads.map(lp => ({ position: [...lp.position] }))
                       }}
@@ -3074,9 +3140,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                         }}
                       >
                         {snake.orientation === 'vertical' ? (
-                          <VerticalSnakeSVG length={snake.positions.length} />
+                          <VerticalSnakeSVG length={snake.positions.length} saddle={snake.saddle} />
                         ) : (
-                          <HorizontalSnakeSVG length={snake.positions.length} />
+                          <HorizontalSnakeSVG length={snake.positions.length} saddle={snake.saddle} />
                         )}
                       </div>
                     ))}
