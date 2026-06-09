@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react'
 import App from './App.jsx'
 import Learn from './Learn.jsx'
 import LevelEditor from './LevelEditor.jsx'
+import AssetPortal from './AssetPortal.jsx'
 import { startVersionCheck } from './lib/versionCheck.js'
 import './index.css'
 
@@ -12,7 +13,10 @@ startVersionCheck()
 
 const path = window.location.pathname
 const isGamePath = path === '/' || path === '/color-jump'
-const Page = path === '/learn' ? Learn : path === '/level-editor' ? LevelEditor : App
+const Page = path === '/learn' ? Learn
+  : path === '/level-editor' ? LevelEditor
+  : path === '/asset-portal' ? AssetPortal
+  : App
 const initialGame = path === '/color-jump' ? 'color-jump' : 'jumping-frogs'
 
 ReactDOM.createRoot(document.getElementById('root')).render(

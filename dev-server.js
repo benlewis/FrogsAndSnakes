@@ -9,6 +9,7 @@ import { put, list, del } from '@vercel/blob';
 import { query, initializeSchema } from './lib/db.js';
 import { THEME_KEYS, THEME_TITLES, THEME_FIELD_SPEC } from './lib/autoLevelGenerator.js';
 import { getEffectiveConfig, saveConfig, runGenerationPass, poolCounts } from './api/_autoPool.js';
+import artHandler from './api/art.js';
 
 const app = express();
 const PORT = 3002;
@@ -734,6 +735,10 @@ app.delete('/api/campaigns', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete campaign' });
   }
 });
+
+// ---------- Art pipeline ----------
+// Single dispatcher mounted for the dev server; production uses api/art.js directly.
+app.all('/api/art', (req, res) => artHandler(req, res));
 
 app.listen(PORT, () => {
   console.log(`Dev API server running at http://localhost:${PORT}`);

@@ -8,6 +8,7 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 import { existsSync } from 'fs';
+import { initializeArtSchema } from '../lib/db.js';
 const { Pool } = pg;
 
 // Check for --env flag to load a specific env file
@@ -134,6 +135,9 @@ async function setup() {
       CREATE INDEX IF NOT EXISTS idx_completions_difficulty ON completions(difficulty)
     `);
     console.log('✓ Created difficulty index');
+
+    // Art pipeline tables + registry seed (shared with dev via lib/db.js).
+    await initializeArtSchema(pool);
 
     console.log('');
     console.log('Database setup complete!');
