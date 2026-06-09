@@ -156,6 +156,8 @@ async function resolveUpload(body) {
 }
 
 // POST ?action=submit — pending|rejected → submitted (uploader or admin).
+// "Ready to share" in the portal: makes the upload visible to reviewers and
+// on the admins' paired devices at their next sync (see getManifest).
 async function submitUpload(req, res) {
   const user = await requireUser(req, res);
   if (!user) return;

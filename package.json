@@ -9,7 +9,8 @@
     "dev:all": "node dev-server.js & vite",
     "build": "vite build",
     "preview": "vite preview",
-    "db:setup": "node scripts/setup-db.js"
+    "db:setup": "node scripts/setup-db.js",
+    "art:reference": "node scripts/sync-reference-art.js"
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.12.0",
