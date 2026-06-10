@@ -30,6 +30,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         redirect_uri: window.location.origin
       }}
       cacheLocation="localstorage"
+      useRefreshTokens={true}
     >
       <Page initialGame={isGamePath ? initialGame : undefined} />
       <Analytics />

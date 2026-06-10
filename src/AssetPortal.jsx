@@ -84,7 +84,7 @@ function formatCode(code) {
 }
 
 export default function AssetPortal() {
-  const { isAuthenticated, isLoading, user, loginWithRedirect, logout, getIdTokenClaims } = useAuth0()
+  const { isAuthenticated, isLoading, user, loginWithRedirect, logout, getIdTokenClaims, getAccessTokenSilently } = useAuth0()
   const [state, setState] = useState({ loading: true, error: null, role: null, slots: [] })
   const [pairing, setPairing] = useState(null)
   const [busy, setBusy] = useState({})   // slotId -> message
@@ -92,17 +92,20 @@ export default function AssetPortal() {
   const [open, setOpen] = useState({})   // slotId -> expanded instructions row
   const [collapsed, setCollapsed] = useState({})   // category -> section collapsed
 
-  const tokenRef = useRef(null)
-  const getToken = useCallback(async () => {
+  // The API authenticates with the raw ID token. getIdTokenClaims() reads the
+  // SDK's cache, so it's cheap to call per request; fresh=true forces a token
+  // refresh for retrying after a 401 from an expired cached token.
+  const getToken = useCallback(async (fresh = false) => {
+    if (fresh) {
+      try { await getAccessTokenSilently({ cacheMode: 'off' }) } catch { return null }
+    }
     const claims = await getIdTokenClaims()
-    tokenRef.current = claims?.__raw || null
-    return tokenRef.current
-  }, [getIdTokenClaims])
+    return claims?.__raw || null
+  }, [getIdTokenClaims, getAccessTokenSilently])
 
   const api = useCallback(async (action, { method = 'GET', body, query } = {}) => {
-    const token = tokenRef.current || (await getToken())
     const qs = new URLSearchParams({ action, ...(query || {}) }).toString()
-    const res = await fetch(`${API_BASE}/api/art?${qs}`, {
+    const call = async (token) => fetch(`${API_BASE}/api/art?${qs}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -110,6 +113,8 @@ export default function AssetPortal() {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
+    let res = await call(await getToken())
+    if (res.status === 401) res = await call(await getToken(true))
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status })
     return data
@@ -185,6 +190,19 @@ export default function AssetPortal() {
           <Package className="mx-auto h-10 w-10 text-emerald-600" />
           <h1 className="text-2xl font-bold">Frogs &amp; Snakes — Asset Portal</h1>
           <p className="text-slate-500">Sign in to manage game art.</p>
+          <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
+        </div>
+      </Centered>
+    )
+  }
+  if (state.error?.status === 401) {
+    // Token expired and a silent refresh failed — the session is gone.
+    return (
+      <Centered>
+        <div className="text-center space-y-4">
+          <Package className="mx-auto h-10 w-10 text-emerald-600" />
+          <h1 className="text-xl font-bold">Session expired</h1>
+          <p className="text-slate-500">Please sign in again to keep working.</p>
           <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
         </div>
       </Centered>

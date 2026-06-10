@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import { Users as UsersIcon, RefreshCw, Loader2, AlertCircle, Palette, ShieldCheck } from 'lucide-react'
 
@@ -19,21 +19,24 @@ function accountAge(createdAt) {
 }
 
 export default function Users() {
-  const { isAuthenticated, isLoading, user, loginWithRedirect, logout, getIdTokenClaims } = useAuth0()
+  const { isAuthenticated, isLoading, user, loginWithRedirect, logout, getIdTokenClaims, getAccessTokenSilently } = useAuth0()
   const [state, setState] = useState({ loading: true, error: null, users: [] })
   const [busy, setBusy] = useState({})   // userId -> true while toggling
   const [toast, setToast] = useState(null)
 
-  const tokenRef = useRef(null)
-  const getToken = useCallback(async () => {
+  // The API authenticates with the raw ID token. getIdTokenClaims() reads the
+  // SDK's cache, so it's cheap to call per request; fresh=true forces a token
+  // refresh for retrying after a 401 from an expired cached token.
+  const getToken = useCallback(async (fresh = false) => {
+    if (fresh) {
+      try { await getAccessTokenSilently({ cacheMode: 'off' }) } catch { return null }
+    }
     const claims = await getIdTokenClaims()
-    tokenRef.current = claims?.__raw || null
-    return tokenRef.current
-  }, [getIdTokenClaims])
+    return claims?.__raw || null
+  }, [getIdTokenClaims, getAccessTokenSilently])
 
   const api = useCallback(async (action, { method = 'GET', body } = {}) => {
-    const token = tokenRef.current || (await getToken())
-    const res = await fetch(`${API_BASE}/api/art?action=${action}`, {
+    const call = async (token) => fetch(`${API_BASE}/api/art?action=${action}`, {
       method,
       headers: {
         'Content-Type': 'application/json',
@@ -41,6 +44,8 @@ export default function Users() {
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     })
+    let res = await call(await getToken())
+    if (res.status === 401) res = await call(await getToken(true))
     const data = await res.json().catch(() => ({}))
     if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status })
     return data
@@ -95,7 +100,20 @@ export default function Users() {
       </Centered>
     )
   }
-  if (state.error?.status === 403 || state.error?.status === 401) {
+  if (state.error?.status === 401) {
+    // Token expired and a silent refresh failed — the session is gone.
+    return (
+      <Centered>
+        <div className="text-center space-y-4">
+          <UsersIcon className="mx-auto h-10 w-10 text-emerald-600" />
+          <h1 className="text-xl font-bold">Session expired</h1>
+          <p className="text-slate-500">Please sign in again to keep working.</p>
+          <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
+        </div>
+      </Centered>
+    )
+  }
+  if (state.error?.status === 403) {
     return (
       <Centered>
         <div className="text-center space-y-3">
