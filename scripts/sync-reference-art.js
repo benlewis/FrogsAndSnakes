@@ -31,6 +31,10 @@ const JOBS = [
   ...['frog', 'frog_blink', 'lilypad', 'stump', 'celebration_ring', 'star', 'star_empty',
       'snake2', 'snake2_blink', 'snake3', 'snake3_blink',
       'snake4', 'snake4_blink', 'snake5', 'snake5_blink',
+      'bunny_ears',
+      ...['amber', 'ruby', 'sapphire', 'emerald'].flatMap((c) => [
+        `plate_${c}`, `stone_${c}`, `stone_${c}_flat`,
+      ]),
   ].map((n) => [imagesetPng(n), `${n}.png`, 'png']),
 ];
 
