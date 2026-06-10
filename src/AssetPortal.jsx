@@ -83,6 +83,19 @@ function formatCode(code) {
   return code ? String(code).replace(/(\d{3})(?=\d)/g, '$1 ').trim() : ''
 }
 
+// Bundle consecutive slots that share spec.group (frames/variants of one
+// artwork — snake idle + blink, the four portal colors, ...) into one block.
+function chunkByGroup(slots) {
+  const out = []
+  for (const s of slots) {
+    const g = s.spec?.group || null
+    const last = out[out.length - 1]
+    if (g && last && last.group === g) last.slots.push(s)
+    else out.push({ group: g, slots: [s] })
+  }
+  return out
+}
+
 export default function AssetPortal() {
   const { status, error: authError, user, token, api, login, logout } = usePortalAuth()
   const [state, setState] = useState({ loading: true, error: null, role: null, slots: [] })
@@ -288,10 +301,18 @@ export default function AssetPortal() {
                         </span>
                       </td>
                     </tr>
-                    {!isCollapsed && slots.map((slot) => (
-                      <SlotRows key={slot.slotId} slot={slot} isAdmin={isAdmin} busy={busy[slot.slotId]}
-                        open={!!open[slot.slotId]} onToggle={() => toggle(slot.slotId)}
-                        onUpload={onUpload} act={act} />
+                    {!isCollapsed && chunkByGroup(slots).map((chunk) => (
+                      chunk.group ? (
+                        <GroupRows key={chunk.group} group={chunk.group} slots={chunk.slots}
+                          isAdmin={isAdmin} busy={busy} open={open} toggle={toggle}
+                          onUpload={onUpload} act={act} />
+                      ) : (
+                        chunk.slots.map((slot) => (
+                          <SlotRows key={slot.slotId} slot={slot} isAdmin={isAdmin} busy={busy[slot.slotId]}
+                            open={!!open[slot.slotId]} onToggle={() => toggle(slot.slotId)}
+                            onUpload={onUpload} act={act} />
+                        ))
+                      )
                     ))}
                   </tbody>
                 )
@@ -310,8 +331,34 @@ export default function AssetPortal() {
   )
 }
 
+// A group block: one header row naming the artwork, then a row per frame /
+// variant. Frames of one piece stay together — upload each, they must match.
+function GroupRows({ group, slots, isAdmin, busy, open, toggle, onUpload, act }) {
+  const Icon = KIND_ICON[slots[0].spec?.kind] || ImageIcon
+  return (
+    <>
+      <tr className="border-b border-slate-100 bg-emerald-50/40">
+        <td className="px-3 py-1.5"></td>
+        <td colSpan={5} className="px-3 py-1.5">
+          <span className="inline-flex items-center gap-2 font-semibold text-slate-800">
+            <Icon className="h-4 w-4 text-emerald-600" /> {group}
+            <span className="text-xs font-normal text-slate-400">
+              {slots.length} images: {slots.map((s) => s.spec?.frame || s.displayName).join(' · ')}
+            </span>
+          </span>
+        </td>
+      </tr>
+      {slots.map((slot) => (
+        <SlotRows key={slot.slotId} slot={slot} isAdmin={isAdmin} busy={busy[slot.slotId]}
+          open={!!open[slot.slotId]} onToggle={() => toggle(slot.slotId)}
+          onUpload={onUpload} act={act} inGroup />
+      ))}
+    </>
+  )
+}
+
 // One slot = a main table row + an expandable instructions/details row.
-function SlotRows({ slot, isAdmin, busy, open, onToggle, onUpload, act }) {
+function SlotRows({ slot, isAdmin, busy, open, onToggle, onUpload, act, inGroup }) {
   const fileRef = useRef(null)
   const cur = slot.current
   const spec = slot.spec || {}
@@ -327,13 +374,13 @@ function SlotRows({ slot, isAdmin, busy, open, onToggle, onUpload, act }) {
         <td className="px-3 py-2 align-middle">
           <TIcon className={`h-5 w-5 ${T.cls}`} title={T.label} />
         </td>
-        <td className="px-3 py-2 align-middle">
+        <td className={`px-3 py-2 align-middle ${inGroup ? 'pl-8 border-l-2 border-emerald-100' : ''}`}>
           <div className="flex items-center gap-2 font-medium">
             {open ? <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
-            <Icon className="h-4 w-4 text-slate-400 shrink-0" />
-            {slot.displayName}
+            {!inGroup && <Icon className="h-4 w-4 text-slate-400 shrink-0" />}
+            {inGroup ? (slot.spec?.frame || slot.displayName) : slot.displayName}
           </div>
-          <div className="text-xs text-slate-400 ml-10">{slot.slotId}</div>
+          <div className={`text-xs text-slate-400 ${inGroup ? 'ml-6' : 'ml-10'}`}>{slot.slotId}</div>
         </td>
         <td className="px-3 py-2 align-middle"><ReferenceThumb spec={spec} /></td>
         <td className="px-3 py-2 align-middle text-slate-600 whitespace-nowrap">{requiredSummary(spec)}</td>
@@ -417,31 +464,25 @@ function ReferenceThumb({ spec }) {
   return <span className="text-xs text-slate-400">—</span>
 }
 
-// Larger reference image inside the expanded row, linking to the full file.
+// Reference image inside the expanded row — small, click opens the full file.
 function ReferencePreview({ spec }) {
   if (!spec.reference?.url) return null
   return (
-    <a href={spec.reference.url} target="_blank" rel="noreferrer" className="block text-center shrink-0">
+    <a href={spec.reference.url} target="_blank" rel="noreferrer" className="shrink-0" title="Current in-app art — click for full size">
       <img src={spec.reference.url} alt="current in-app art" loading="lazy"
-        className="h-36 max-w-[160px] object-contain rounded-lg border border-slate-200 bg-slate-100" />
-      <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
-        current art <ExternalLink className="h-3 w-3" />
-      </span>
+        className="h-20 max-w-[96px] object-contain rounded border border-slate-200 bg-slate-100" />
     </a>
   )
 }
 
-// Preview of the latest upload (image or audio) inside the expanded row.
+// Latest upload (image or audio) inside the expanded row — small, click opens.
 function UploadPreview({ cur, spec }) {
   if (!cur) return null
   if (spec.kind === 'image') {
     return (
-      <a href={cur.url} target="_blank" rel="noreferrer" className="block text-center shrink-0">
+      <a href={cur.url} target="_blank" rel="noreferrer" className="shrink-0" title="Latest upload — click for full size">
         <img src={cur.url} alt="latest upload" loading="lazy"
-          className="h-36 max-w-[160px] object-contain rounded-lg border border-emerald-200 bg-slate-100" />
-        <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400">
-          latest upload <ExternalLink className="h-3 w-3" />
-        </span>
+          className="h-20 max-w-[96px] object-contain rounded border border-emerald-300 bg-slate-100" />
       </a>
     )
   }
