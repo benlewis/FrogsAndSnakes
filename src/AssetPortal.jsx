@@ -221,6 +221,7 @@ export default function AssetPortal() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-bold"><Package className="h-5 w-5 text-emerald-600" /> Asset Portal</div>
           <div className="flex items-center gap-3 text-sm">
+            {isAdmin && <a href="/users" className="text-slate-500 hover:text-slate-900">Users</a>}
             <button onClick={loadSlots} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900"><RefreshCw className="h-4 w-4" /> Refresh</button>
             <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">{state.role}</span>
             <span className="text-slate-500 hidden sm:inline">{user?.email}</span>

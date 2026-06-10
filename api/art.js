@@ -7,7 +7,7 @@ import crypto from 'node:crypto';
 import { handleUpload } from '@vercel/blob/client';
 import { del } from '@vercel/blob';
 import { query } from './_db.js';
-import { requireUser, verifyTokenOrBypass } from './_artAuth.js';
+import { requireUser, verifyTokenOrBypass, ADMIN_EMAILS } from './_artAuth.js';
 import {
   setCors, sha256, allowedContentTypes, getSlot, latestUpload, nextVersion,
   validateAsset, publicUpload, MAX_BYTES,
@@ -30,6 +30,8 @@ export default async function handler(req, res) {
       case 'pairing':       return await getPairing(req, res);
       case 'pairing-rotate':return await rotatePairing(req, res);
       case 'manifest':      return await getManifest(req, res);
+      case 'users':         return await listUsers(req, res);
+      case 'set-artist':    return await setArtist(req, res);
       default:
         return res.status(400).json({ error: `unknown action "${action}"` });
     }
@@ -251,6 +253,47 @@ async function rotatePairing(req, res) {
   await query('DELETE FROM art_pairing WHERE user_id = $1', [user.sub]);
   const code = await allocatePairingCode(user);
   return res.status(200).json({ code, role: user.role });
+}
+
+// --- User management (the /users admin page) ---
+
+// GET ?action=users — every account, oldest first (account age descending).
+async function listUsers(req, res) {
+  const user = await requireUser(req, res, { admin: true });
+  if (!user) return;
+  const rows = (await query(
+    `SELECT user_id, display_name, email, picture_url, created_at, is_artist
+       FROM users
+      ORDER BY created_at ASC, user_id`
+  )).rows;
+  const users = rows.map((r) => ({
+    userId: r.user_id,
+    displayName: r.display_name,
+    email: r.email,
+    pictureUrl: r.picture_url,
+    createdAt: r.created_at,
+    isArtist: r.is_artist,
+    isAdmin: ADMIN_EMAILS.includes((r.email || '').toLowerCase()),
+  }));
+  return res.status(200).json({ users });
+}
+
+// POST ?action=set-artist { userId, isArtist } — grant/revoke portal access.
+async function setArtist(req, res) {
+  const user = await requireUser(req, res, { admin: true });
+  if (!user) return;
+  const { userId, isArtist } = req.body || {};
+  if (!userId || typeof isArtist !== 'boolean') {
+    return res.status(400).json({ error: 'userId and isArtist (boolean) required' });
+  }
+  const row = (await query(
+    `UPDATE users SET is_artist = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE user_id = $1
+      RETURNING user_id, is_artist`,
+    [userId, isArtist]
+  )).rows[0];
+  if (!row) return res.status(404).json({ error: 'user not found' });
+  return res.status(200).json({ userId: row.user_id, isArtist: row.is_artist });
 }
 
 // GET ?action=manifest&code=XXXX — app-facing. Resolves the magic number to a

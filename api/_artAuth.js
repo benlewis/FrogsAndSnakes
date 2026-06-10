@@ -2,21 +2,21 @@
 //
 // The portal sends the Auth0 ID token (raw JWT, from getIdTokenClaims().__raw)
 // as `Authorization: Bearer <token>`. We verify it against Auth0's JWKS
-// (issuer + audience), then map the verified email to a role via env allowlists.
+// (issuer + audience), then resolve the verified email to a role:
+//   admin  — Ben (hardcoded below); manages users at /users
+//   artist — any account with users.is_artist set (granted from /users)
 //
 // Required server env (Vercel): AUTH0_DOMAIN, AUTH0_CLIENT_ID
 //   (falls back to the VITE_* names if those are the only ones set).
-// Optional: ART_ADMIN_EMAILS (csv, default ben), ART_ARTIST_EMAILS (csv).
 // Local only: ART_DEV_BYPASS_EMAIL — when set and NODE_ENV!=='production',
 //   skips token verification and treats the request as that user.
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { query } from './_db.js';
 
 const DOMAIN = process.env.AUTH0_DOMAIN || process.env.VITE_AUTH0_DOMAIN || '';
 const CLIENT_ID = process.env.AUTH0_CLIENT_ID || process.env.VITE_AUTH0_CLIENT_ID || '';
 
-const csv = (v) => (v || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-const ADMIN_EMAILS = csv(process.env.ART_ADMIN_EMAILS || 'ben.lewis@gmail.com');
-const ARTIST_EMAILS = csv(process.env.ART_ARTIST_EMAILS);
+export const ADMIN_EMAILS = ['ben.lewis@gmail.com'];
 
 let _jwks = null;
 function jwks() {
@@ -31,11 +31,12 @@ function httpError(status, message) {
   return e;
 }
 
-export function roleForEmail(email) {
+export async function roleForEmail(email) {
   const e = (email || '').toLowerCase();
+  if (!e) return null;
   if (ADMIN_EMAILS.includes(e)) return 'admin';
-  if (ARTIST_EMAILS.includes(e)) return 'artist';
-  return null;
+  const r = await query('SELECT 1 FROM users WHERE LOWER(email) = $1 AND is_artist LIMIT 1', [e]);
+  return r.rows.length ? 'artist' : null;
 }
 
 function bearer(req) {
@@ -44,11 +45,11 @@ function bearer(req) {
   return m ? m[1].trim() : null;
 }
 
-function devBypass() {
+async function devBypass() {
   const bypass = process.env.ART_DEV_BYPASS_EMAIL;
   if (bypass && process.env.NODE_ENV !== 'production') {
     const email = bypass.toLowerCase();
-    return { email, sub: `dev|${email}`, role: roleForEmail(email) || 'admin' };
+    return { email, sub: `dev|${email}`, role: (await roleForEmail(email)) || 'admin' };
   }
   return null;
 }
@@ -67,7 +68,7 @@ export async function verifyToken(token) {
     throw httpError(401, 'invalid or expired token');
   }
   const email = (payload.email || '').toLowerCase();
-  const role = roleForEmail(email);
+  const role = await roleForEmail(email);
   if (!role) throw httpError(403, 'this account is not authorized for the art portal');
   return { email, sub: payload.sub, role };
 }
@@ -75,12 +76,12 @@ export async function verifyToken(token) {
 // Same, but honors the local dev bypass first. Used by the Blob upload-token
 // route, which receives the token via clientPayload rather than a header.
 export async function verifyTokenOrBypass(token) {
-  return devBypass() || (await verifyToken(token));
+  return (await devBypass()) || (await verifyToken(token));
 }
 
 // Verify from the request's Authorization header (with dev bypass).
 export async function verifyRequest(req) {
-  return devBypass() || (await verifyToken(bearer(req)));
+  return (await devBypass()) || (await verifyToken(bearer(req)));
 }
 
 // Guard: returns the verified user, or writes an error response and returns null.
