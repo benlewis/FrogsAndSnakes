@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useAuth0 } from '@auth0/auth0-react'
 import { upload } from '@vercel/blob/client'
+import { usePortalAuth } from './lib/portalAuth.js'
 import {
   Upload, Send, Check, X, Package, RefreshCw, KeyRound, Copy,
   ImageIcon, Music, FileJson, Loader2, AlertCircle, CheckCircle2,
@@ -84,41 +84,13 @@ function formatCode(code) {
 }
 
 export default function AssetPortal() {
-  const { isAuthenticated, isLoading, user, loginWithRedirect, logout, getIdTokenClaims, getAccessTokenSilently } = useAuth0()
+  const { status, error: authError, user, token, api, login, logout } = usePortalAuth()
   const [state, setState] = useState({ loading: true, error: null, role: null, slots: [] })
   const [pairing, setPairing] = useState(null)
   const [busy, setBusy] = useState({})   // slotId -> message
   const [toast, setToast] = useState(null)
   const [open, setOpen] = useState({})   // slotId -> expanded instructions row
   const [collapsed, setCollapsed] = useState({})   // category -> section collapsed
-
-  // The API authenticates with the raw ID token. getIdTokenClaims() reads the
-  // SDK's cache, so it's cheap to call per request; fresh=true forces a token
-  // refresh for retrying after a 401 from an expired cached token.
-  const getToken = useCallback(async (fresh = false) => {
-    if (fresh) {
-      try { await getAccessTokenSilently({ cacheMode: 'off' }) } catch { return null }
-    }
-    const claims = await getIdTokenClaims()
-    return claims?.__raw || null
-  }, [getIdTokenClaims, getAccessTokenSilently])
-
-  const api = useCallback(async (action, { method = 'GET', body, query } = {}) => {
-    const qs = new URLSearchParams({ action, ...(query || {}) }).toString()
-    const call = async (token) => fetch(`${API_BASE}/api/art?${qs}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    })
-    let res = await call(await getToken())
-    if (res.status === 401) res = await call(await getToken(true))
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status })
-    return data
-  }, [getToken])
 
   const loadSlots = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }))
@@ -135,8 +107,8 @@ export default function AssetPortal() {
   }, [api])
 
   useEffect(() => {
-    if (isAuthenticated) { loadSlots(); loadPairing() }
-  }, [isAuthenticated, loadSlots, loadPairing])
+    if (status === 'ready') { loadSlots(); loadPairing() }
+  }, [status, loadSlots, loadPairing])
 
   const flash = (msg, kind = 'ok') => { setToast({ msg, kind }); setTimeout(() => setToast(null), 4000) }
   const mark = (slotId, msg) => setBusy((b) => ({ ...b, [slotId]: msg }))
@@ -148,7 +120,6 @@ export default function AssetPortal() {
     if (!file) return
     mark(slot.slotId, 'Uploading…')
     try {
-      const token = await getToken()
       const blob = await upload(`art/${slot.slotId}/${Date.now()}-${file.name}`, file, {
         access: 'public',
         handleUploadUrl: `${API_BASE}/api/art?action=upload-token`,
@@ -182,40 +153,39 @@ export default function AssetPortal() {
   }
 
   // ---- gates ----
-  if (isLoading) return <Centered><Loader2 className="animate-spin" /> Loading…</Centered>
-  if (!isAuthenticated) {
+  if (status === 'loading') return <Centered><Loader2 className="animate-spin" /> Loading…</Centered>
+  if (status === 'signedout' || state.error?.status === 401) {
     return (
       <Centered>
         <div className="text-center space-y-4">
           <Package className="mx-auto h-10 w-10 text-emerald-600" />
           <h1 className="text-2xl font-bold">Frogs &amp; Snakes — Asset Portal</h1>
           <p className="text-slate-500">Sign in to manage game art.</p>
-          <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
+          <button onClick={login} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
         </div>
       </Centered>
     )
   }
-  if (state.error?.status === 401) {
-    // Token expired and a silent refresh failed — the session is gone.
-    return (
-      <Centered>
-        <div className="text-center space-y-4">
-          <Package className="mx-auto h-10 w-10 text-emerald-600" />
-          <h1 className="text-xl font-bold">Session expired</h1>
-          <p className="text-slate-500">Please sign in again to keep working.</p>
-          <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
-        </div>
-      </Centered>
-    )
-  }
-  if (state.error?.status === 403) {
+  if (status === 'forbidden' || state.error?.status === 403) {
     return (
       <Centered>
         <div className="text-center space-y-3">
           <AlertCircle className="mx-auto h-10 w-10 text-rose-500" />
           <h1 className="text-xl font-bold">Not authorized</h1>
-          <p className="text-slate-500">{user?.email} isn’t on the art-portal allowlist.</p>
-          <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })} className="text-sm text-slate-500 underline">Log out</button>
+          <p className="text-slate-500">This account doesn’t have access to the art portal.</p>
+          <button onClick={logout} className="text-sm text-slate-500 underline">Log out</button>
+        </div>
+      </Centered>
+    )
+  }
+  if (status === 'error') {
+    return (
+      <Centered>
+        <div className="text-center space-y-3">
+          <AlertCircle className="mx-auto h-10 w-10 text-rose-500" />
+          <h1 className="text-xl font-bold">Something went wrong</h1>
+          <p className="text-slate-500">{authError?.message || 'Could not sign in.'}</p>
+          <button onClick={() => window.location.reload()} className="text-sm text-slate-500 underline">Retry</button>
         </div>
       </Centered>
     )
@@ -243,7 +213,7 @@ export default function AssetPortal() {
             <button onClick={loadSlots} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900"><RefreshCw className="h-4 w-4" /> Refresh</button>
             <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 capitalize">{state.role}</span>
             <span className="text-slate-500 hidden sm:inline">{user?.email}</span>
-            <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })} className="text-slate-400 hover:text-slate-700">Log out</button>
+            <button onClick={logout} className="text-slate-400 hover:text-slate-700">Log out</button>
           </div>
         </div>
       </header>

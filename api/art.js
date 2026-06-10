@@ -7,7 +7,9 @@ import crypto from 'node:crypto';
 import { handleUpload } from '@vercel/blob/client';
 import { del } from '@vercel/blob';
 import { query } from './_db.js';
-import { requireUser, verifyTokenOrBypass, ADMIN_EMAILS } from './_artAuth.js';
+import {
+  requireUser, verifyTokenOrBypass, ADMIN_EMAILS, createSession, deleteSession, bearer,
+} from './_artAuth.js';
 import {
   setCors, sha256, allowedContentTypes, getSlot, latestUpload, nextVersion,
   validateAsset, publicUpload, MAX_BYTES,
@@ -32,6 +34,8 @@ export default async function handler(req, res) {
       case 'manifest':      return await getManifest(req, res);
       case 'users':         return await listUsers(req, res);
       case 'set-artist':    return await setArtist(req, res);
+      case 'session':       return await createPortalSession(req, res);
+      case 'session-logout':return await logoutPortalSession(req, res);
       default:
         return res.status(400).json({ error: `unknown action "${action}"` });
     }
@@ -253,6 +257,24 @@ async function rotatePairing(req, res) {
   await query('DELETE FROM art_pairing WHERE user_id = $1', [user.sub]);
   const code = await allocatePairingCode(user);
   return res.status(200).json({ code, role: user.role });
+}
+
+// --- Portal sessions ---
+
+// POST ?action=session — exchange a verified Auth0 login for a long-lived
+// portal session token (see _artAuth.js). The portal stores it locally, so
+// Auth0's short session lifetime no longer signs people out.
+async function createPortalSession(req, res) {
+  const user = await requireUser(req, res);
+  if (!user) return;
+  const token = await createSession(user);
+  return res.status(200).json({ token, email: user.email, role: user.role });
+}
+
+// POST ?action=session-logout — invalidate the caller's session token.
+async function logoutPortalSession(req, res) {
+  await deleteSession(bearer(req));
+  return res.status(200).json({ ok: true });
 }
 
 // --- User management (the /users admin page) ---

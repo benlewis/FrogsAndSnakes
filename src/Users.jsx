@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useAuth0 } from '@auth0/auth0-react'
 import { Users as UsersIcon, RefreshCw, Loader2, AlertCircle, Palette, ShieldCheck } from 'lucide-react'
-
-// Localhost in dev, same-origin in production (mirrors AssetPortal).
-const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
+import { usePortalAuth } from './lib/portalAuth.js'
 
 function accountAge(createdAt) {
   const ms = Date.now() - new Date(createdAt).getTime()
@@ -19,37 +16,10 @@ function accountAge(createdAt) {
 }
 
 export default function Users() {
-  const { isAuthenticated, isLoading, user, loginWithRedirect, logout, getIdTokenClaims, getAccessTokenSilently } = useAuth0()
+  const { status, error: authError, user, api, login, logout } = usePortalAuth()
   const [state, setState] = useState({ loading: true, error: null, users: [] })
   const [busy, setBusy] = useState({})   // userId -> true while toggling
   const [toast, setToast] = useState(null)
-
-  // The API authenticates with the raw ID token. getIdTokenClaims() reads the
-  // SDK's cache, so it's cheap to call per request; fresh=true forces a token
-  // refresh for retrying after a 401 from an expired cached token.
-  const getToken = useCallback(async (fresh = false) => {
-    if (fresh) {
-      try { await getAccessTokenSilently({ cacheMode: 'off' }) } catch { return null }
-    }
-    const claims = await getIdTokenClaims()
-    return claims?.__raw || null
-  }, [getIdTokenClaims, getAccessTokenSilently])
-
-  const api = useCallback(async (action, { method = 'GET', body } = {}) => {
-    const call = async (token) => fetch(`${API_BASE}/api/art?action=${action}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-    })
-    let res = await call(await getToken())
-    if (res.status === 401) res = await call(await getToken(true))
-    const data = await res.json().catch(() => ({}))
-    if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status })
-    return data
-  }, [getToken])
 
   const loadUsers = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }))
@@ -62,8 +32,8 @@ export default function Users() {
   }, [api])
 
   useEffect(() => {
-    if (isAuthenticated) loadUsers()
-  }, [isAuthenticated, loadUsers])
+    if (status === 'ready') loadUsers()
+  }, [status, loadUsers])
 
   const flash = (msg, kind = 'ok') => { setToast({ msg, kind }); setTimeout(() => setToast(null), 4000) }
 
@@ -87,40 +57,39 @@ export default function Users() {
   }
 
   // ---- gates ----
-  if (isLoading) return <Centered><Loader2 className="animate-spin" /> Loading…</Centered>
-  if (!isAuthenticated) {
+  if (status === 'loading') return <Centered><Loader2 className="animate-spin" /> Loading…</Centered>
+  if (status === 'signedout' || state.error?.status === 401) {
     return (
       <Centered>
         <div className="text-center space-y-4">
           <UsersIcon className="mx-auto h-10 w-10 text-emerald-600" />
           <h1 className="text-2xl font-bold">Frogs &amp; Snakes — Users</h1>
           <p className="text-slate-500">Sign in to manage user accounts.</p>
-          <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
+          <button onClick={login} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
         </div>
       </Centered>
     )
   }
-  if (state.error?.status === 401) {
-    // Token expired and a silent refresh failed — the session is gone.
-    return (
-      <Centered>
-        <div className="text-center space-y-4">
-          <UsersIcon className="mx-auto h-10 w-10 text-emerald-600" />
-          <h1 className="text-xl font-bold">Session expired</h1>
-          <p className="text-slate-500">Please sign in again to keep working.</p>
-          <button onClick={() => loginWithRedirect()} className="px-5 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Log In</button>
-        </div>
-      </Centered>
-    )
-  }
-  if (state.error?.status === 403) {
+  if (status === 'forbidden' || state.error?.status === 403) {
     return (
       <Centered>
         <div className="text-center space-y-3">
           <AlertCircle className="mx-auto h-10 w-10 text-rose-500" />
           <h1 className="text-xl font-bold">Not authorized</h1>
-          <p className="text-slate-500">{user?.email} can’t manage users.</p>
-          <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })} className="text-sm text-slate-500 underline">Log out</button>
+          <p className="text-slate-500">{user?.email || 'This account'} can’t manage users.</p>
+          <button onClick={logout} className="text-sm text-slate-500 underline">Log out</button>
+        </div>
+      </Centered>
+    )
+  }
+  if (status === 'error') {
+    return (
+      <Centered>
+        <div className="text-center space-y-3">
+          <AlertCircle className="mx-auto h-10 w-10 text-rose-500" />
+          <h1 className="text-xl font-bold">Something went wrong</h1>
+          <p className="text-slate-500">{authError?.message || 'Could not sign in.'}</p>
+          <button onClick={() => window.location.reload()} className="text-sm text-slate-500 underline">Retry</button>
         </div>
       </Centered>
     )
@@ -139,7 +108,7 @@ export default function Users() {
             <a href="/asset-portal" className="text-slate-500 hover:text-slate-900">Asset Portal</a>
             <button onClick={loadUsers} className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900"><RefreshCw className="h-4 w-4" /> Refresh</button>
             <span className="text-slate-500 hidden sm:inline">{user?.email}</span>
-            <button onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })} className="text-slate-400 hover:text-slate-700">Log out</button>
+            <button onClick={logout} className="text-slate-400 hover:text-slate-700">Log out</button>
           </div>
         </div>
       </header>
