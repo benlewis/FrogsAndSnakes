@@ -90,6 +90,7 @@ export default function AssetPortal() {
   const [busy, setBusy] = useState({})   // slotId -> message
   const [toast, setToast] = useState(null)
   const [open, setOpen] = useState({})   // slotId -> expanded instructions row
+  const [collapsed, setCollapsed] = useState({})   // category -> section collapsed
 
   const tokenRef = useRef(null)
   const getToken = useCallback(async () => {
@@ -136,6 +137,7 @@ export default function AssetPortal() {
   const mark = (slotId, msg) => setBusy((b) => ({ ...b, [slotId]: msg }))
   const clear = (slotId) => setBusy((b) => { const n = { ...b }; delete n[slotId]; return n })
   const toggle = (slotId) => setOpen((o) => ({ ...o, [slotId]: !o[slotId] }))
+  const toggleSection = (cat) => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))
 
   async function onUpload(slot, file) {
     if (!file) return
@@ -211,8 +213,10 @@ export default function AssetPortal() {
     return acc
   }, {})
 
+  // The game's global CSS pins <body> (position: fixed, overflow: hidden),
+  // so the portal must be its own scroll container.
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="h-full overflow-y-auto overscroll-contain select-text bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-10 bg-white border-b border-slate-200">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 font-bold"><Package className="h-5 w-5 text-emerald-600" /> Asset Portal</div>
@@ -276,20 +280,33 @@ export default function AssetPortal() {
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
-              {grouped.map(({ cat, slots }) => (
-                <tbody key={cat}>
-                  <tr className="bg-slate-50/80 border-y border-slate-200">
-                    <td colSpan={6} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {CATEGORY_LABELS[cat] || cat}
-                    </td>
-                  </tr>
-                  {slots.map((slot) => (
-                    <SlotRows key={slot.slotId} slot={slot} isAdmin={isAdmin} busy={busy[slot.slotId]}
-                      open={!!open[slot.slotId]} onToggle={() => toggle(slot.slotId)}
-                      onUpload={onUpload} act={act} />
-                  ))}
-                </tbody>
-              ))}
+              {grouped.map(({ cat, slots }) => {
+                const isCollapsed = !!collapsed[cat]
+                const done = slots.filter((s) => ['done', 'shipped'].includes(todoState(s))).length
+                return (
+                  <tbody key={cat}>
+                    <tr className="bg-slate-50/80 border-y border-slate-200 cursor-pointer hover:bg-slate-100/80 select-none"
+                      onClick={() => toggleSection(cat)}>
+                      <td colSpan={6} className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          {isCollapsed
+                            ? <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                            : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+                          {CATEGORY_LABELS[cat] || cat}
+                          <span className="font-normal normal-case tracking-normal text-slate-400">
+                            — {done}/{slots.length} done
+                          </span>
+                        </span>
+                      </td>
+                    </tr>
+                    {!isCollapsed && slots.map((slot) => (
+                      <SlotRows key={slot.slotId} slot={slot} isAdmin={isAdmin} busy={busy[slot.slotId]}
+                        open={!!open[slot.slotId]} onToggle={() => toggle(slot.slotId)}
+                        onUpload={onUpload} act={act} />
+                    ))}
+                  </tbody>
+                )
+              })}
             </table>
           </section>
         )}
