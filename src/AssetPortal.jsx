@@ -382,7 +382,7 @@ function SlotRows({ slot, isAdmin, busy, open, onToggle, onUpload, act, inGroup 
           </div>
           <div className={`text-xs text-slate-400 ${inGroup ? 'ml-6' : 'ml-10'}`}>{slot.slotId}</div>
         </td>
-        <td className="px-3 py-2 align-middle"><ReferenceThumb spec={spec} /></td>
+        <td className="px-3 py-2 align-middle"><CurrentArtThumb slot={slot} /></td>
         <td className="px-3 py-2 align-middle text-slate-600 whitespace-nowrap">{requiredSummary(spec)}</td>
         <td className="px-3 py-2 align-middle">
           <span className={`px-1.5 py-0.5 rounded text-xs whitespace-nowrap ${STATUS_STYLES[status] || STATUS_STYLES.placeholder}`}>
@@ -448,7 +448,28 @@ function SlotRows({ slot, isAdmin, busy, open, onToggle, onUpload, act, inGroup 
   )
 }
 
-// Small thumbnail of the art currently in the app (from /art-reference).
+// "Current art" thumbnail — the art the game will actually show this user:
+// their live upload when one exists (slot.live, server mirrors the manifest
+// rule), otherwise the baked in-app art.
+function CurrentArtThumb({ slot }) {
+  const spec = slot.spec || {}
+  const live = slot.live
+  if (live) {
+    if (spec.kind === 'image') {
+      return (
+        <div className="flex items-center gap-2">
+          <img src={live.url} alt="" loading="lazy"
+            className="h-12 max-w-[72px] object-contain rounded border border-emerald-300 bg-slate-100" />
+          <span className="text-xs text-emerald-600 whitespace-nowrap">upload v{live.version}</span>
+        </div>
+      )
+    }
+    return <span className="text-xs text-emerald-600 whitespace-nowrap">upload v{live.version} in use</span>
+  }
+  return <ReferenceThumb spec={spec} />
+}
+
+// Small thumbnail of the art baked into the app (from /art-reference).
 function ReferenceThumb({ spec }) {
   if (spec.reference?.url) {
     return (
@@ -468,8 +489,8 @@ function ReferenceThumb({ spec }) {
 function ReferencePreview({ spec }) {
   if (!spec.reference?.url) return null
   return (
-    <a href={spec.reference.url} target="_blank" rel="noreferrer" className="shrink-0" title="Current in-app art — click for full size">
-      <img src={spec.reference.url} alt="current in-app art" loading="lazy"
+    <a href={spec.reference.url} target="_blank" rel="noreferrer" className="shrink-0" title="Baked app art (reference) — click for full size">
+      <img src={spec.reference.url} alt="baked app art" loading="lazy"
         className="h-20 max-w-[96px] object-contain rounded border border-slate-200 bg-slate-100" />
     </a>
   )

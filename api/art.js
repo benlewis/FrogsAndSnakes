@@ -53,7 +53,16 @@ async function listSlots(req, res) {
   const ups = (await query(
     'SELECT DISTINCT ON (slot_id) * FROM art_uploads ORDER BY slot_id, version DESC'
   )).rows;
+  // The upload the game would actually use for this user — same rule as
+  // getManifest: latest non-rejected version, pending only for its uploader.
+  const live = (await query(
+    `SELECT DISTINCT ON (slot_id) * FROM art_uploads
+      WHERE status <> 'rejected' AND (status <> 'pending' OR uploaded_by = $1)
+      ORDER BY slot_id, version DESC`,
+    [user.email]
+  )).rows;
   const bySlot = new Map(ups.map((u) => [u.slot_id, u]));
+  const liveBySlot = new Map(live.map((u) => [u.slot_id, u]));
   const out = slots.map((s) => {
     const cur = bySlot.get(s.slot_id) || null;
     return {
@@ -64,6 +73,7 @@ async function listSlots(req, res) {
       sortOrder: s.sort_order,
       status: cur ? cur.status : 'placeholder',
       current: publicUpload(cur),
+      live: publicUpload(liveBySlot.get(s.slot_id) || null),
     };
   });
   return res.status(200).json({ role: user.role, slots: out });
