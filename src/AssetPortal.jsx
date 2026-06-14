@@ -12,12 +12,13 @@ const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
 
 const CATEGORY_LABELS = {
   background: 'Backgrounds',
+  thumbnail: 'Menu thumbnails',
   snake: 'Snakes',
   piece: 'Pieces & characters',
   sound: 'Sounds',
   level: 'Level sets',
 }
-const CATEGORY_ORDER = ['background', 'piece', 'snake', 'sound', 'level']
+const CATEGORY_ORDER = ['background', 'thumbnail', 'piece', 'snake', 'sound', 'level']
 
 const STATUS_LABELS = {
   placeholder: 'no upload',
