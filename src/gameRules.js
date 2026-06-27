@@ -64,6 +64,18 @@ export const saddleCellOf = (snake) =>
 export const getSaddleCells = (snakes) =>
   snakes.map(saddleCellOf).filter(Boolean)
 
+// Map of saddle cell key -> the saddled snake's orientation. A frog may only
+// land on a saddle by jumping perpendicular to the snake (it can't board from
+// the direction the snake travels along), so we need the orientation per cell.
+export const getSaddleOrientations = (snakes) => {
+  const map = new Map()
+  for (const snake of snakes) {
+    const saddle = saddleCellOf(snake)
+    if (saddle) map.set(`${saddle[0]},${saddle[1]}`, snake.orientation)
+  }
+  return map
+}
+
 // Index of the saddled snake the frog at `pos` is riding, or -1 if it isn't
 // on any saddle. The frog can't jump over the snake it's riding.
 export const riddenSnakeIndexAt = (pos, snakes) =>
@@ -81,9 +93,11 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
   const validMoves = []
   const gameState = { frogs, snakes, logs, lilyPads }
 
-  // Saddle (middle) cells a frog may land on after a jump, keyed for fast
-  // lookup. A saddle is also jump-over-able, so the scan never stops on one.
-  const saddleKeys = new Set(getSaddleCells(snakes).map(([c, r]) => `${c},${r}`))
+  // Saddle (middle) cells a frog may land on after a jump, mapped to the
+  // saddled snake's orientation. A frog can only board a saddle by jumping
+  // perpendicular to the snake (not from the direction the snake travels), but
+  // a saddle is always jump-over-able, so the scan never stops on one.
+  const saddleOrientations = getSaddleOrientations(snakes)
   // If this frog is currently on a saddle, the snake it's riding is its mount:
   // it can't jump over its own mount, so those cells act as walls.
   const riddenIdx = riddenSnakeIndexAt(frogPos, snakes)
@@ -138,10 +152,15 @@ export const getValidFrogMoves = (frogIndex, gridSize, { frogs, snakes, logs, li
         break
       }
 
-      // A free saddle is a landing spot — and can still be jumped over, so we
-      // record it and keep scanning past it.
-      if (hasSnake && !hasFrog && saddleKeys.has(`${col},${row}`)) {
-        validMoves.push([col, row])
+      // A free saddle is a landing spot — but only when boarded perpendicular
+      // to the snake (a vertical snake can only be boarded by a horizontal
+      // jump, and vice versa). It can still be jumped over either way, so we
+      // record it when eligible and keep scanning past it regardless.
+      if (hasSnake && !hasFrog && saddleOrientations.has(`${col},${row}`)) {
+        const orientation = saddleOrientations.get(`${col},${row}`)
+        const jumpIsVertical = dc === 0
+        const boardable = orientation === 'vertical' ? !jumpIsVertical : jumpIsVertical
+        if (boardable) validMoves.push([col, row])
       }
 
       // Can only continue jumping over snakes, logs, or frogs
