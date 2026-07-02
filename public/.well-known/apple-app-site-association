@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["RMJ6F6RT83.com.benjaminlewis.FrogsiOS"],
+        "components": [
+          { "/": "/daily", "comment": "Daily puzzle deep link" },
+          { "/": "/daily/*", "comment": "Future daily sub-routes" }
+        ]
+      }
+    ]
+  }
+}
