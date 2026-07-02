@@ -80,15 +80,22 @@
   <script>
     (function () {
       // Single source of truth for the numeric App Store ID. Replace the token
-      // once the app is live (App Store Connect → App Information → Apple ID).
+      // once known (App Store Connect → App Information → Apple ID).
       var APP_STORE_ID = '__APPSTORE_ID__';
-      var STORE_URL = 'https://apps.apple.com/app/id' + APP_STORE_ID;
 
       // Only accept the four known difficulties; ignore anything else.
       var ALLOWED = { easy: 1, medium: 1, hard: 1, expert: 1 };
       var params = new URLSearchParams(location.search);
       var d = params.get('d');
       if (!ALLOWED[d]) d = null;
+
+      // Local-testing override: on localhost only, ?id=<numericId> lets you
+      // exercise the real redirect before the production ID is baked in. Ignored
+      // on the live domain, so prod can only ever point at the hardcoded ID.
+      var isLocal = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(location.hostname);
+      var override = isLocal ? params.get('id') : null;
+      var appStoreId = (override && /^\d+$/.test(override)) ? override : APP_STORE_ID;
+      var storeUrl = 'https://apps.apple.com/app/id' + appStoreId;
 
       // The exact deep-link URL this page stands in for.
       var dailyUrl = 'https://frogsandsnakes.com/daily' + (d ? ('?d=' + d) : '');
@@ -99,17 +106,17 @@
           "Today's " + d + " puzzle is waiting — get Frogs & Snakes.";
       }
 
-      // Wire the store links (only if the ID has been filled in).
-      var idKnown = /^\d+$/.test(APP_STORE_ID);
+      // Wire the store links and redirect (only once a numeric ID is available).
+      var idKnown = /^\d+$/.test(appStoreId);
       if (idKnown) {
-        document.getElementById('store-link').href = STORE_URL;
+        document.getElementById('store-link').href = storeUrl;
         document.getElementById('open-link').href = dailyUrl;
         // Smart App Banner: include app-argument so a tap re-enters the daily flow.
         document.getElementById('smart-banner').setAttribute(
-          'content', 'app-id=' + APP_STORE_ID + ', app-argument=' + dailyUrl
+          'content', 'app-id=' + appStoreId + ', app-argument=' + dailyUrl
         );
         // Soft auto-redirect after ~1.2s. The visible button remains as fallback.
-        setTimeout(function () { location.href = STORE_URL; }, 1200);
+        setTimeout(function () { location.href = storeUrl; }, 1200);
       }
     })();
   </script>
