@@ -73,7 +73,7 @@
          literal token is the no-JS fallback. -->
     <a class="cta" id="store-link" href="https://apps.apple.com/app/id6764884642">Get it on the App Store</a>
 
-    <p class="hint">Already have the app? <a id="open-link" href="#">Open today's puzzle</a>.</p>
+    <p class="hint">Already have the app? <a id="open-link" href="frogs://daily">Open today's puzzle</a>.</p>
   </main>
 
   <script>
@@ -96,8 +96,14 @@
       var appStoreId = (override && /^\d+$/.test(override)) ? override : APP_STORE_ID;
       var storeUrl = 'https://apps.apple.com/app/id' + appStoreId;
 
-      // The exact deep-link URL this page stands in for.
+      // The https deep-link URL this page stands in for (used for the Smart App
+      // Banner's app-argument).
       var dailyUrl = 'https://frogsandsnakes.com/daily' + (d ? ('?d=' + d) : '');
+      // Custom-scheme link for the "Open today's puzzle" button. A same-domain
+      // https link tapped from this page does NOT trigger the Universal Link
+      // (an iOS limitation), so we launch the app via its registered `frogs://`
+      // scheme instead, which works from a web page.
+      var appSchemeUrl = 'frogs://daily' + (d ? ('?d=' + d) : '');
 
       // Personalize the tagline if a valid difficulty was passed.
       if (d) {
@@ -105,11 +111,13 @@
           "Today's " + d + " puzzle is waiting — get Frogs & Snakes.";
       }
 
+      // "Open in app" always uses the custom scheme (independent of the store ID).
+      document.getElementById('open-link').href = appSchemeUrl;
+
       // Wire the store links and redirect (only once a numeric ID is available).
       var idKnown = /^\d+$/.test(appStoreId);
       if (idKnown) {
         document.getElementById('store-link').href = storeUrl;
-        document.getElementById('open-link').href = dailyUrl;
         // Smart App Banner: include app-argument so a tap re-enters the daily flow.
         document.getElementById('smart-banner').setAttribute(
           'content', 'app-id=' + appStoreId + ', app-argument=' + dailyUrl
