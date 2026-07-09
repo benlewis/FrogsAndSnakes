@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "db:setup": "node scripts/setup-db.js",
     "art:reference": "node scripts/sync-reference-art.js",
+    "art:game": "node scripts/sync-game-art.js",
     "levels:generate": "node scripts/generate-daily-levels.js"
   },
   "dependencies": {
