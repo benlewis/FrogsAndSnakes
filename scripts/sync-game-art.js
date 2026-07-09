@@ -27,6 +27,11 @@ function imagesetPng(name) {
 // [imageset name, max dimension in px | null to keep native size]
 const JOBS = [
   ['frog', 320],
+  ['frog_blue', 320],
+  ['frog_purple', 320],
+  ['frog_red', 320],
+  ['frog_yellow', 320],
+  ['lilypad', 256],
   ['stump', 320],
   ['saddle', 256],
   ['snake2', null],

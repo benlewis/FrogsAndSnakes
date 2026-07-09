@@ -15,6 +15,7 @@ import { resolvePlayMode, savePlayMode } from './lib/playMode.js'
 import { useGameTimer, formatTime } from './lib/useGameTimer.js'
 import {
   FrogSVG,
+  FROG_PALETTE,
   HappyFrogSVG,
   SadFrogSVG,
   LilyPadSVG,
@@ -345,10 +346,13 @@ function App({ initialGame = 'jumping-frogs' }) {
     // Support both old single-frog and new multi-frog format
     let frogs
     if (currentLevel.frogs) {
-      frogs = currentLevel.frogs.map(f => ({
+      frogs = currentLevel.frogs.map((f, i) => ({
         position: [...f.position],
-        color: f.color || 'green',
-        direction: 'up' // Default direction facing up
+        // Give each frog a distinct color in multi-frog levels (index 0 is
+        // green, so single-frog levels are unchanged). An explicit non-green
+        // color in the level data still wins.
+        color: (f.color && f.color !== 'green') ? f.color : FROG_PALETTE[i % FROG_PALETTE.length],
+        direction: 'up'
       }))
     } else if (currentLevel.frog) {
       frogs = [{ position: [...currentLevel.frog.position], color: 'green', direction: 'up' }]

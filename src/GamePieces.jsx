@@ -32,9 +32,22 @@ export const FROG_COLORS = {
 }
 
 // Cartoony glossy Frog SVG component
+// Palette giving each frog in a multi-frog level a distinct color. Index 0 is
+// the plain green frog, so single-frog levels are unchanged.
+export const FROG_PALETTE = ['green', 'blue', 'purple', 'red', 'yellow']
+
+// Map a frog color to its iOS sprite (green is the base frog.png).
+const FROG_IMAGE = {
+  green: '/art/frog.png',
+  blue: '/art/frog_blue.png',
+  purple: '/art/frog_purple.png',
+  red: '/art/frog_red.png',
+  yellow: '/art/frog_yellow.png',
+}
+
 export const FrogSVG = ({ color = 'green' }) => (
   <svg viewBox="0 0 100 100" className="piece-svg">
-    <image href="/art/frog.png" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid meet" />
+    <image href={FROG_IMAGE[color] || FROG_IMAGE.green} x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid meet" />
   </svg>
 )
 
@@ -235,57 +248,7 @@ export const SadFrogSVG = ({ color = 'green' }) => {
 // Cartoony glossy Lily Pad SVG component
 export const LilyPadSVG = () => (
   <svg viewBox="0 0 100 100" className="piece-svg">
-    <defs>
-      <radialGradient id="lilypadMain" cx="40%" cy="35%" r="65%">
-        <stop offset="0%" stopColor="#4ade80" />
-        <stop offset="50%" stopColor="#22c55e" />
-        <stop offset="100%" stopColor="#166534" />
-      </radialGradient>
-      <radialGradient id="lilypadCenter" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor="#fde047" />
-        <stop offset="100%" stopColor="#ca8a04" />
-      </radialGradient>
-    </defs>
-
-    {/* Shadow */}
-    <ellipse cx="52" cy="55" rx="44" ry="38" fill="rgba(0,0,0,0.2)" />
-
-    {/* Main pad outline */}
-    <ellipse cx="50" cy="52" rx="44" ry="38" fill="#14532d" />
-
-    {/* Main pad */}
-    <ellipse cx="50" cy="50" rx="42" ry="36" fill="url(#lilypadMain)" />
-
-    {/* Notch/cut */}
-    <path d="M50 50 L50 12 L30 28 Z" fill="#1e3a5f" />
-    <path d="M50 50 L50 16 L34 30 Z" fill="#2d4a6f" />
-
-    {/* Veins */}
-    <path d="M50 50 L20 30" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-    <path d="M50 50 L80 30" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-    <path d="M50 50 L10 50" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-    <path d="M50 50 L90 50" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-    <path d="M50 50 L25 75" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-    <path d="M50 50 L75 75" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-    <path d="M50 50 L50 88" stroke="#166534" strokeWidth="3" fill="none" opacity="0.5" />
-
-    {/* Center */}
-    <circle cx="50" cy="50" r="8" fill="#14532d" />
-    <circle cx="50" cy="49" r="6" fill="url(#lilypadCenter)" />
-    <circle cx="48" cy="47" r="2" fill="white" opacity="0.6" />
-
-    {/* Glossy highlights */}
-    <ellipse cx="35" cy="38" rx="16" ry="10" fill="white" opacity="0.35" />
-    <ellipse cx="32" cy="35" rx="8" ry="5" fill="white" opacity="0.5" />
-
-    {/* Edge highlight */}
-    <ellipse cx="50" cy="50" rx="40" ry="34" fill="none" stroke="#86efac" strokeWidth="2" opacity="0.5" />
-
-    {/* Water droplets */}
-    <circle cx="70" cy="40" r="4" fill="#86efac" opacity="0.6" />
-    <circle cx="72" cy="38" r="1.5" fill="white" opacity="0.8" />
-    <circle cx="30" cy="65" r="3" fill="#86efac" opacity="0.5" />
-    <circle cx="31" cy="64" r="1" fill="white" opacity="0.7" />
+    <image href="/art/lilypad.png" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid meet" />
   </svg>
 )
 
