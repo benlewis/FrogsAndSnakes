@@ -5,7 +5,7 @@ import { solveLevel } from './solver.js'
 import { saddleCellOf, isStoneRaised } from './gameRules.js'
 import { solveGreedy, NUM_COLORS } from './colorJumpSolver.js'
 import { SaddleMark, PortalSVG, StoneSVG, SwitchSVG } from './GamePieces.jsx'
-import { generateWizardLevel, generateTreasureLevel } from '../lib/autoLevelGenerator.js'
+import { generateMechanicLevel } from '../lib/autoLevelGenerator.js'
 import GameBoard from './GameBoard.jsx'
 
 // API base URL - use relative path for production, localhost for dev
@@ -1962,28 +1962,34 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   // Generate a random level that's solvable in the target move range
   const generateRandomLevel = () => {
+    const defaults = difficultyDefaults[difficulty]
+    const minMoves = genMinMoves === 'default' ? defaults.moves.min : parseInt(genMinMoves)
+    const maxMoves = genMaxMoves === 'default' ? defaults.moves.max : parseInt(genMaxMoves)
+    const range = { min: minMoves, max: maxMoves }
+
     // A mechanic level is built by its own constructed generator (which
-    // guarantees the level requires the portal/switch), not the random one.
+    // guarantees the level requires the mechanic and respects the move range),
+    // not the random placer. Portals + switches together build a combined
+    // puzzle that needs both. The grid may grow to reach the requested minimum.
     if (generatePortals || generateSwitches) {
       setGenerating(true)
       setCheckResult(null)
       setTimeout(() => {
-        const build = generatePortals ? generateWizardLevel : generateTreasureLevel
-        const lvl = build(gridSize, Date.now() + 8000)
+        const lvl = generateMechanicLevel(gridSize, {
+          portals: generatePortals,
+          switches: generateSwitches,
+          range,
+          deadlineMs: Date.now() + 10000,
+        })
         setGenerating(false)
         if (!lvl) {
-          alert(`Could not generate a ${generatePortals ? 'portal' : 'switch'} level — try again.`)
+          alert('Could not build a mechanic level in that move range — try widening Min/Max moves or increasing the grid size.')
           return
         }
         loadLevel({ ...lvl, difficulty, date: levelDate })
       }, 20)
       return
     }
-
-    const defaults = difficultyDefaults[difficulty]
-    const minMoves = genMinMoves === 'default' ? defaults.moves.min : parseInt(genMinMoves)
-    const maxMoves = genMaxMoves === 'default' ? defaults.moves.max : parseInt(genMaxMoves)
-    const range = { min: minMoves, max: maxMoves }
 
     setGenerating(true)
     setCheckResult(null)
@@ -3043,9 +3049,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       <input
                         type="checkbox"
                         checked={generatePortals}
-                        onChange={(e) => { setGeneratePortals(e.target.checked); if (e.target.checked) setGenerateSwitches(false) }}
+                        onChange={(e) => setGeneratePortals(e.target.checked)}
                       />
-                      Portals (Wizard) — builds a portal puzzle
+                      Portals (Wizard)
                     </label>
                   </div>
                   <div className="option-row">
@@ -3053,11 +3059,16 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                       <input
                         type="checkbox"
                         checked={generateSwitches}
-                        onChange={(e) => { setGenerateSwitches(e.target.checked); if (e.target.checked) setGeneratePortals(false) }}
+                        onChange={(e) => setGenerateSwitches(e.target.checked)}
                       />
-                      Switches (Treasure) — builds a switch puzzle
+                      Switches (Treasure)
                     </label>
                   </div>
+                  {generatePortals && generateSwitches && (
+                    <div className="option-row" style={{ fontSize: '0.8em', opacity: 0.7 }}>
+                      <span>Builds one puzzle that needs both a portal and a switch.</span>
+                    </div>
+                  )}
 
                   <div className="action-btn-row">
                     <button
