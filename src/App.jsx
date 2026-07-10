@@ -16,8 +16,6 @@ import { useGameTimer, formatTime } from './lib/useGameTimer.js'
 import {
   FrogSVG,
   FROG_PALETTE,
-  HappyFrogSVG,
-  SadFrogSVG,
   LilyPadSVG,
   LogSVG,
   VerticalSnakeSVG,
@@ -501,15 +499,8 @@ function App({ initialGame = 'jumping-frogs' }) {
   // Game stats
   const [moves, setMoves] = useState(0)
 
-  // Win-state mood for the on-board frogs:
-  //   par exact -> happy hop, 10x par or worse -> sad slump, otherwise neutral.
-  const winMood = (() => {
-    if (!isGameWon || !currentLevel?.par) return null
-    if (moves === currentLevel.par) return 'happy'
-    if (moves >= currentLevel.par * 10) return 'sad'
-    return null
-  })()
-  const FrogPiece = winMood === 'happy' ? HappyFrogSVG : winMood === 'sad' ? SadFrogSVG : FrogSVG
+  // Always render the iOS frog sprite — no special win/lose frog graphics.
+  const FrogPiece = FrogSVG
 
   // Track completed levels with their stats for the current date
   const [completedLevels, setCompletedLevels] = useState(() => {
@@ -1491,7 +1482,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                         <LilyPadSVG />
                       </span>
                       <span
-                        className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''} ${winMood ? `frog-mood-${winMood}` : ''}`}
+                        className={`piece-icon frog-piece frog-on-pad ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''}`}
                         onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
                         onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                         style={{
@@ -1508,7 +1499,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                   ) : content && content.type === 'frog' ? (
                     /* Frog not on lily pad */
                     <span
-                      className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''} ${winMood ? `frog-mood-${winMood}` : ''}`}
+                      className={`piece-icon frog-piece ${isThisFrogSelected ? 'selected' : ''} ${isThisFrogDragging ? 'dragging' : ''} ${jumpingFrogIndex === content.frogIndex ? 'jumping' : ''}`}
                       onPointerDown={!isGameWon ? (e) => handleFrogPointerDown(e, content.frogIndex) : undefined}
                       onClick={!isGameWon ? (e) => { e.stopPropagation(); handleFrogClick(content.frogIndex); } : undefined}
                       style={{
