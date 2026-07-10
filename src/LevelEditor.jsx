@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import './LevelEditor.css'
 import { solveLevel } from './solver.js'
-import { saddleCellOf } from './gameRules.js'
+import { saddleCellOf, isStoneRaised } from './gameRules.js'
 import { solveGreedy, NUM_COLORS } from './colorJumpSolver.js'
-import { SaddleMark } from './GamePieces.jsx'
+import { SaddleMark, PortalSVG, StoneSVG, SwitchSVG } from './GamePieces.jsx'
+import { generateWizardLevel, generateTreasureLevel } from '../lib/autoLevelGenerator.js'
 import GameBoard from './GameBoard.jsx'
 
 // API base URL - use relative path for production, localhost for dev
@@ -1147,6 +1148,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [lilyPads, setLilyPads] = useState(
     existingLevel?.lilyPads || []
   )
+  // Mechanic pieces (Wizard portals, Treasure Hunter stones/switches).
+  const [portals, setPortals] = useState(existingLevel?.portals || [])
+  const [stones, setStones] = useState(existingLevel?.stones || [])
+  const [pressurePlates, setPressurePlates] = useState(existingLevel?.pressurePlates || [])
 
   // Level list state
   const [allLevels, setAllLevels] = useState([])
@@ -1601,6 +1606,9 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setSnakes(level.snakes || [])
     setLogs(level.logs || [])
     setLilyPads(level.lilyPads || [])
+    setPortals(level.portals || [])
+    setStones(level.stones || [])
+    setPressurePlates(level.pressurePlates || [])
     setCheckResult(null) // Reset check when loading a level
   }
 
@@ -1645,6 +1653,10 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
   const [snakeSaddle, setSnakeSaddle] = useState(false)
   // Auto-generated levels add a saddle to an eligible snake by default.
   const [generateSaddles, setGenerateSaddles] = useState(true)
+  // Generate a constructed mechanic level instead of a random one (mutually
+  // exclusive — a mechanic level is built by its own generator).
+  const [generatePortals, setGeneratePortals] = useState(false)
+  const [generateSwitches, setGenerateSwitches] = useState(false)
   const [logLength, setLogLength] = useState(1)
 
   // Generation options - difficulty defaults
@@ -1822,6 +1834,13 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     if (isLogCell(col, row)) {
       return <LogSVG />
     }
+    // Mechanic pieces (Wizard portals, Treasure Hunter stones/switches).
+    const portal = portals.find(p => p.positions.some(m => m[0] === col && m[1] === row))
+    if (portal) return <PortalSVG color={portal.color} />
+    const stone = stones.find(s => s.position[0] === col && s.position[1] === row)
+    if (stone) return <StoneSVG color={stone.color} raised={isStoneRaised(stone, [])} />
+    const plate = pressurePlates.find(p => p.position[0] === col && p.position[1] === row)
+    if (plate) return <SwitchSVG color={plate.color} on={false} />
     if (isLilyPadCell(col, row)) {
       return <LilyPadSVG />
     }
@@ -1852,8 +1871,18 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
     setSnakes([])
     setLogs([])
     setLilyPads([])
+    setPortals([])
+    setStones([])
+    setPressurePlates([])
     setCheckResult(null)
   }
+
+  // Mechanic pieces for export, omitted when absent (keeps level hashes stable).
+  const mechanicFields = () => ({
+    ...(portals.length ? { portals: portals.map(p => ({ color: p.color, positions: p.positions })) } : {}),
+    ...(stones.length ? { stones: stones.map(s => ({ position: s.position, color: s.color, startsRaised: s.startsRaised === true })) } : {}),
+    ...(pressurePlates.length ? { pressurePlates: pressurePlates.map(p => ({ position: p.position, color: p.color })) } : {}),
+  })
 
   const copyLevel = async () => {
     const levelData = {
@@ -1866,6 +1895,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       })),
       logs: logs.map(l => ({ positions: l.positions })),
       lilyPads: lilyPads.map(lp => ({ position: lp.position })),
+      ...mechanicFields(),
       par
     }
     try {
@@ -1932,6 +1962,24 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
 
   // Generate a random level that's solvable in the target move range
   const generateRandomLevel = () => {
+    // A mechanic level is built by its own constructed generator (which
+    // guarantees the level requires the portal/switch), not the random one.
+    if (generatePortals || generateSwitches) {
+      setGenerating(true)
+      setCheckResult(null)
+      setTimeout(() => {
+        const build = generatePortals ? generateWizardLevel : generateTreasureLevel
+        const lvl = build(gridSize, Date.now() + 8000)
+        setGenerating(false)
+        if (!lvl) {
+          alert(`Could not generate a ${generatePortals ? 'portal' : 'switch'} level — try again.`)
+          return
+        }
+        loadLevel({ ...lvl, difficulty, date: levelDate })
+      }, 20)
+      return
+    }
+
     const defaults = difficultyDefaults[difficulty]
     const minMoves = genMinMoves === 'default' ? defaults.moves.min : parseInt(genMinMoves)
     const maxMoves = genMaxMoves === 'default' ? defaults.moves.max : parseInt(genMaxMoves)
@@ -2141,6 +2189,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
           })),
           logs: logs.map(l => ({ positions: l.positions })),
           lilyPads: lilyPads.map(lp => ({ position: lp.position })),
+          ...mechanicFields(),
           par
         }
 
@@ -2987,6 +3036,26 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
                         onChange={(e) => setGenerateSaddles(e.target.checked)}
                       />
                       Include saddles (rideable snakes)
+                    </label>
+                  </div>
+                  <div className="option-row">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={generatePortals}
+                        onChange={(e) => { setGeneratePortals(e.target.checked); if (e.target.checked) setGenerateSwitches(false) }}
+                      />
+                      Portals (Wizard) — builds a portal puzzle
+                    </label>
+                  </div>
+                  <div className="option-row">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <input
+                        type="checkbox"
+                        checked={generateSwitches}
+                        onChange={(e) => { setGenerateSwitches(e.target.checked); if (e.target.checked) setGeneratePortals(false) }}
+                      />
+                      Switches (Treasure) — builds a switch puzzle
                     </label>
                   </div>
 
