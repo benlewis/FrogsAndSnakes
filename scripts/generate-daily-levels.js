@@ -60,6 +60,18 @@ const DEFAULT_TIMEOUT_MS = {
   auto5: 60_000,
   auto6: 90_000,
   cowboy: 60_000,
+  wizard: 45_000,
+  treasure: 45_000,
+}
+
+// Wizard/treasure themes have wide native par ranges (wizard 2-12, treasure
+// 3-14). When one is used in a difficulty slot, we keep generating until the
+// par lands in that slot's band so a daily set still ramps easy < medium < hard.
+const MECHANIC_PAR_BANDS = {
+  // Wizard chains scale par with grid (2-4 on the 6x6 wizard grid).
+  wizard: { easy: [2, 2], medium: [3, 3], hard: [4, 6], expert: [4, 6] },
+  // Treasure is a fixed two-frog switch puzzle (par 3).
+  treasure: { easy: [3, 3], medium: [3, 4], hard: [3, 6], expert: [3, 6] },
 }
 
 // --- arg parsing ---
@@ -68,8 +80,10 @@ const flags = new Map()
 let days = 7
 for (const arg of args) {
   if (arg.startsWith('--')) {
-    const [k, v] = arg.slice(2).split('=')
-    flags.set(k, v === undefined ? true : v)
+    // Split on the FIRST '=' so values may contain '=' (e.g. --themes=easy=wizard).
+    const eq = arg.indexOf('=')
+    if (eq === -1) flags.set(arg.slice(2), true)
+    else flags.set(arg.slice(2, eq), arg.slice(eq + 1))
   } else if (/^\d+$/.test(arg)) {
     days = parseInt(arg, 10)
   } else {
@@ -92,9 +106,24 @@ const difficulties = (flags.get('difficulties') || 'easy,medium,hard')
   .map((d) => d.trim())
   .filter(Boolean)
 
+// Per-difficulty theme overrides: --themes=easy=wizard,medium=treasure,hard=wizard
+const THEME_OVERRIDES = {}
+if (flags.get('themes') && flags.get('themes') !== true) {
+  for (const pair of String(flags.get('themes')).split(',')) {
+    const [d, theme] = pair.split('=').map((s) => s.trim())
+    if (!d || !theme) continue
+    if (!DEFAULT_THEMES[theme]) {
+      console.error(`Unknown theme "${theme}" in --themes. Known: ${Object.keys(DEFAULT_THEMES).join(', ')}`)
+      process.exit(1)
+    }
+    THEME_OVERRIDES[d] = theme
+  }
+}
+const themeFor = (difficulty) => THEME_OVERRIDES[difficulty] || DIFFICULTY_THEME[difficulty]
+
 // Validate difficulties up front.
 for (const d of difficulties) {
-  if (!DIFFICULTY_THEME[d]) {
+  if (!themeFor(d)) {
     console.error(`Unknown difficulty "${d}". Known: ${Object.keys(DIFFICULTY_THEME).join(', ')}`)
     process.exit(1)
   }
@@ -143,13 +172,29 @@ async function saveLevel(date, difficulty, level) {
 }
 
 function generateForDifficulty(difficulty) {
-  const themeKey = DIFFICULTY_THEME[difficulty]
+  const themeKey = themeFor(difficulty)
   const budget = TIMEOUT_OVERRIDE ?? DEFAULT_TIMEOUT_MS[themeKey] ?? 30_000
+  const band = MECHANIC_PAR_BANDS[themeKey]?.[difficulty] || null
   const start = Date.now()
-  const raw = generateLevel(themeKey, Date.now() + budget)
+  const deadline = start + budget
+
+  // For a mechanic theme, keep generating until par lands in the difficulty's
+  // band; keep the closest as a fallback if the band proves hard to hit.
+  let raw = null
+  let best = null
+  const mid = band ? (band[0] + band[1]) / 2 : 0
+  do {
+    const cand = generateLevel(themeKey, deadline)
+    if (!cand) break
+    if (!band) { raw = cand; break }
+    if (cand.par >= band[0] && cand.par <= band[1]) { raw = cand; break }
+    if (!best || Math.abs(cand.par - mid) < Math.abs(best.par - mid)) best = cand
+  } while (Date.now() < deadline)
+
+  const chosen = raw || best
   // Persist in the web app's level shape (the daily blobs feed the website).
-  const level = raw ? toWebLevel(raw) : null
-  return { level, themeKey, ms: Date.now() - start, budget }
+  const level = chosen ? toWebLevel(chosen) : null
+  return { level, themeKey, ms: Date.now() - start, budget, inBand: !!raw }
 }
 
 // --- main ---
@@ -157,7 +202,7 @@ async function main() {
   console.log(`Frogs & Snakes — daily level generator`)
   console.log(`  target:       ${API_BASE}${flags.get('prod') ? '  ⚠️  PRODUCTION' : ''}`)
   console.log(`  range:        ${days} day(s) from ${localDateString(startDate)}`)
-  console.log(`  difficulties: ${difficulties.join(', ')}${wantExpert ? `  + expert (${EXPERT_DAILY ? 'daily' : 'Sundays'})` : ''}`)
+  console.log(`  difficulties: ${difficulties.map(d => `${d}→${themeFor(d)}`).join(', ')}${wantExpert ? `  + expert (${EXPERT_DAILY ? 'daily' : 'Sundays'})→${themeFor('expert')}` : ''}`)
   console.log(`  mode:         ${DRY_RUN ? 'DRY RUN (no writes)' : FORCE ? 'overwrite existing' : 'skip existing'}`)
   console.log()
 
@@ -194,7 +239,7 @@ async function main() {
         continue
       }
 
-      const { level, themeKey, ms } = generateForDifficulty(difficulty)
+      const { level, themeKey, ms, inBand } = generateForDifficulty(difficulty)
 
       if (!level) {
         console.log(`  ${tag}  ✗ no level found for tier ${themeKey} within budget (${ms}ms)`)
@@ -202,15 +247,18 @@ async function main() {
         continue
       }
 
+      // Note when a mechanic level had to settle outside its target par band.
+      const bandNote = (MECHANIC_PAR_BANDS[themeKey]?.[difficulty] && !inBand) ? ' (out of band)' : ''
+
       if (DRY_RUN) {
-        console.log(`  ${tag}  ✓ generated par=${level.par} grid=${level.gridSize} (${ms}ms) [dry run]`)
+        console.log(`  ${tag}  ✓ ${themeKey} par=${level.par} grid=${level.gridSize}${bandNote} (${ms}ms) [dry run]`)
         created++
         continue
       }
 
       try {
         await saveLevel(date, difficulty, level)
-        console.log(`  ${tag}  ✓ par=${level.par} grid=${level.gridSize} saved (${ms}ms)`)
+        console.log(`  ${tag}  ✓ ${themeKey} par=${level.par} grid=${level.gridSize}${bandNote} saved (${ms}ms)`)
         created++
       } catch (err) {
         console.log(`  ${tag}  ✗ ${err.message}`)
