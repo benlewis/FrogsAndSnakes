@@ -30,6 +30,16 @@ export function toWebLevel(level) {
       l.positions ? { positions: l.positions.map(toArr) } : { positions: [toArr(l.position)] }
     ),
     lilyPads: (level.lilyPads || []).map((lp) => ({ position: toArr(lp.position) })),
+    // Wizard portals + Treasure Hunter stones/plates (omitted when absent).
+    ...(level.portals && level.portals.length
+      ? { portals: level.portals.map((p) => ({ color: p.color, positions: p.positions.map(toArr) })) }
+      : {}),
+    ...(level.stones && level.stones.length
+      ? { stones: level.stones.map((s) => ({ position: toArr(s.position), color: s.color, startsRaised: s.startsRaised === true })) }
+      : {}),
+    ...(level.pressurePlates && level.pressurePlates.length
+      ? { pressurePlates: level.pressurePlates.map((p) => ({ position: toArr(p.position), color: p.color })) }
+      : {}),
     par: level.par,
   }
 }
