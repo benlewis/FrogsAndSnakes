@@ -1466,7 +1466,7 @@ function App({ initialGame = 'jumping-frogs' }) {
                 >
                   {/* Mechanic pieces render behind the frog/log/lilypad content. */}
                   {portalHere && (
-                    <span className="piece-icon portal-piece">
+                    <span className={`piece-icon portal-piece ${portalDeactivated ? 'portal-deactivated' : ''}`}>
                       <PortalSVG color={portalHere.color} deactivated={portalDeactivated} />
                     </span>
                   )}

@@ -478,6 +478,7 @@ export const portalColorName = (id) => PORTAL_NAMES[((((id | 0) % 4) + 4) % 4)]
 export const PortalSVG = ({ color = 0, deactivated = false }) => (
   <svg viewBox="0 0 100 100" className="piece-svg">
     <image
+      className={deactivated ? undefined : 'portal-vortex'}
       href={'/art/portal_' + portalColorName(color) + '.png'}
       x="2" y="2" width="96" height="96"
       preserveAspectRatio="xMidYMid meet"

@@ -1223,6 +1223,50 @@
   z-index: 26;
 }
 
+/* Mechanic pieces (portal / switch / stone) sit absolutely in the cell so a
+   frog on the same square overlays them full-size (on top), like iOS —
+   instead of the two pieces sharing the flex row side-by-side and shrinking. */
+.portal-piece,
+.switch-piece,
+.stone-piece {
+  position: absolute;
+  top: 4%;
+  left: 4%;
+  width: 92%;
+  height: 92%;
+  z-index: 3;
+  pointer-events: none;
+}
+/* Frogs (flex items) render above the mechanic piece on a shared cell. */
+.frog-piece {
+  z-index: 22;
+}
+
+/* Wizard portal: the vortex image spins and the whole mouth gently pulses,
+   approximating the iOS animated portal. Deactivated mouths stay still. */
+@keyframes portal-spin {
+  to { transform: rotate(360deg); }
+}
+.portal-vortex {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: portal-spin 9s linear infinite;
+}
+@keyframes portal-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.07); }
+}
+.portal-piece {
+  animation: portal-pulse 2.6s ease-in-out infinite;
+}
+.portal-deactivated {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-vortex,
+  .portal-piece { animation: none; }
+}
+
 .piece-icon {
   display: flex;
   align-items: center;
