@@ -467,3 +467,52 @@ export const HorizontalSnakeSVG = ({ length = 2, blinkDelay = 0, saddle = false 
     </svg>
   )
 }
+
+// MARK: - Wizard portals
+
+const PORTAL_NAMES = ['violet', 'cyan', 'amber', 'pink']
+export const portalColorName = (id) => PORTAL_NAMES[((((id | 0) % 4) + 4) % 4)]
+
+// A single portal mouth. `deactivated` grays it out (its partner is blocked by
+// a frog, so it can't be used as an exit) — matches the iOS renderer.
+export const PortalSVG = ({ color = 0, deactivated = false }) => (
+  <svg viewBox="0 0 100 100" className="piece-svg">
+    <image
+      href={'/art/portal_' + portalColorName(color) + '.png'}
+      x="2" y="2" width="96" height="96"
+      preserveAspectRatio="xMidYMid meet"
+      style={deactivated ? { filter: 'grayscale(1)', opacity: 0.5 } : undefined}
+    />
+  </svg>
+)
+
+// MARK: - Treasure Hunter stones + switches
+
+const TREASURE_NAMES = ['amber', 'ruby', 'sapphire', 'emerald']
+export const treasureColorName = (id) => TREASURE_NAMES[((((id | 0) % 4) + 4) % 4)]
+
+// A colored stone. Raised = a tall gem (obstacle, leapt over); flat = an inlaid
+// tile (landable ground).
+export const StoneSVG = ({ color = 0, raised = false }) => (
+  <svg viewBox="0 0 100 100" className="piece-svg">
+    <image
+      href={'/art/stone_' + treasureColorName(color) + (raised ? '' : '_flat') + '.png'}
+      x="0" y="0" width="100" height="100"
+      preserveAspectRatio="xMidYMid meet"
+    />
+  </svg>
+)
+
+// A latching switch (pressure plate). Lever flips (rotates 180) when off;
+// grayed when disabled (a piece sits on a matching stone).
+export const SwitchSVG = ({ color = 0, on = false, disabled = false }) => (
+  <svg viewBox="0 0 100 100" className="piece-svg">
+    <image
+      href={'/art/switch_' + treasureColorName(color) + '.png'}
+      x="12" y="12" width="76" height="76"
+      preserveAspectRatio="xMidYMid meet"
+      transform={on ? undefined : 'rotate(180 50 50)'}
+      style={disabled ? { filter: 'grayscale(1)', opacity: 0.55 } : undefined}
+    />
+  </svg>
+)

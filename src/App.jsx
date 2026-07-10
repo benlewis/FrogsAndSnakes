@@ -22,6 +22,9 @@ import {
   LogSVG,
   VerticalSnakeSVG,
   HorizontalSnakeSVG,
+  PortalSVG,
+  StoneSVG,
+  SwitchSVG,
 } from './GamePieces.jsx'
 import {
   isSnakeAt,
@@ -32,7 +35,12 @@ import {
   getMaxSnakeDelta,
   checkWinCondition,
   saddleCellOf,
-  riddenSnakeIndexAt
+  riddenSnakeIndexAt,
+  isStoneRaised,
+  isSwitchDisabled,
+  resolveFrogDestination,
+  applySwitchLanding,
+  portalExitOf,
 } from './gameRules.js'
 
 // API base URL - use relative path for production, localhost for dev
@@ -359,6 +367,8 @@ function App({ initialGame = 'jumping-frogs' }) {
     } else {
       frogs = [{ position: [0, 0], color: 'green', direction: 'up' }]
     }
+    // Accept either [col,row] or {col,row} for mechanic-piece positions.
+    const toArr = (p) => (Array.isArray(p) ? [p[0], p[1]] : [p.col, p.row])
     return {
       frogs,
       snakes: currentLevel.snakes.map(s => ({
@@ -371,7 +381,23 @@ function App({ initialGame = 'jumping-frogs' }) {
       })),
       lilyPads: currentLevel.lilyPads.map(lp => ({
         position: [...lp.position]
-      }))
+      })),
+      // Wizard portals + Treasure Hunter stones/switches (optional).
+      portals: (currentLevel.portals || []).map(p => ({
+        color: p.color,
+        positions: p.positions.map(toArr),
+      })),
+      stones: (currentLevel.stones || []).map(s => ({
+        position: toArr(s.position),
+        color: s.color,
+        startsRaised: s.startsRaised === true,
+      })),
+      pressurePlates: (currentLevel.pressurePlates || []).map(p => ({
+        position: toArr(p.position),
+        color: p.color,
+      })),
+      // Runtime latch: which switch colors are currently flicked on.
+      toggledSwitchColors: [],
     }
   }
 
@@ -422,6 +448,12 @@ function App({ initialGame = 'jumping-frogs' }) {
         setGameState({
           ...saved.gameState,
           snakes: saved.gameState.snakes.map((s, i) => ({ ...s, saddle: initial.snakes[i]?.saddle })),
+          // Portals/stones/plates are static level data — always take the fresh
+          // copy; only the latch (toggledSwitchColors) is restored gameplay state.
+          portals: initial.portals,
+          stones: initial.stones,
+          pressurePlates: initial.pressurePlates,
+          toggledSwitchColors: saved.gameState.toggledSwitchColors || [],
         })
         setMoves(saved.moves || 0)
         setHintsUsed(saved.hints || 0)
@@ -455,9 +487,13 @@ function App({ initialGame = 'jumping-frogs' }) {
   }, [levels, difficulty, currentDate])
 
   const { frogs, snakes, logs, lilyPads } = gameState
+  const portals = gameState.portals || []
+  const stones = gameState.stones || []
+  const pressurePlates = gameState.pressurePlates || []
+  const toggledSwitchColors = gameState.toggledSwitchColors || []
 
   // Convenience wrapper for shared game rules
-  const gameStateForRules = { frogs, snakes, logs, lilyPads }
+  const gameStateForRules = { frogs, snakes, logs, lilyPads, portals, stones, pressurePlates, toggledSwitchColors }
 
   // Check win condition using shared rules
   const isGameWon = frogs.length > 0 && checkWinCondition(frogs, lilyPads)
@@ -758,7 +794,7 @@ function App({ initialGame = 'jumping-frogs' }) {
 
     setTimeout(() => {
       const solverFrogs = frogs.map(f => ({ position: [...f.position], color: f.color }))
-      const result = solveLevel(gridSize, solverFrogs, snakes, logs, lilyPads)
+      const result = solveLevel(gridSize, solverFrogs, snakes, logs, lilyPads, { portals, stones, pressurePlates })
 
       if (result.solvable && result.path.length > 0) {
         setHintMove(result.path[0])
@@ -1108,13 +1144,18 @@ function App({ initialGame = 'jumping-frogs' }) {
       const oldPos = gameState.frogs[frogIdx].position
       const dx = col - oldPos[0]
       const dy = row - oldPos[1]
+      // Facing is toward the tapped cell (the portal mouth, for a portal move).
       const direction = Math.abs(dx) > Math.abs(dy)
         ? (dx > 0 ? 'right' : 'left')
         : (dy > 0 ? 'down' : 'up')
+      // A portal move targets a mouth; the frog ends up at the linked exit.
+      const finalPos = resolveFrogDestination([col, row], portals)
       const nextFrogs = gameState.frogs.map((f, idx) =>
-        idx === frogIdx ? { ...f, position: [col, row], direction } : f
+        idx === frogIdx ? { ...f, position: finalPos, direction } : f
       )
-      setGameState(prev => ({ ...prev, frogs: nextFrogs }))
+      // Landing on a pressure plate flicks its switch (latch).
+      const nextToggled = applySwitchLanding(finalPos, toggledSwitchColors, pressurePlates, nextFrogs, snakes, stones)
+      setGameState(prev => ({ ...prev, frogs: nextFrogs, toggledSwitchColors: nextToggled }))
       setMoves(m => m + 1)
       setSelectedFrogIndex(null)
       triggerFrogJump(frogIdx)
@@ -1188,10 +1229,12 @@ function App({ initialGame = 'jumping-frogs' }) {
             const direction = Math.abs(ddx) > Math.abs(ddy)
               ? (ddx > 0 ? 'right' : 'left')
               : (ddy > 0 ? 'down' : 'up')
+            const finalPos = resolveFrogDestination([dropCol, dropRow], portals)
             const nextFrogs = gameState.frogs.map((f, idx) =>
-              idx === frogIndex ? { ...f, position: [dropCol, dropRow], direction } : f
+              idx === frogIndex ? { ...f, position: finalPos, direction } : f
             )
-            setGameState(prev => ({ ...prev, frogs: nextFrogs }))
+            const nextToggled = applySwitchLanding(finalPos, toggledSwitchColors, pressurePlates, nextFrogs, snakes, stones)
+            setGameState(prev => ({ ...prev, frogs: nextFrogs, toggledSwitchColors: nextToggled }))
             celebrateIfWon(nextFrogs, gameState.lilyPads)
             setMoves(m => m + 1)
             clearHint()
@@ -1391,6 +1434,14 @@ function App({ initialGame = 'jumping-frogs' }) {
             Array(gridSize).fill(null).map((_, colIndex) => {
               const content = getCellContent(colIndex, rowIndex)
               const snakeCell = isSnakeCell(colIndex, rowIndex)
+              // Mechanic pieces on this cell (rendered behind any frog).
+              const frogAtCellFn = (c, r) => frogs.some(f => f.position[0] === c && f.position[1] === r)
+              const portalHere = portals.find(p => p.positions.some(m => m[0] === colIndex && m[1] === rowIndex))
+              const portalBlocked = portalHere && portalHere.positions.some(m => frogAtCellFn(m[0], m[1]))
+              const portalDeactivated = portalBlocked && !frogAtCellFn(colIndex, rowIndex)
+              const stoneHere = stones.find(s => s.position[0] === colIndex && s.position[1] === rowIndex)
+              const stoneRaised = stoneHere && isStoneRaised(stoneHere, toggledSwitchColors)
+              const plateHere = pressurePlates.find(p => p.position[0] === colIndex && p.position[1] === rowIndex)
               const isFrogCell = content?.type === 'frog'
               const isThisFrogSelected = isFrogCell && validSelectedFrogIndex === content.frogIndex
               const isThisFrogDragging = isFrogCell && validDraggingFrogIndex === content.frogIndex
@@ -1413,6 +1464,26 @@ function App({ initialGame = 'jumping-frogs' }) {
                   className={`cell ${content ? `cell-${content.type}` : ''} ${snakeCell ? 'cell-snake' : ''} ${isThisFrogSelected || isThisFrogDragging ? 'cell-frog-active' : ''} ${activeFrogIndex !== null && isValidFrogDest ? 'cell-valid-dest' : ''} ${validSelectedSnakeIndex !== null && isValidSnakeDest ? 'cell-valid-snake-dest' : ''} ${isHintSource ? 'cell-hint-source' : ''} ${isHintDest ? 'cell-hint-dest' : ''}`}
                   onClick={() => handleCellClick(colIndex, rowIndex)}
                 >
+                  {/* Mechanic pieces render behind the frog/log/lilypad content. */}
+                  {portalHere && (
+                    <span className="piece-icon portal-piece">
+                      <PortalSVG color={portalHere.color} deactivated={portalDeactivated} />
+                    </span>
+                  )}
+                  {plateHere && (
+                    <span className="piece-icon switch-piece">
+                      <SwitchSVG
+                        color={plateHere.color}
+                        on={toggledSwitchColors.includes(plateHere.color)}
+                        disabled={isSwitchDisabled(plateHere.color, frogs, snakes, stones)}
+                      />
+                    </span>
+                  )}
+                  {stoneHere && (
+                    <span className={`piece-icon stone-piece ${stoneRaised ? 'stone-raised' : 'stone-flat'}`}>
+                      <StoneSVG color={stoneHere.color} raised={stoneRaised} />
+                    </span>
+                  )}
                   {content && content.type === 'frog' && content.hasLilyPad ? (
                     /* Frog on lily pad - show lily pad stationary, frog moves */
                     <>

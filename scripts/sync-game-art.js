@@ -41,6 +41,19 @@ const JOBS = [
   ['snake3_saddle', null],
   ['snake4_saddle', null],
   ['snake5_saddle', null],
+  // Wizard: portal mouths (id 0=violet, 1=cyan, 2=amber, 3=pink).
+  ['portal_violet', 256],
+  ['portal_cyan', 256],
+  ['portal_amber', 256],
+  ['portal_pink', 256],
+  // Treasure Hunter: colored stones (raised + _flat) and their switches
+  // (id 0=amber, 1=ruby, 2=sapphire, 3=emerald).
+  ['stone_amber', 256], ['stone_amber_flat', 256],
+  ['stone_ruby', 256], ['stone_ruby_flat', 256],
+  ['stone_sapphire', 256], ['stone_sapphire_flat', 256],
+  ['stone_emerald', 256], ['stone_emerald_flat', 256],
+  ['switch_amber', 256], ['switch_ruby', 256],
+  ['switch_sapphire', 256], ['switch_emerald', 256],
 ];
 
 mkdirSync(OUT_DIR, { recursive: true });
