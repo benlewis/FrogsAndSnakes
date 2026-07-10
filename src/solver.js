@@ -2,11 +2,15 @@ import {
   getValidFrogMoves,
   getValidSnakeMoves,
   checkWinCondition,
-  saddleCellOf
+  saddleCellOf,
+  resolveFrogDestination,
+  applySwitchLanding
 } from './gameRules.js'
 
-// Compact state key using string concatenation instead of JSON.stringify
-const compactStateKey = (frogPositions, snakePositions) => {
+// Compact state key using string concatenation instead of JSON.stringify.
+// Treasure levels also key on the latch (toggled switch colors), since the same
+// board with different switch state is a distinct search node.
+const compactStateKey = (frogPositions, snakePositions, toggled) => {
   let key = ''
   for (const f of frogPositions) key += f[0] + ',' + f[1] + ';'
   key += '|'
@@ -14,38 +18,52 @@ const compactStateKey = (frogPositions, snakePositions) => {
     for (const p of s.positions) key += p[0] + ',' + p[1] + '.'
     key += ';'
   }
+  if (toggled && toggled.length) key += '|' + [...toggled].sort((a, b) => a - b).join(',')
   return key
 }
 
-// Solver using BFS to find minimum moves (supports multiple frogs)
+// Solver using BFS to find minimum moves (supports multiple frogs, portals, and
+// treasure-hunter stones/switches).
 // Options:
 //   trackPath: if false, skips path tracking for faster generation (default: true)
 //   maxIterations: override iteration limit (default: 500000)
+//   portals, stones, pressurePlates: mechanic pieces (default: [])
 export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}) => {
-  const { trackPath = true, maxIterations = 500000 } = options
+  const {
+    trackPath = true,
+    maxIterations = 500000,
+    portals = [],
+    stones = [],
+    pressurePlates = [],
+  } = options
 
   if (!frogs || frogs.length === 0 || lilyPads.length < frogs.length) {
     return { solvable: false, moves: -1, path: [], reason: 'Not enough lily pads for frogs' }
   }
 
   // Build game state object for shared rules
-  const buildGameState = (frogPositions, snakePositions) => ({
+  const buildGameState = (frogPositions, snakePositions, toggled) => ({
     frogs: frogPositions,
     snakes: snakePositions,
     logs,
-    lilyPads
+    lilyPads,
+    portals,
+    stones,
+    pressurePlates,
+    toggledSwitchColors: toggled,
   })
 
-  // Get frog moves using shared rules
-  const getFrogMoves = (frogIdx, frogPositions, snakePositions) => {
-    const gameState = buildGameState(frogPositions, snakePositions)
+  // Get frog moves using shared rules (destinations are tapped cells; a portal
+  // move targets the mouth, resolved to the exit when applied).
+  const getFrogMoves = (frogIdx, frogPositions, snakePositions, toggled) => {
+    const gameState = buildGameState(frogPositions, snakePositions, toggled)
     const moves = getValidFrogMoves(frogIdx, gridSize, gameState)
     return moves.map(pos => ({ frogIdx, newPos: pos }))
   }
 
   // Get snake moves using shared rules
-  const getSolverSnakeMoves = (snakeIdx, snakePositions, frogPositions) => {
-    const gameState = buildGameState(frogPositions, snakePositions)
+  const getSolverSnakeMoves = (snakeIdx, snakePositions, frogPositions, toggled) => {
+    const gameState = buildGameState(frogPositions, snakePositions, toggled)
     return getValidSnakeMoves(snakeIdx, gridSize, gameState)
   }
 
@@ -56,6 +74,7 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
     saddle: s.saddle
   }))
   const initialFrogs = frogs.map(f => [...(f.position || f)])
+  const initialToggled = []
 
   // Check if already won
   if (checkWinCondition(initialFrogs, lilyPads)) {
@@ -63,26 +82,30 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
   }
 
   // Use ring buffer for BFS queue to avoid O(n) shift()
-  let queue = [{ frogs: initialFrogs, snakes: initialSnakes, moves: 0, parent: -1, move: null }]
+  let queue = [{ frogs: initialFrogs, snakes: initialSnakes, toggled: initialToggled, moves: 0, parent: -1, move: null }]
   let queueHead = 0
 
   const visited = new Set()
-  visited.add(compactStateKey(initialFrogs, initialSnakes))
+  visited.add(compactStateKey(initialFrogs, initialSnakes, initialToggled))
 
   let iterations = 0
 
   while (queueHead < queue.length && iterations < maxIterations) {
     iterations++
     const entry = queue[queueHead++]
-    const { frogs: currentFrogs, snakes: currentSnakes, moves } = entry
+    const { frogs: currentFrogs, snakes: currentSnakes, toggled: currentToggled, moves } = entry
 
     // Try moves for each frog
     for (let frogIdx = 0; frogIdx < currentFrogs.length; frogIdx++) {
-      const frogMoves = getFrogMoves(frogIdx, currentFrogs, currentSnakes)
+      const frogMoves = getFrogMoves(frogIdx, currentFrogs, currentSnakes, currentToggled)
       for (const move of frogMoves) {
+        // A portal move targets a mouth; the frog ends up at the linked exit.
+        const resolved = resolveFrogDestination(move.newPos, portals)
         const newFrogs = currentFrogs.map((f, idx) =>
-          idx === move.frogIdx ? move.newPos : [...f]
+          idx === move.frogIdx ? [resolved[0], resolved[1]] : [...f]
         )
+        // Landing on a pressure plate toggles its switch (latch).
+        const newToggled = applySwitchLanding(resolved, currentToggled, pressurePlates, newFrogs, currentSnakes, stones)
 
         // Check win immediately after move
         if (checkWinCondition(newFrogs, lilyPads)) {
@@ -98,7 +121,7 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
           return { solvable: true, moves: moves + 1, path: [] }
         }
 
-        const key = compactStateKey(newFrogs, currentSnakes)
+        const key = compactStateKey(newFrogs, currentSnakes, newToggled)
         if (!visited.has(key)) {
           visited.add(key)
           const moveEntry = trackPath ? {
@@ -107,14 +130,14 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
             from: [...currentFrogs[move.frogIdx]],
             to: [...move.newPos]
           } : null
-          queue.push({ frogs: newFrogs, snakes: currentSnakes, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
+          queue.push({ frogs: newFrogs, snakes: currentSnakes, toggled: newToggled, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
         }
       }
     }
 
-    // Try snake moves
+    // Try snake moves (a snake slide never changes switch state)
     for (let i = 0; i < currentSnakes.length; i++) {
-      const snakeMoves = getSolverSnakeMoves(i, currentSnakes, currentFrogs)
+      const snakeMoves = getSolverSnakeMoves(i, currentSnakes, currentFrogs, currentToggled)
       for (const move of snakeMoves) {
         const newSnakes = currentSnakes.map((s, idx) =>
           idx === move.snakeIdx
@@ -134,7 +157,7 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
           )
         }
 
-        const key = compactStateKey(newFrogs, newSnakes)
+        const key = compactStateKey(newFrogs, newSnakes, currentToggled)
         if (!visited.has(key)) {
           visited.add(key)
           const moveEntry = trackPath ? {
@@ -143,7 +166,7 @@ export const solveLevel = (gridSize, frogs, snakes, logs, lilyPads, options = {}
             from: currentSnakes[move.snakeIdx].positions.map(p => [...p]),
             to: move.positions.map(p => [...p])
           } : null
-          queue.push({ frogs: newFrogs, snakes: newSnakes, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
+          queue.push({ frogs: newFrogs, snakes: newSnakes, toggled: currentToggled, moves: moves + 1, parent: queueHead - 1, move: moveEntry })
         }
       }
     }
