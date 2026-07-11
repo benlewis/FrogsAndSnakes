@@ -9,6 +9,7 @@ import { put, list, del } from '@vercel/blob';
 import { query, initializeSchema } from './lib/db.js';
 import { THEME_KEYS, THEME_TITLES, THEME_FIELD_SPEC } from './lib/autoLevelGenerator.js';
 import { getEffectiveConfig, saveConfig, runGenerationPass, poolCounts } from './api/_autoPool.js';
+import { toWebLevel } from './lib/levelFormat.js';
 import artHandler from './api/art.js';
 
 const app = express();
@@ -112,6 +113,9 @@ app.post('/api/levels', async (req, res) => {
     const prefix = getPrefix(game);
     const filename = `${prefix}${date}-${difficulty}.json`;
 
+    // Normalize to the web app's shape (idempotent); Color Jump stored as-is.
+    const stored = game === 'cj' ? level : toWebLevel(level);
+
     // Delete any existing blobs with this name to avoid caching issues
     const { blobs } = await list({ prefix: filename.replace('.json', '') });
     for (const existingBlob of blobs) {
@@ -123,7 +127,7 @@ app.post('/api/levels', async (req, res) => {
       }
     }
 
-    const blob = await put(filename, JSON.stringify(level), {
+    const blob = await put(filename, JSON.stringify(stored), {
       access: 'public',
       addRandomSuffix: false,
       cacheControlMaxAge: 0,

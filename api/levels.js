@@ -1,4 +1,5 @@
 import { put, list, del } from '@vercel/blob';
+import { toWebLevel } from '../lib/levelFormat.js';
 
 // Get blob prefix based on game type
 const getPrefix = (game) => game === 'cj' ? 'cj-level-' : 'level-';
@@ -98,6 +99,12 @@ export default async function handler(req, res) {
       const prefix = getPrefix(game);
       const filename = `${prefix}${date}-${difficulty}.json`;
 
+      // Normalize the incoming level to the web app's shape so posters (the iOS
+      // generator, level editor, or scripts) can send either the iOS/Swift
+      // shape ({col,row}, snake `segments`) or the legacy web shape. Idempotent.
+      // Color Jump levels have a different shape and are stored as-is.
+      const stored = game === 'cj' ? level : toWebLevel(level);
+
       // Delete any existing blobs with this name to avoid caching issues
       const { blobs } = await list({ prefix: filename.replace('.json', '') });
       for (const existingBlob of blobs) {
@@ -108,7 +115,7 @@ export default async function handler(req, res) {
         }
       }
 
-      const blob = await put(filename, JSON.stringify(level), {
+      const blob = await put(filename, JSON.stringify(stored), {
         access: 'public',
         addRandomSuffix: false,
         cacheControlMaxAge: 0,
