@@ -12,7 +12,9 @@ import './index.css'
 
 startVersionCheck()
 
-const path = window.location.pathname
+// Match routes case-insensitively and ignore a trailing slash, so /Users,
+// /users/, /Color-Jump, etc. all resolve instead of falling through to the game.
+const path = window.location.pathname.replace(/\/+$/, '').toLowerCase() || '/'
 const isGamePath = path === '/' || path === '/color-jump'
 const Page = path === '/learn' ? Learn
   : path === '/level-editor' ? LevelEditor

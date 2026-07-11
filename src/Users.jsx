@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users as UsersIcon, RefreshCw, Loader2, AlertCircle, Palette, ShieldCheck } from 'lucide-react'
+import { Users as UsersIcon, RefreshCw, Loader2, AlertCircle, Palette, ShieldCheck, KeyRound, Copy, Check, Eye, EyeOff } from 'lucide-react'
 import { usePortalAuth } from './lib/portalAuth.js'
 
 function accountAge(createdAt) {
@@ -16,7 +16,7 @@ function accountAge(createdAt) {
 }
 
 export default function Users() {
-  const { status, error: authError, user, api, login, logout } = usePortalAuth()
+  const { status, error: authError, user, token, api, login, logout } = usePortalAuth()
   const [state, setState] = useState({ loading: true, error: null, users: [] })
   const [busy, setBusy] = useState({})   // userId -> true while toggling
   const [toast, setToast] = useState(null)
@@ -119,6 +119,8 @@ export default function Users() {
           <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-3 text-sm">{state.error.message}</div>
         )}
 
+        {user?.role === 'admin' && token && <CliTokenCard token={token} flash={flash} />}
+
         {!state.loading && !state.error && (
           <>
             <div className="text-sm text-slate-500">
@@ -191,4 +193,58 @@ export default function Users() {
 
 function Centered({ children }) {
   return <div className="min-h-screen grid place-items-center text-slate-500"><div className="inline-flex items-center gap-2">{children}</div></div>
+}
+
+// Surfaces the long-lived portal session token so the admin can paste it into
+// the headless level generator (Authorization: Bearer <token>). This is the
+// same token the /api/art session uses; the levels endpoint accepts it too and
+// it stays valid as long as it's used at least every 30 days — unlike the raw
+// Auth0 ID token, which expires within hours.
+function CliTokenCard({ token, flash }) {
+  const [revealed, setRevealed] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(token)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      flash('CLI token copied to clipboard')
+    } catch {
+      flash('Couldn’t copy — reveal it and copy manually', 'err')
+    }
+  }
+
+  const masked = `${token.slice(0, 6)}${'•'.repeat(24)}${token.slice(-4)}`
+
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center gap-2 font-semibold text-slate-800">
+        <KeyRound className="h-4 w-4 text-emerald-600" /> Level-generator CLI token
+      </div>
+      <p className="text-sm text-slate-500">
+        Paste this as <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700">Authorization: Bearer &lt;token&gt;</code> when your
+        generator POSTs to <code className="px-1 py-0.5 rounded bg-slate-100 text-slate-700">/api/levels</code>. It stays valid as long as
+        it’s used at least every 30 days. Treat it like a password — anyone with it can publish daily levels as you.
+      </p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 min-w-0 truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700">
+          {revealed ? token : masked}
+        </code>
+        <button
+          onClick={() => setRevealed((r) => !r)}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          title={revealed ? 'Hide token' : 'Reveal token'}
+        >
+          {revealed ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={copy}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+        >
+          {copied ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy</>}
+        </button>
+      </div>
+    </section>
+  )
 }
