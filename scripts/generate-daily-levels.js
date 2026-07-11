@@ -39,17 +39,8 @@
 //   node scripts/generate-daily-levels.js 7 --start=2026-07-01 --force
 //   node scripts/generate-daily-levels.js 30 --difficulties=easy,medium,hard,expert --expert-daily
 
-import dotenv from 'dotenv'
-dotenv.config({ path: '.env.local' })
 import { generateLevel, DEFAULT_THEMES } from '../lib/autoLevelGenerator.js'
 import { toWebLevel } from './levelFormat.js'
-
-// Shared secret for the protected POST /api/levels (set LEVELS_TOKEN in .env.local
-// when posting to production). Harmless against the open local dev server.
-const postHeaders = {
-  'Content-Type': 'application/json',
-  ...(process.env.LEVELS_TOKEN ? { 'x-levels-token': process.env.LEVELS_TOKEN } : {}),
-}
 
 // --- difficulty -> generator tier (see THEME_TITLES in autoLevelGenerator.js) ---
 const DIFFICULTY_THEME = {
@@ -173,7 +164,7 @@ async function fetchExistingDifficulties(date) {
 async function saveLevel(date, difficulty, level) {
   const res = await fetch(`${API_BASE}/api/levels`, {
     method: 'POST',
-    headers: postHeaders,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, difficulty, level }),
   })
   if (!res.ok) throw new Error(`POST failed (${res.status}): ${await res.text()}`)

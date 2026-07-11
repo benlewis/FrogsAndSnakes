@@ -15,16 +15,9 @@
 //   npm run dev:api
 //   node scripts/repair-daily-saddle.js <startDate> <days> [--prod] [--dry-run]
 
-import dotenv from 'dotenv'
-dotenv.config({ path: '.env.local' })
 import { generateLevel, DEFAULT_THEMES } from '../lib/autoLevelGenerator.js'
 import { solveLevel } from '../src/solver.js'
 import { toWebLevel } from './levelFormat.js'
-
-const postHeaders = {
-  'Content-Type': 'application/json',
-  ...(process.env.LEVELS_TOKEN ? { 'x-levels-token': process.env.LEVELS_TOKEN } : {}),
-}
 
 const DIFFICULTY_THEME = { easy: 'auto1', medium: 'auto2', hard: 'auto3', expert: 'auto6' }
 const TIMEOUT_MS = { auto1: 15_000, auto2: 20_000, auto3: 30_000, auto6: 300_000 }
@@ -91,7 +84,7 @@ function regenerate(difficulty) {
 async function save(date, difficulty, level) {
   const res = await fetchRetry(`${API_BASE}/api/levels`, {
     method: 'POST',
-    headers: postHeaders,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, difficulty, level }),
   })
   if (!res.ok) throw new Error(`POST ${res.status}: ${await res.text()}`)

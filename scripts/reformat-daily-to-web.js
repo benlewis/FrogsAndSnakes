@@ -12,14 +12,7 @@
 // Example:
 //   node scripts/reformat-daily-to-web.js 2026-06-27 28
 
-import dotenv from 'dotenv'
-dotenv.config({ path: '.env.local' })
 import { toWebLevel } from './levelFormat.js'
-
-const postHeaders = {
-  'Content-Type': 'application/json',
-  ...(process.env.LEVELS_TOKEN ? { 'x-levels-token': process.env.LEVELS_TOKEN } : {}),
-}
 
 const args = process.argv.slice(2)
 const flags = new Map()
@@ -93,7 +86,7 @@ async function main() {
       try {
         const res = await fetch(`${API_BASE}/api/levels`, {
           method: 'POST',
-          headers: postHeaders,
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ date, difficulty, level: web }),
         })
         if (!res.ok) throw new Error(`POST ${res.status}: ${await res.text()}`)
