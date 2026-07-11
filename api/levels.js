@@ -1,5 +1,22 @@
 import { put, list, del } from '@vercel/blob';
 import { toWebLevel } from '../lib/levelFormat.js';
+import { verifyRequest } from './_artAuth.js';
+
+// Authorize a level POST: once LEVELS_TOKEN is configured, callers must send
+// either the shared secret header (iOS generator / CLI scripts) or an admin
+// Auth0 session (the web level editor). If the secret isn't configured the
+// endpoint stays open, so setting the env var is what turns protection on.
+async function authorizePost(req) {
+  const secret = process.env.LEVELS_TOKEN;
+  if (!secret) return true;
+  if (req.headers['x-levels-token'] === secret) return true;
+  try {
+    const user = await verifyRequest(req);
+    return user?.role === 'admin';
+  } catch {
+    return false;
+  }
+}
 
 // Get blob prefix based on game type
 const getPrefix = (game) => game === 'cj' ? 'cj-level-' : 'level-';
@@ -89,6 +106,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    if (!(await authorizePost(req))) {
+      return res.status(401).json({ error: 'Unauthorized: provide the x-levels-token header or an admin session' });
+    }
+
     const { date, difficulty, level, game } = req.body;
 
     if (!date || !difficulty || !level) {

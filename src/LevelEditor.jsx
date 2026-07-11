@@ -1102,7 +1102,20 @@ function LevelPoolPanel() {
 }
 
 const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
-  const { user, isAuthenticated, isLoading, loginWithRedirect } = useAuth0()
+  const { user, isAuthenticated, isLoading, loginWithRedirect, getIdTokenClaims } = useAuth0()
+
+  // Authorization header for the protected POST /api/levels: the caller's Auth0
+  // ID token, verified server-side (admin only). No-op if unavailable.
+  const levelPostHeaders = async () => {
+    try {
+      const claims = await getIdTokenClaims()
+      return claims?.__raw
+        ? { 'Content-Type': 'application/json', Authorization: `Bearer ${claims.__raw}` }
+        : { 'Content-Type': 'application/json' }
+    } catch {
+      return { 'Content-Type': 'application/json' }
+    }
+  }
 
   // Check authorization
   const isAuthorized = isAuthenticated && user?.email && ALLOWED_EMAILS.includes(user.email)
@@ -2208,7 +2221,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
       if (editorGame === 'cj') body.game = 'cj'
       const response = await fetch(`${API_BASE}/api/levels`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await levelPostHeaders(),
         body: JSON.stringify(body)
       })
 
@@ -2599,7 +2612,7 @@ const LevelEditor = ({ onClose, existingLevel = null, onSave }) => {
         if (isCJ) body.game = 'cj'
         const response = await fetch(`${API_BASE}/api/levels`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await levelPostHeaders(),
           body: JSON.stringify(body)
         })
         if (response.ok) {
