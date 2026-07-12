@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   const debugClause = includeDebug ? 'TRUE' : 'debug = FALSE';
 
   try {
-    const [totals, hardestLevels, abandon, hintsByChapter, topHintUsers, eventVolume, dailyVolume, dailyFunnel] =
+    const [totals, hardestLevels, abandon, hintsByChapter, topHintUsers, eventVolume, dailyVolume, dailyFunnel, perPuzzle] =
       await Promise.all([
         query(
           `SELECT count(*)::int AS events, count(DISTINCT install_id)::int AS installs
@@ -49,6 +49,7 @@ export default async function handler(req, res) {
            WHERE ${debugClause} AND event IN ('level_start','level_complete')
              AND event_ts >= $1
              AND props ? 'chapter_id' AND props->>'level_index' ~ '^-?[0-9]+$'
+             AND coalesce(props->>'is_daily', 'false') <> 'true'
            GROUP BY 1, 2
            HAVING count(*) FILTER (WHERE event = 'level_start') > 0
            ORDER BY win_pct ASC NULLS LAST, attempts DESC
@@ -99,6 +100,34 @@ export default async function handler(req, res) {
            FROM events WHERE ${debugClause} AND event_ts >= $1`,
           [cutoff],
         ),
+        // Per-puzzle breakdown for campaign levels only (daily puzzles excluded
+        // via is_daily). Numeric props are regex-guarded before casting so a
+        // malformed value can't error the whole query.
+        query(
+          `SELECT props->>'chapter_id' AS chapter,
+                  (props->>'level_index')::int AS level,
+                  count(*) FILTER (WHERE event = 'level_start')::int    AS attempts,
+                  count(*) FILTER (WHERE event = 'level_complete')::int AS completes,
+                  count(*) FILTER (WHERE event = 'level_abandon')::int  AS abandons,
+                  round(100.0 * count(*) FILTER (WHERE event = 'level_complete')
+                        / nullif(count(*) FILTER (WHERE event = 'level_start'), 0), 1) AS win_pct,
+                  round(avg((props->>'moves')::numeric)
+                        FILTER (WHERE event = 'level_complete' AND props->>'moves' ~ '^-?[0-9]+$'), 1) AS avg_moves,
+                  round(avg((props->>'elapsed_seconds')::numeric)
+                        FILTER (WHERE event = 'level_complete' AND props->>'elapsed_seconds' ~ '^-?[0-9]+$'), 0) AS avg_seconds,
+                  round(100.0 * count(*) FILTER (WHERE event = 'level_complete' AND props->>'is_perfect' = 'true')
+                        / nullif(count(*) FILTER (WHERE event = 'level_complete'), 0), 0) AS perfect_pct
+           FROM events
+           WHERE ${debugClause} AND event IN ('level_start','level_complete','level_abandon')
+             AND event_ts >= $1
+             AND props ? 'chapter_id' AND props->>'level_index' ~ '^-?[0-9]+$'
+             AND coalesce(props->>'is_daily', 'false') <> 'true'
+           GROUP BY 1, 2
+           HAVING count(*) FILTER (WHERE event = 'level_start') > 0
+           ORDER BY chapter, level
+           LIMIT 500`,
+          [cutoff],
+        ),
       ]);
 
     return res.status(200).json({
@@ -113,6 +142,7 @@ export default async function handler(req, res) {
       eventVolume: eventVolume.rows,
       dailyVolume: dailyVolume.rows,
       dailyPuzzleFunnel: dailyFunnel.rows[0],
+      perPuzzle: perPuzzle.rows,
     });
   } catch (error) {
     console.error('Error building event stats:', error);

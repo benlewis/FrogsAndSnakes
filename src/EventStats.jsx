@@ -12,6 +12,13 @@ const RANGES = [{ label: '7d', days: 7 }, { label: '30d', days: 30 }, { label: '
 const nf = new Intl.NumberFormat('en-US')
 const fmt = (n) => (n == null ? '—' : nf.format(n))
 const pct = (n) => (n == null ? '—' : `${n}%`)
+const num = (v) => (v == null ? '—' : String(Number(v)))
+const fmtDuration = (s) => {
+  if (s == null) return '—'
+  const n = Math.round(Number(s))
+  if (n < 60) return `${n}s`
+  return `${Math.floor(n / 60)}m${String(n % 60).padStart(2, '0')}s`
+}
 
 async function fetchStats(token, days, includeDebug) {
   const qs = new URLSearchParams({ days: String(days), debug: includeDebug ? 'true' : 'false' })
@@ -116,6 +123,11 @@ export default function EventStats({ token }) {
             ) : <Empty />}
           </Card>
 
+          {/* Per-puzzle stats (campaign levels only) */}
+          <Card title="Per-puzzle stats" subtitle="campaign levels only · daily puzzles excluded · click a column to sort">
+            <PerPuzzleTable rows={data.perPuzzle} />
+          </Card>
+
           {/* Event volume + hint usage */}
           <div className="grid md:grid-cols-2 gap-3">
             <Card title="Event volume by type">
@@ -199,6 +211,66 @@ function Card({ title, subtitle, children }) {
 
 function Empty() {
   return <div className="text-sm text-slate-400 py-6 text-center">No data in this range yet.</div>
+}
+
+// Sortable per-puzzle table. Columns after the label are numeric; clicking a
+// header sorts by it (numeric desc first), clicking the label sorts by Ch·L.
+const PUZZLE_COLS = [
+  { key: 'attempts', label: 'Attempts' },
+  { key: 'completes', label: 'Completes' },
+  { key: 'win_pct', label: 'Win %', fmt: (v) => (v == null ? '—' : `${num(v)}%`) },
+  { key: 'abandons', label: 'Abandons' },
+  { key: 'avg_moves', label: 'Avg moves', fmt: num },
+  { key: 'perfect_pct', label: 'Perfect %', fmt: (v) => (v == null ? '—' : `${num(v)}%`) },
+  { key: 'avg_seconds', label: 'Avg time', fmt: fmtDuration },
+]
+
+function PerPuzzleTable({ rows }) {
+  const [sort, setSort] = useState({ key: 'puzzle', dir: 'asc' })
+  if (!rows || rows.length === 0) return <Empty />
+
+  const sortVal = (r, key) =>
+    key === 'puzzle'
+      ? Number(r.chapter) * 100000 + Number(r.level)
+      : (r[key] == null ? -Infinity : Number(r[key]))
+  const sorted = [...rows].sort((a, b) => {
+    const d = sortVal(a, sort.key) - sortVal(b, sort.key)
+    return sort.dir === 'asc' ? d : -d
+  })
+  const clickSort = (key) =>
+    setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'puzzle' ? 'asc' : 'desc' }))
+  const arrow = (key) => (sort.key === key ? (sort.dir === 'asc' ? ' ↑' : ' ↓') : '')
+
+  return (
+    <div className="overflow-x-auto max-h-[28rem] overflow-y-auto">
+      <table className="w-full text-sm min-w-[640px]">
+        <thead className="sticky top-0 bg-white">
+          <tr className="text-left text-xs uppercase tracking-wide text-slate-400 border-b border-slate-200">
+            <th className="py-1.5 pr-2">
+              <button onClick={() => clickSort('puzzle')} className="hover:text-slate-700">Puzzle{arrow('puzzle')}</button>
+            </th>
+            {PUZZLE_COLS.map((c) => (
+              <th key={c.key} className="py-1.5 px-2 text-right">
+                <button onClick={() => clickSort(c.key)} className="hover:text-slate-700 whitespace-nowrap">{c.label}{arrow(c.key)}</button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((r) => (
+            <tr key={`${r.chapter}-${r.level}`} className="border-b border-slate-100 hover:bg-slate-50/60">
+              <td className="py-1.5 pr-2 font-medium text-slate-700 whitespace-nowrap">Ch {r.chapter} · L{r.level}</td>
+              {PUZZLE_COLS.map((c) => (
+                <td key={c.key} className="py-1.5 px-2 text-right tabular-nums text-slate-600">
+                  {c.fmt ? c.fmt(r[c.key]) : fmt(r[c.key])}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 // Horizontal bar row: label · track+fill · value. Single hue, direct-labeled.
