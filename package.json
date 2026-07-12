@@ -8,6 +8,7 @@
     "dev:api": "node dev-server.js",
     "dev:all": "node dev-server.js & vite",
     "build": "vite build",
+    "vercel-build": "node scripts/migrate-on-build.js && vite build",
     "preview": "vite preview",
     "db:setup": "node scripts/setup-db.js",
     "art:reference": "node scripts/sync-reference-art.js",

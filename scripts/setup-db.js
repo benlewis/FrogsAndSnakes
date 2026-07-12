@@ -136,6 +136,27 @@ async function setup() {
     `);
     console.log('✓ Created difficulty index');
 
+    // Anonymous product-analytics events from the iOS client. No PII — keyed
+    // only by an app-generated install UUID. See api/events.js.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS events (
+        id          BIGSERIAL PRIMARY KEY,
+        install_id  TEXT        NOT NULL,
+        event       TEXT        NOT NULL,
+        props       JSONB       NOT NULL DEFAULT '{}',
+        app_version TEXT,
+        build       TEXT,
+        platform    TEXT,
+        debug       BOOLEAN     NOT NULL DEFAULT FALSE,
+        event_ts    TIMESTAMPTZ NOT NULL,
+        received_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_event_ts ON events (event, event_ts)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_install_ts ON events (install_id, event_ts)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_props ON events USING gin (props)`);
+    console.log('✓ Created events table');
+
     // Art pipeline tables + registry seed (shared with dev via lib/db.js).
     await initializeArtSchema(pool);
 

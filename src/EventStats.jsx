@@ -1,0 +1,251 @@
+import { useState, useEffect, useCallback } from 'react'
+import { Loader2, RefreshCw, AlertCircle, BarChart3 } from 'lucide-react'
+
+// Admin analytics dashboard, rendered as the "Analytics" tab of the /users
+// portal. Reads aggregates from GET /api/event-stats (admin-gated) using the
+// caller's portal session token, and renders core metrics + simple charts.
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:3002' : ''
+const ACCENT = '#2a78d6'   // validated sequential blue (single-series marks)
+const RANGES = [{ label: '7d', days: 7 }, { label: '30d', days: 30 }, { label: '90d', days: 90 }]
+
+const nf = new Intl.NumberFormat('en-US')
+const fmt = (n) => (n == null ? '—' : nf.format(n))
+const pct = (n) => (n == null ? '—' : `${n}%`)
+
+async function fetchStats(token, days, includeDebug) {
+  const qs = new URLSearchParams({ days: String(days), debug: includeDebug ? 'true' : 'false' })
+  const res = await fetch(`${API_BASE}/api/event-stats?${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status })
+  return data
+}
+
+export default function EventStats({ token }) {
+  const [days, setDays] = useState(30)
+  const [includeDebug, setIncludeDebug] = useState(false)
+  const [state, setState] = useState({ loading: true, error: null, data: null })
+
+  const load = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true, error: null }))
+    try {
+      const data = await fetchStats(token, days, includeDebug)
+      setState({ loading: false, error: null, data })
+    } catch (e) {
+      setState({ loading: false, error: e, data: null })
+    }
+  }, [token, days, includeDebug])
+
+  useEffect(() => { load() }, [load])
+
+  const { loading, error, data } = state
+  const funnelRate = data?.dailyPuzzleFunnel?.starts
+    ? Math.round((100 * data.dailyPuzzleFunnel.completes) / data.dailyPuzzleFunnel.starts)
+    : null
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-lg border border-slate-200 bg-white overflow-hidden">
+          {RANGES.map((r) => (
+            <button
+              key={r.days}
+              onClick={() => setDays(r.days)}
+              className={`px-3 py-1.5 text-sm ${days === r.days ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={includeDebug} onChange={(e) => setIncludeDebug(e.target.checked)} className="h-4 w-4 accent-emerald-600" />
+          Include debug builds
+        </label>
+        <button onClick={load} className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+        </button>
+        {data && <span className="text-xs text-slate-400">last {data.days} days{data.includeDebug ? ' · incl. debug' : ''}</span>}
+      </div>
+
+      {loading && !data && (
+        <div className="grid place-items-center py-16 text-slate-500"><span className="inline-flex items-center gap-2"><Loader2 className="animate-spin" /> Loading analytics…</span></div>
+      )}
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-3 text-sm flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" /> {error.message}
+        </div>
+      )}
+
+      {data && (
+        <>
+          {/* Stat tiles */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Tile label="Events" value={fmt(data.totals?.events)} />
+            <Tile label="Active installs" value={fmt(data.totals?.installs)} />
+            <Tile label="Daily-puzzle completion" value={pct(funnelRate)} sub={`${fmt(data.dailyPuzzleFunnel?.completes)} / ${fmt(data.dailyPuzzleFunnel?.starts)}`} />
+            <Tile label="Level abandon rate" value={pct(data.abandon?.abandon_pct)} sub={`${fmt(data.abandon?.abandons)} abandons`} />
+          </div>
+
+          {/* Daily volume */}
+          <div className="grid md:grid-cols-2 gap-3">
+            <Card title="Daily events">
+              <LineChart points={(data.dailyVolume || []).map((d) => ({ x: d.day, y: d.events }))} />
+            </Card>
+            <Card title="Daily active installs">
+              <LineChart points={(data.dailyVolume || []).map((d) => ({ x: d.day, y: d.installs }))} />
+            </Card>
+          </div>
+
+          {/* Hardest levels */}
+          <Card title="Hardest levels" subtitle="lowest win rate first — win% = completes ÷ starts">
+            {data.hardestLevels?.length ? (
+              <div className="space-y-1.5">
+                {data.hardestLevels.map((r) => (
+                  <BarRow
+                    key={`${r.chapter}-${r.level}`}
+                    label={`Ch ${r.chapter} · L${r.level}`}
+                    valuePct={r.win_pct ?? 0}
+                    display={`${pct(r.win_pct)} · ${fmt(r.wins)}/${fmt(r.attempts)}`}
+                    title={`${r.attempts} starts, ${r.wins} completions`}
+                  />
+                ))}
+              </div>
+            ) : <Empty />}
+          </Card>
+
+          {/* Event volume + hint usage */}
+          <div className="grid md:grid-cols-2 gap-3">
+            <Card title="Event volume by type">
+              {data.eventVolume?.length ? (
+                <div className="space-y-1.5">
+                  {(() => {
+                    const max = Math.max(1, ...data.eventVolume.map((e) => e.count))
+                    return data.eventVolume.map((e) => (
+                      <BarRow key={e.event} label={e.event} valuePct={(100 * e.count) / max} display={fmt(e.count)} title={`${e.count} events`} mono />
+                    ))
+                  })()}
+                </div>
+              ) : <Empty />}
+            </Card>
+
+            <Card title="Hint usage by chapter">
+              {data.hintsByChapter?.length ? (
+                <table className="w-full text-sm">
+                  <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400 border-b border-slate-200">
+                    <th className="py-1.5">Chapter</th><th className="py-1.5 text-right">Hints</th><th className="py-1.5 text-right">Players</th>
+                  </tr></thead>
+                  <tbody>
+                    {data.hintsByChapter.map((h) => (
+                      <tr key={h.chapter} className="border-b border-slate-100">
+                        <td className="py-1.5">Ch {h.chapter}</td>
+                        <td className="py-1.5 text-right tabular-nums">{fmt(h.hints_used)}</td>
+                        <td className="py-1.5 text-right tabular-nums">{fmt(h.players)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <Empty />}
+            </Card>
+          </div>
+
+          {/* Top hint users */}
+          <Card title="Top hint users" subtitle="anonymous install IDs — candidates for a Relaxed-mode nudge">
+            {data.topHintUsers?.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[420px]">
+                  <thead><tr className="text-left text-xs uppercase tracking-wide text-slate-400 border-b border-slate-200">
+                    <th className="py-1.5">Install ID</th><th className="py-1.5 text-right">Hints used</th>
+                  </tr></thead>
+                  <tbody>
+                    {data.topHintUsers.map((u) => (
+                      <tr key={u.install_id} className="border-b border-slate-100">
+                        <td className="py-1.5 font-mono text-xs text-slate-500">{u.install_id}</td>
+                        <td className="py-1.5 text-right tabular-nums">{fmt(u.hints)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <Empty />}
+          </Card>
+        </>
+      )}
+    </div>
+  )
+}
+
+function Tile({ label, value, sub }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">{value}</div>
+      {sub && <div className="text-xs text-slate-400 mt-0.5 tabular-nums">{sub}</div>}
+    </div>
+  )
+}
+
+function Card({ title, subtitle, children }) {
+  return (
+    <section className="bg-white rounded-xl border border-slate-200 p-4">
+      <div className="flex items-center gap-2 font-semibold text-slate-800"><BarChart3 className="h-4 w-4 text-slate-400" /> {title}</div>
+      {subtitle && <div className="text-xs text-slate-400 mt-0.5">{subtitle}</div>}
+      <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
+function Empty() {
+  return <div className="text-sm text-slate-400 py-6 text-center">No data in this range yet.</div>
+}
+
+// Horizontal bar row: label · track+fill · value. Single hue, direct-labeled.
+function BarRow({ label, valuePct, display, title, mono }) {
+  const w = Math.max(0, Math.min(100, valuePct))
+  return (
+    <div className="flex items-center gap-3" title={title}>
+      <div className={`w-28 shrink-0 truncate text-xs text-slate-600 ${mono ? 'font-mono' : ''}`}>{label}</div>
+      <div className="flex-1 h-4 rounded bg-slate-100 overflow-hidden">
+        <div className="h-full rounded" style={{ width: `${w}%`, backgroundColor: ACCENT }} />
+      </div>
+      <div className="w-28 shrink-0 text-right text-xs text-slate-500 tabular-nums">{display}</div>
+    </div>
+  )
+}
+
+// Single-series line chart in a responsive SVG. Hover titles on each point.
+function LineChart({ points }) {
+  if (!points || points.length === 0) return <Empty />
+  const W = 640, H = 140, padL = 34, padR = 8, padT = 10, padB = 22
+  const max = Math.max(1, ...points.map((p) => p.y))
+  const n = points.length
+  const xAt = (i) => padL + (n === 1 ? (W - padL - padR) / 2 : (i / (n - 1)) * (W - padL - padR))
+  const yAt = (v) => padT + (1 - v / max) * (H - padT - padB)
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yAt(p.y).toFixed(1)}`).join(' ')
+  const area = `${line} L${xAt(n - 1).toFixed(1)},${(H - padB).toFixed(1)} L${xAt(0).toFixed(1)},${(H - padB).toFixed(1)} Z`
+  const ticks = [points[0], points[Math.floor((n - 1) / 2)], points[n - 1]].filter((p, i, a) => p && a.indexOf(p) === i)
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="daily line chart">
+      {/* baseline + max gridline */}
+      <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#c3c2b7" strokeWidth="1" />
+      <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke="#e1e0d9" strokeWidth="1" />
+      <text x={padL - 6} y={padT + 4} textAnchor="end" fontSize="10" fill="#898781">{max}</text>
+      <text x={padL - 6} y={H - padB} textAnchor="end" fontSize="10" fill="#898781">0</text>
+      <path d={area} fill={ACCENT} fillOpacity="0.10" />
+      <path d={line} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {points.map((p, i) => (
+        <circle key={p.x} cx={xAt(i)} cy={yAt(p.y)} r={n > 40 ? 1.5 : 2.5} fill={ACCENT}>
+          <title>{p.x}: {p.y}</title>
+        </circle>
+      ))}
+      {ticks.map((p) => (
+        <text key={p.x} x={xAt(points.indexOf(p))} y={H - 6} textAnchor="middle" fontSize="10" fill="#898781">
+          {p.x.slice(5)}
+        </text>
+      ))}
+    </svg>
+  )
+}

@@ -11,6 +11,8 @@ import { THEME_KEYS, THEME_TITLES, THEME_FIELD_SPEC } from './lib/autoLevelGener
 import { getEffectiveConfig, saveConfig, runGenerationPass, poolCounts } from './api/_autoPool.js';
 import { toWebLevel } from './lib/levelFormat.js';
 import artHandler from './api/art.js';
+import eventsHandler from './api/events.js';
+import eventStatsHandler from './api/event-stats.js';
 
 const app = express();
 const PORT = 3002;
@@ -743,6 +745,8 @@ app.delete('/api/campaigns', async (req, res) => {
 // ---------- Art pipeline ----------
 // Single dispatcher mounted for the dev server; production uses api/art.js directly.
 app.all('/api/art', (req, res) => artHandler(req, res));
+app.all('/api/events', (req, res) => eventsHandler(req, res));
+app.all('/api/event-stats', (req, res) => eventStatsHandler(req, res));
 
 app.listen(PORT, () => {
   console.log(`Dev API server running at http://localhost:${PORT}`);

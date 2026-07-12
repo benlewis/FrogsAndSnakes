@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Users as UsersIcon, RefreshCw, Loader2, AlertCircle, Palette, ShieldCheck, KeyRound, Copy, Check, Eye, EyeOff } from 'lucide-react'
+import { Users as UsersIcon, RefreshCw, Loader2, AlertCircle, Palette, ShieldCheck, KeyRound, Copy, Check, Eye, EyeOff, BarChart3 } from 'lucide-react'
 import { usePortalAuth } from './lib/portalAuth.js'
+import EventStats from './EventStats.jsx'
 
 function accountAge(createdAt) {
   const ms = Date.now() - new Date(createdAt).getTime()
@@ -20,6 +21,7 @@ export default function Users() {
   const [state, setState] = useState({ loading: true, error: null, users: [] })
   const [busy, setBusy] = useState({})   // userId -> true while toggling
   const [toast, setToast] = useState(null)
+  const [tab, setTab] = useState('users')   // 'users' | 'analytics'
 
   const loadUsers = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: null }))
@@ -96,6 +98,7 @@ export default function Users() {
   }
 
   const artists = state.users.filter((u) => u.isArtist).length
+  const isAdmin = user?.role === 'admin'
 
   // The game's global CSS pins <body> (position: fixed, overflow: hidden),
   // so the page must be its own scroll container.
@@ -114,6 +117,20 @@ export default function Users() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+        {isAdmin && (
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white overflow-hidden">
+            <button onClick={() => setTab('users')} className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm ${tab === 'users' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <UsersIcon className="h-4 w-4" /> Users
+            </button>
+            <button onClick={() => setTab('analytics')} className={`inline-flex items-center gap-1.5 px-4 py-1.5 text-sm ${tab === 'analytics' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+              <BarChart3 className="h-4 w-4" /> Analytics
+            </button>
+          </div>
+        )}
+
+        {isAdmin && tab === 'analytics' && token && <EventStats token={token} />}
+
+        {tab === 'users' && <>
         {state.loading && <Centered><Loader2 className="animate-spin" /> Loading users…</Centered>}
         {state.error && (
           <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-lg p-3 text-sm">{state.error.message}</div>
@@ -180,6 +197,7 @@ export default function Users() {
             </section>
           </>
         )}
+        </>}
       </main>
 
       {toast && (
