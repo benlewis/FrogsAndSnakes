@@ -14,7 +14,15 @@
 // Requires POSTGRES_URL (or DATABASE_URL) to be available at BUILD time. On
 // Vercel, project Environment Variables are exposed to the build unless you've
 // scoped them to runtime-only; if it's missing here we skip with a warning.
-import { initializeSchema } from '../lib/db.js'
+// Migrate the SAME database the deployed functions use. The runtime pool
+// (api/_db.js) resolves POSTGRES_URL first; lib/db.js's getPool resolves
+// DATABASE_URL first (so local dev can point at a local DB). At build time we
+// must match runtime, so if POSTGRES_URL is set, force it to win here too —
+// otherwise a stray DATABASE_URL would migrate a different database than the
+// one the app actually reads.
+if (process.env.POSTGRES_URL) process.env.DATABASE_URL = process.env.POSTGRES_URL
+
+const { initializeSchema } = await import('../lib/db.js')
 
 if (!process.env.POSTGRES_URL && !process.env.DATABASE_URL) {
   console.warn('[migrate-on-build] No POSTGRES_URL/DATABASE_URL at build time — skipping schema migration.')
