@@ -804,7 +804,9 @@
   padding: 10px;
 }
 
-.grid {
+/* Scoped to the board (.grid-container .grid) so this dark game-board styling
+   doesn't hijack Tailwind's `grid` utility used elsewhere (e.g. admin pages). */
+.grid-container .grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(5, 1fr);
@@ -824,7 +826,7 @@
 }
 
 /* Vignette overlay */
-.grid::before {
+.grid-container .grid::before {
   content: '';
   position: absolute;
   top: 0;
@@ -1524,13 +1526,13 @@
     padding: 0;
   }
 
-  .grid {
+  .grid-container .grid {
     gap: 4px;
     padding: 8px;
     border-radius: 12px;
   }
 
-  .grid::before {
+  .grid-container .grid::before {
     border-radius: 12px;
     box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35);
   }
@@ -1589,13 +1591,13 @@
     max-width: min(500px, calc(100dvh - 300px));
   }
 
-  .grid {
+  .grid-container .grid {
     gap: 6px;
     padding: 12px;
     border-radius: 16px;
   }
 
-  .grid::before {
+  .grid-container .grid::before {
     border-radius: 16px;
     box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.45);
   }
