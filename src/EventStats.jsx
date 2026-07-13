@@ -48,6 +48,8 @@ export default function EventStats({ token }) {
   useEffect(() => { load() }, [load])
 
   const { loading, error, data } = state
+  const chapterNames = Object.fromEntries((data?.chapterNames || []).map((c) => [c.chapter, c.title]))
+  const chapterLabel = (id) => chapterNames[id] || `Chapter ${id}`
   const funnelRate = data?.dailyPuzzleFunnel?.starts
     ? Math.round((100 * data.dailyPuzzleFunnel.completes) / data.dailyPuzzleFunnel.starts)
     : null
@@ -113,7 +115,7 @@ export default function EventStats({ token }) {
                 {data.hardestLevels.map((r) => (
                   <BarRow
                     key={`${r.chapter}-${r.level}`}
-                    label={`Ch ${r.chapter} · L${r.level}`}
+                    label={`${chapterLabel(r.chapter)} · L${r.level}`}
                     valuePct={r.win_pct ?? 0}
                     display={`${pct(r.win_pct)} · ${fmt(r.wins)}/${fmt(r.attempts)}`}
                     title={`${r.attempts} starts, ${r.wins} completions`}
@@ -125,7 +127,7 @@ export default function EventStats({ token }) {
 
           {/* Per-puzzle stats (campaign levels only) */}
           <Card title="Per-puzzle stats" subtitle="campaign levels only · daily puzzles excluded · click a column to sort">
-            <PerPuzzleTable rows={data.perPuzzle} />
+            <PerPuzzleTable rows={data.perPuzzle} chapterLabel={chapterLabel} />
           </Card>
 
           {/* Event volume + hint usage */}
@@ -152,7 +154,7 @@ export default function EventStats({ token }) {
                   <tbody>
                     {data.hintsByChapter.map((h) => (
                       <tr key={h.chapter} className="border-b border-slate-100">
-                        <td className="py-1.5">Ch {h.chapter}</td>
+                        <td className="py-1.5">{chapterLabel(h.chapter)}</td>
                         <td className="py-1.5 text-right tabular-nums">{fmt(h.hints_used)}</td>
                         <td className="py-1.5 text-right tabular-nums">{fmt(h.players)}</td>
                       </tr>
@@ -225,7 +227,7 @@ const PUZZLE_COLS = [
   { key: 'avg_seconds', label: 'Avg time', fmt: fmtDuration },
 ]
 
-function PerPuzzleTable({ rows }) {
+function PerPuzzleTable({ rows, chapterLabel }) {
   const [sort, setSort] = useState({ key: 'puzzle', dir: 'asc' })
   if (!rows || rows.length === 0) return <Empty />
 
@@ -259,7 +261,7 @@ function PerPuzzleTable({ rows }) {
         <tbody>
           {sorted.map((r) => (
             <tr key={`${r.chapter}-${r.level}`} className="border-b border-slate-100 hover:bg-slate-50/60">
-              <td className="py-1.5 pr-2 font-medium text-slate-700 whitespace-nowrap">Ch {r.chapter} · L{r.level}</td>
+              <td className="py-1.5 pr-2 font-medium text-slate-700 whitespace-nowrap">{chapterLabel(r.chapter)} · L{r.level}</td>
               {PUZZLE_COLS.map((c) => (
                 <td key={c.key} className="py-1.5 px-2 text-right tabular-nums text-slate-600">
                   {c.fmt ? c.fmt(r[c.key]) : fmt(r[c.key])}

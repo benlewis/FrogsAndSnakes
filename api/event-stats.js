@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   const debugClause = includeDebug ? 'TRUE' : 'debug = FALSE';
 
   try {
-    const [totals, hardestLevels, abandon, hintsByChapter, topHintUsers, eventVolume, dailyVolume, dailyFunnel, perPuzzle] =
+    const [totals, hardestLevels, abandon, hintsByChapter, topHintUsers, eventVolume, dailyVolume, dailyFunnel, perPuzzle, chapterNames] =
       await Promise.all([
         query(
           `SELECT count(*)::int AS events, count(DISTINCT install_id)::int AS installs
@@ -128,6 +128,18 @@ export default async function handler(req, res) {
            LIMIT 500`,
           [cutoff],
         ),
+        // chapter_id -> chapter_title lookup. Any event carrying chapter_title
+        // contributes; we keep the most recent title seen per chapter so a
+        // renamed chapter shows its current name.
+        query(
+          `SELECT DISTINCT ON (props->>'chapter_id')
+                  props->>'chapter_id' AS chapter, props->>'chapter_title' AS title
+           FROM events
+           WHERE ${debugClause} AND event_ts >= $1
+             AND props ? 'chapter_title' AND props->>'chapter_title' <> ''
+           ORDER BY props->>'chapter_id', event_ts DESC`,
+          [cutoff],
+        ),
       ]);
 
     return res.status(200).json({
@@ -143,6 +155,7 @@ export default async function handler(req, res) {
       dailyVolume: dailyVolume.rows,
       dailyPuzzleFunnel: dailyFunnel.rows[0],
       perPuzzle: perPuzzle.rows,
+      chapterNames: chapterNames.rows,
     });
   } catch (error) {
     console.error('Error building event stats:', error);
