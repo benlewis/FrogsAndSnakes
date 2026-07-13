@@ -101,10 +101,10 @@ export default function EventStats({ token }) {
           {/* Daily volume */}
           <div className="grid md:grid-cols-2 gap-3">
             <Card title="Daily events">
-              <LineChart points={(data.dailyVolume || []).map((d) => ({ x: d.day, y: d.events }))} />
+              <DailyBars points={(data.dailyVolume || []).map((d) => ({ x: d.day, y: d.events }))} />
             </Card>
             <Card title="Daily active installs">
-              <LineChart points={(data.dailyVolume || []).map((d) => ({ x: d.day, y: d.installs }))} />
+              <DailyBars points={(data.dailyVolume || []).map((d) => ({ x: d.day, y: d.installs }))} />
             </Card>
           </div>
 
@@ -289,35 +289,39 @@ function BarRow({ label, valuePct, display, title, mono }) {
   )
 }
 
-// Single-series line chart in a responsive SVG. Hover titles on each point.
-function LineChart({ points }) {
+// Single-series daily bar chart in a responsive SVG. One bar per day, so it
+// stays legible with only a handful of days (a line chart looks empty there).
+// Hover titles on each bar.
+function DailyBars({ points }) {
   if (!points || points.length === 0) return <Empty />
-  const W = 640, H = 140, padL = 34, padR = 8, padT = 10, padB = 22
+  const W = 640, H = 116, padL = 28, padR = 6, padT = 10, padB = 18
   const max = Math.max(1, ...points.map((p) => p.y))
   const n = points.length
-  const xAt = (i) => padL + (n === 1 ? (W - padL - padR) / 2 : (i / (n - 1)) * (W - padL - padR))
+  const band = (W - padL - padR) / n
+  const barW = Math.max(2, Math.min(band * 0.7, 40))
   const yAt = (v) => padT + (1 - v / max) * (H - padT - padB)
-  const line = points.map((p, i) => `${i ? 'L' : 'M'}${xAt(i).toFixed(1)},${yAt(p.y).toFixed(1)}`).join(' ')
-  const area = `${line} L${xAt(n - 1).toFixed(1)},${(H - padB).toFixed(1)} L${xAt(0).toFixed(1)},${(H - padB).toFixed(1)} Z`
-  const ticks = [points[0], points[Math.floor((n - 1) / 2)], points[n - 1]].filter((p, i, a) => p && a.indexOf(p) === i)
+  const baseline = H - padB
+  const tickIdx = [0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i)
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="daily line chart">
-      {/* baseline + max gridline */}
-      <line x1={padL} y1={H - padB} x2={W - padR} y2={H - padB} stroke="#c3c2b7" strokeWidth="1" />
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="daily bar chart">
+      {/* max gridline + baseline */}
       <line x1={padL} y1={padT} x2={W - padR} y2={padT} stroke="#e1e0d9" strokeWidth="1" />
+      <line x1={padL} y1={baseline} x2={W - padR} y2={baseline} stroke="#c3c2b7" strokeWidth="1" />
       <text x={padL - 6} y={padT + 4} textAnchor="end" fontSize="10" fill="#898781">{max}</text>
-      <text x={padL - 6} y={H - padB} textAnchor="end" fontSize="10" fill="#898781">0</text>
-      <path d={area} fill={ACCENT} fillOpacity="0.10" />
-      <path d={line} fill="none" stroke={ACCENT} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {points.map((p, i) => (
-        <circle key={p.x} cx={xAt(i)} cy={yAt(p.y)} r={n > 40 ? 1.5 : 2.5} fill={ACCENT}>
-          <title>{p.x}: {p.y}</title>
-        </circle>
-      ))}
-      {ticks.map((p) => (
-        <text key={p.x} x={xAt(points.indexOf(p))} y={H - 6} textAnchor="middle" fontSize="10" fill="#898781">
-          {p.x.slice(5)}
+      <text x={padL - 6} y={baseline} textAnchor="end" fontSize="10" fill="#898781">0</text>
+      {points.map((p, i) => {
+        const x = padL + i * band + (band - barW) / 2
+        const y = yAt(p.y)
+        return (
+          <rect key={p.x} x={x} y={y} width={barW} height={Math.max(0, baseline - y)} rx="1.5" fill={ACCENT}>
+            <title>{p.x}: {p.y}</title>
+          </rect>
+        )
+      })}
+      {tickIdx.map((i) => (
+        <text key={points[i].x} x={padL + i * band + band / 2} y={H - 5} textAnchor="middle" fontSize="10" fill="#898781">
+          {points[i].x.slice(5)}
         </text>
       ))}
     </svg>
